@@ -10,7 +10,7 @@
 - 坡地建议：分台、挡土墙、E12 土方门槛（500m² / 250m³）；支撑建筑平台的墙按 surcharge 提示建筑许可
 - 户型模板工程量（尺寸进入木材、空腔、屋面、石膏板、卫生间洁具数量）
 - 分项总账带报价源链接、SKU、取价日期
-- 厨房定制、铝窗整樘、EPS 垫块、脚手架等无公开总价的科目标为缺项
+- 能核对到公开 SKU 的厨房柜体、部分铝窗、EPS 垫块、龙头防水、移动脚手架按标价计入；对不上尺寸或没有工时的仍标缺项
 
 ## 报价源（2026-08-24 检索）
 
@@ -25,6 +25,20 @@
 - H4 200×50 挡土枕木 2.4m：[$10.60/m](https://www.bunnings.co.nz/200-x-50mm-rad-h4-treated-retaining-timber-2-4m_p0608743)（只用于墙高≤1.2m 的材料；支撑房屋时仍须许可）
 - Stein Ero 马桶套装：[$742](https://www.bunnings.co.nz/stein-wels-4-star-4-5-3l-min-ero-back-to-wall-toilet-suite_p0251660)
 - Stein Georgia 750mm 淋浴房：[$645](https://www.bunnings.co.nz/stein-750-x-2000mm-white-georgia-3s-square-flat-wall-package_p0380960)
+- Kaboodle 600mm 地柜：[$130.92](https://www.bunnings.co.nz/kaboodle-600mm-base-cabinet_p0303959)
+- Kaboodle 600mm 吊柜：[$123.90](https://www.bunnings.co.nz/kaboodle-600mm-white-wall-carcase-kitset_p2662262)
+- Kaboodle 600mm Sea Salt 门板：[$78](https://www.bunnings.co.nz/kaboodle-600mm-sea-salt-modern-cabinet-door_p0193379)
+- Kaboodle 2400×600 台面：[$372](https://www.bunnings.co.nz/kaboodle-2400-x-600-x-38mm-square-edge-vanilla-cream-benchtop-2400-x-600mm_p0194541)
+- Expol Tuff Pod 1100×1100×300：[$33.01](https://www.bunnings.co.nz/expol-flooring-1100-x-1100-x-300mm-tuff-pods_p0196164)
+- Caroma Luna 淋浴混水阀：[$259](https://www.bunnings.co.nz/caroma-luna-bath-shower-mixer_p0131572)
+- Caroma Luna 面盆龙头：[RRP $331](https://www.caroma.com/nz/product/caroma-luna-basin-mixer-lead-free-chrome-117128/)
+- Crommelin 4L 砖下防水：[$109](https://www.bunnings.co.nz/crommelin-4l-under-tile-waterproofing-membrane_p0356888)
+- H5 125×125 2.4m 锚桩：[$62.28](https://www.bunnings.co.nz/125-x-125mm-2-4m-square-h5-anchor-pile_p0276414)
+- Strol GeoPlus 1×50m 土工布：[$140.50](https://www.bunnings.co.nz/strol-1-x-50m-geoplus-filter-cloth_p0571904)
+- Hume Nexus 15 门扇 1980×860：[$525](https://www.bunnings.co.nz/hume-doors-1980-x-860-x-40mm-nexus-15-unglazed-entrance-door_p0213418)
+- 新铝窗 1800×1200 双层中空：[$999](https://diysupply.nz/product/new-ironsand-double-glazed-1800w-x-1200h/)
+- 新铝窗 1200×1200 双层中空：[$819](https://diysupply.nz/product/new-1200w-x-1200h-ironsand-window-double-glazed/)
+- 移动脚手架 3m / 5m 周租：[$140 / $230](https://www.metroscaff.co.nz/store/p/mobile-scaffolding-weekly-hire)（最低 1 周，送装 $255）
 
 人工与设计（公开区间，不是签约报价）：
 
@@ -33,7 +47,8 @@
 
 法定费用：
 
-- [Auckland Council 建工许可押金与 levy 2025/26](https://www.aucklandcouncil.govt.nz/en/building-and-consents/building-consents/building-control-fees.html)
+- [Auckland Council 建工许可押金与 levy](https://www.aucklandcouncil.govt.nz/en/building-and-consents/building-consents/building-control-fees.html)（2026-08-24 页面：$100k–$499k 档押金 $5,479）
+- [Auckland Council 资源许可押金](https://www.aucklandcouncil.govt.nz/en/building-and-consents/resource-consents/resource-consent-fees-deposits.html)：住宅土地使用 $6,500
 - [Watercare IGC 2026/27 都市区 $29,348.46 含 GST/单元](https://www.watercare.co.nz/builders-and-developers/tools-fees-and-resources/infrastructure-growth-charge)
 - [DC Policy 2025](https://ourauckland.aucklandcouncil.govt.nz/media-centre/2025/may/new-development-contributions-policy-approved/)：Rest of Auckland $20,000/HUE，自 2026-07-01 加 2%
 

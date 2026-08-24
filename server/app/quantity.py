@@ -14,6 +14,13 @@ WASTAGE = {
 }
 
 ROOF_COVER_M = 0.762
+POD_GRID_M = 1.2
+KITCHEN_BASE_600 = 5
+KITCHEN_WALL_600 = 5
+KITCHEN_DOOR_600 = 10
+KITCHEN_BENCH_2400 = 2
+RETAINING_POST_SPACING_M = 1.2
+GEOTEXTILE_ROLL_M2 = 50.0
 
 
 def takeoff(template: dict[str, Any], site: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -47,6 +54,9 @@ def takeoff(template: dict[str, Any], site: dict[str, Any] | None = None) -> dic
     else:
         timber_140_lm = 2.4
     retaining = retaining_takeoff(template, site or {}, length)
+    pod_nx = max(int(length // POD_GRID_M), 0)
+    pod_ny = max(int(width // POD_GRID_M), 0)
+    pod_count = pod_nx * pod_ny
 
     return {
         "gfa_m2": round(gfa, 2),
@@ -73,6 +83,12 @@ def takeoff(template: dict[str, Any], site: dict[str, Any] | None = None) -> dic
         "wastage": WASTAGE,
         "bathrooms": bathrooms,
         "kitchens": kitchens,
+        "kitchen_base_600": KITCHEN_BASE_600 * kitchens,
+        "kitchen_wall_600": KITCHEN_WALL_600 * kitchens,
+        "kitchen_door_600": KITCHEN_DOOR_600 * kitchens,
+        "kitchen_bench_2400": KITCHEN_BENCH_2400 * kitchens,
+        "pod_count": pod_count,
+        "pod_grid_m": POD_GRID_M,
         "retaining": retaining,
     }
 
@@ -129,14 +145,19 @@ def retaining_takeoff(template: dict[str, Any], site: dict[str, Any], building_l
     length = max(min(length, 40.0), 6.0)
     courses = max(math.ceil(height / 0.20), 1)
     timber_lm = courses * length * (1 + WASTAGE["timber"])
+    posts = max(math.ceil(length / RETAINING_POST_SPACING_M), 1)
+    face_m2 = height * length
+    geotextile_rolls = max(math.ceil(face_m2 / GEOTEXTILE_ROLL_M2), 1)
     return {
         "needed": True,
         "height_m": round(height, 2),
         "length_m": round(length, 1),
         "courses": courses,
         "timber_lm": round(timber_lm, 2),
+        "posts": posts,
+        "geotextile_rolls": geotextile_rolls,
         "surcharge_likely": True,
         "sleeper_ok": height <= 1.2,
-        "formula": "墙高≈DEM高差×0.5（平台取中位）；延米=层数×临街面宽；层数=墙高/0.20m 枕木",
+        "formula": "墙高≈DEM高差×0.5（平台取中位）；延米=层数×临街面宽；层数=墙高/0.20m 枕木；立柱按 1.2m 间距",
         "note": "支撑建筑平台视为 surcharge。墙高>1.2m 不定零售枕木价。",
     }

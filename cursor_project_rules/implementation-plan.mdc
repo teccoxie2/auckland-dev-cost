@@ -9,3 +9,9 @@ description: 功能开发步骤记录。每完成一步标注 Done 并写两行�
 Done
 
 把「不允许使用假数据」写成仓库硬性约定：Cursor 规则、cursor_project_rules 知识库、README 开发要求。缺公开源必须标缺项或报错，不得用 mock 或大模型补数。
+
+## 缺价科目重新检索公开报价源
+
+Done
+
+按 2026-08-24 网页标价补入 Kaboodle 橱柜/门板/台面、Expol Tuff Pod、Caroma 龙头、Crommelin 防水、H5 桩、土工布、Diy Supply 1800/1200 新铝窗、Hume 门扇、Metroscaff 移动脚手架周租、议会 RC 押金；无精确尺寸或无工时的科目仍缺项。

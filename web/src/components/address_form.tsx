@@ -233,7 +233,7 @@ export default function AddressForm() {
       ) : null}
       <p className="mt-4 text-xs leading-5 text-[#7b8474]">
         地址来自 Auckland Council AC_Address 公开图层，与 GeoMaps 同一套门牌数据。材料以 Bunnings 公开 SKU
-        为主，法定费用以 Auckland Council / Watercare 官方表为准；厨房定制、铝窗整樘等无公开总价的科目会标成缺项。
+        为主，法定费用以 Auckland Council / Watercare 官方表为准。厨房柜体按 Kaboodle SKU 计，电器安装和未命中尺寸的铝窗仍标缺项。
       </p>
     </form>
   );

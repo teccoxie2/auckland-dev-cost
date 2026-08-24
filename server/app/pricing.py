@@ -112,6 +112,17 @@ def igc_amount(new_units: int, gfa_per_unit: float | None) -> dict[str, Any]:
     }
 
 
+def resource_consent_deposit() -> dict[str, Any]:
+    table = council_fees()["resource_consent"]
+    return {
+        "deposit": table["residential_land_use_deposit"],
+        "source_name": table["source_name"],
+        "source_url": table["source_url"],
+        "retrieved_at": table["retrieved_at"],
+        "notes": table["notes"],
+    }
+
+
 def dc_amount(new_units: int) -> dict[str, Any]:
     table = council_fees()["development_contributions"]
     base = table["areas_fy2025_26_per_hue"]["rest_of_auckland"]

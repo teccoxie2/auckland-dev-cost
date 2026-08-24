@@ -2,30 +2,37 @@
   "version": "2025-2026 plus 2026-07 uplifts where published",
   "gst_included": true,
   "building_consent_deposits": [
-    { "max_value": 4999, "total": 1270 },
-    { "max_value": 19999, "total": 1980 },
-    { "max_value": 99999, "total": 2975 },
-    { "max_value": 499999, "total": 5398 },
-    { "max_value": 999999, "total": 7664 },
-    { "max_value": null, "total": 10530 }
+    { "max_value": 4999, "total": 1282 },
+    { "max_value": 19999, "total": 2004 },
+    { "max_value": 99999, "total": 3005 },
+    { "max_value": 499999, "total": 5479 },
+    { "max_value": 999999, "total": 7772 },
+    { "max_value": null, "total": 10665 }
   ],
   "levies": {
     "branz_rate": 0.001,
     "branz_threshold": 20000,
     "mbie_per_1000": 1.75,
     "mbie_threshold": 64999,
-    "accreditation_per_1000": 0.56
+    "accreditation_per_1000": 0.58
   },
   "hourly": {
-    "building_residential_1": 195,
-    "building_residential_2": 222,
-    "planning_level_1": 198,
-    "planning_level_2": 228,
-    "planning_level_3": 240
+    "building_residential_1": 201,
+    "building_residential_2": 231,
+    "planning_level_1": 204,
+    "planning_level_2": 237,
+    "planning_level_3": 246
   },
-  "source_name": "Auckland Council Building consent fees and charges（2025-2026）",
+  "source_name": "Auckland Council Building consent fees and charges（页面 2026-08-24 读取）",
   "source_url": "https://www.aucklandcouncil.govt.nz/en/building-and-consents/building-consents/building-control-fees.html",
   "retrieved_at": "2026-08-24",
+  "resource_consent": {
+    "residential_land_use_deposit": 6500,
+    "source_name": "Auckland Council resource consent fees and deposits：Land use — Residential",
+    "source_url": "https://www.aucklandcouncil.govt.nz/en/building-and-consents/resource-consents/resource-consent-fees-deposits.html",
+    "retrieved_at": "2026-08-24",
+    "notes": "押金含 GST。官方写明多数案子会超出押金并补收工时。工时：规划一级 $204、二级 $237、三级 $246。"
+  },
   "igc": {
     "metro_combined_incl_gst": 29348.46,
     "metro_combined_ex_gst": 25520.4,

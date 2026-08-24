@@ -3,11 +3,16 @@ from __future__ import annotations
 from typing import Any
 
 from .data_loader import pricebook
-from .pricing import GST, building_consent_deposit, dc_amount, igc_amount, line, missing_line
+from .pricing import GST, building_consent_deposit, dc_amount, igc_amount, line, missing_line, resource_consent_deposit
 from .quantity import takeoff
 
 PRELIM_PCT = 0.10
 CONTINGENCY_PCT = 0.08
+
+WINDOW_ITEMS = {
+    (1800, 1200): "window_alu_1800x1200_dg",
+    (1200, 1200): "window_alu_1200x1200_dg",
+}
 
 
 def cost_option(
@@ -68,22 +73,74 @@ def cost_option(
     )
 
     for opening in qty["window_schedule"]:
-        lines.append(
-            missing_line(
-                f"joinery_{opening['code']}",
-                f"门窗 {opening['code']} {opening['w_mm']}×{opening['h_mm']}mm × {opening['count']}",
-                "铝窗整樘需厂商按尺寸报价，工程量已列出但不计价。",
-                quantity=opening["count"],
-                unit="樘",
+        code = opening["code"]
+        count = int(opening["count"])
+        width = int(opening["w_mm"])
+        height = int(opening["h_mm"])
+        if code == "ED":
+            lines.append(
+                line(
+                    "door_hume_nexus15_860",
+                    count,
+                    formula="户型表 ED 数量 × Hume Nexus 15 门扇零售价",
+                    extra_notes="门扇 1980×860，不是 2040 整樘含框。",
+                )
             )
-        )
+            continue
+        item_id = WINDOW_ITEMS.get((width, height))
+        if item_id:
+            lines.append(
+                line(
+                    item_id,
+                    count,
+                    formula=f"{code} {width}×{height}mm 公开新窗标价 × {count}",
+                )
+            )
+        else:
+            lines.append(
+                missing_line(
+                    f"joinery_{code}_{width}x{height}",
+                    f"门窗 {code} {width}×{height}mm × {count}",
+                    "公开零售没有这一精确尺寸的新窗/推拉门标价，工程量已列出但不计价。",
+                    quantity=count,
+                    unit="樘",
+                )
+            )
     kitchens = int(qty.get("kitchens") or 1)
     bathrooms = int(qty.get("bathrooms") or 1)
     lines.append(
+        line(
+            "kaboodle_base_600",
+            qty["kitchen_base_600"],
+            formula="每套厨房 5 个 600mm 地柜",
+        )
+    )
+    lines.append(
+        line(
+            "kaboodle_wall_600",
+            qty["kitchen_wall_600"],
+            formula="每套厨房 5 个 600mm 吊柜",
+        )
+    )
+    lines.append(
+        line(
+            "kaboodle_door_600_seasalt",
+            qty["kitchen_door_600"],
+            formula="每套厨房 10 扇 600mm 门板",
+        )
+    )
+    lines.append(
+        line(
+            "kaboodle_benchtop_2400x600",
+            qty["kitchen_bench_2400"],
+            formula="每套厨房 2 块 2400×600 台面",
+        )
+    )
+    lines.append(
         missing_line(
-            "kitchen_package",
-            "厨房定制",
-            "参考 QS 有档位，无公开 SKU 总价。按客户选择的厨房套数列出。",
+            "kitchen_appliances_install",
+            "厨房电器、水槽与安装",
+            "柜体/门板/台面已按 Kaboodle SKU 计价；电器和水槽安装无公开总价。",
             quantity=kitchens,
             unit="套",
         )
@@ -105,10 +162,31 @@ def cost_option(
         )
     )
     lines.append(
+        line(
+            "tap_caroma_luna_shower",
+            bathrooms,
+            formula="卫生间数量 × Caroma Luna 淋浴混水阀零售价",
+        )
+    )
+    lines.append(
+        line(
+            "tap_caroma_luna_basin",
+            bathrooms,
+            formula="卫生间数量 × Caroma Luna 面盆龙头 RRP",
+        )
+    )
+    lines.append(
+        line(
+            "membrane_crommelin_4l",
+            bathrooms,
+            formula="卫生间数量 × Crommelin 4L 防水涂料",
+        )
+    )
+    lines.append(
         missing_line(
-            "bathroom_tapware_install",
-            "卫生间龙头、防水与安装",
-            "龙头型号价差大；持牌水管工按工时报价，不编造工时。",
+            "bathroom_plumber_labour",
+            "卫生间水管安装工时",
+            "龙头和防水材料已按 SKU 计价；持牌水管工工时无本项目可核对数量。",
             quantity=bathrooms,
             unit="间",
         )
@@ -124,6 +202,20 @@ def cost_option(
                     extra_notes=retaining["note"],
                 )
             )
+            lines.append(
+                line(
+                    "pile_h5_125_2400",
+                    retaining["posts"],
+                    formula="挡土墙长度 / 1.2m 间距，向上取整",
+                )
+            )
+            lines.append(
+                line(
+                    "geotextile_strol_50m",
+                    retaining["geotextile_rolls"],
+                    formula="墙面面积 / 50m² 每卷，向上取整",
+                )
+            )
         else:
             lines.append(
                 missing_line(
@@ -137,12 +229,39 @@ def cost_option(
         lines.append(
             missing_line(
                 "retaining_posts_drainage_labour",
-                "挡土墙立柱、泄水层与安装",
-                "无稳定公开整墙工时价。支撑建筑平台时按 MBIE 需建筑许可。",
+                "挡土墙开挖、级配碎石与安装",
+                "立柱和土工布材料已按 SKU 计价（仅≤1.2m 枕木墙）。碎石无全国标价，人工无公开工时。",
             )
         )
-    lines.append(missing_line("ribraft_eps_pods", "Rib-raft EPS 垫块", "制造商无全国零售价。"))
-    lines.append(missing_line("scaffolding_hire", "脚手架租赁", "按工期询价。"))
+    lines.append(
+        line(
+            "expol_tuffpod_1100x300",
+            qty["pod_count"],
+            formula="占地长宽按 1.2m 网格取整格子数（1.1m 垫块 + 0.1m 肋）",
+        )
+    )
+    scaffold_item = "scaffolding_mobile_3m_week" if int(template["storeys"]) <= 1 else "scaffolding_mobile_5m_week"
+    lines.append(
+        line(
+            scaffold_item,
+            1,
+            formula="Metroscaff 官网最低租期 1 周",
+        )
+    )
+    lines.append(
+        line(
+            "scaffolding_delivery",
+            1,
+            formula="官网送装收回一口价 × 1 次",
+        )
+    )
+    lines.append(
+        missing_line(
+            "scaffolding_perimeter",
+            "整栋外围脚手架",
+            "已计入移动塔最低一周，不能代替满堂脚手架。",
+        )
+    )
 
     construction = _sum_priced(lines, categories={"materials", "labour"})
     prelim = round(construction * PRELIM_PCT, 2)
@@ -258,20 +377,27 @@ def cost_option(
     )
     lines.append(_levy("branz_levy", "BRANZ 建筑研究征费 0.1%", bc["branz"], bc, "造价>$20,000 时 0.1%"))
     lines.append(_levy("mbie_levy", "MBIE 建工征费 $1.75/千元", bc["mbie"], bc, "造价>$64,999 时 $1.75 / $1,000"))
-    lines.append(_levy("bca_accreditation_levy", "BCA 认证征费 $0.56/千元", bc["accreditation"], bc, "全部建工许可 56c / $1,000"))
+    lines.append(_levy("bca_accreditation_levy", "BCA 认证征费 $0.58/千元", bc["accreditation"], bc, "全部建工许可 58c / $1,000"))
 
+    rc_deposit = 0.0
     if filter_result.get("needs_resource_consent"):
+        rc = resource_consent_deposit()
+        rc_deposit = rc["deposit"]
         lines.append(
             {
-                "id": "resource_consent",
-                "status": "missing",
+                "id": "resource_consent_deposit",
+                "status": "priced",
                 "category": "statutory",
-                "name_zh": "资源许可（按实际规划工时结算）",
-                "amount_incl_gst": 0.0,
-                "source_name": "Auckland Council resource consent fees（工时费率已公布，押金因案而异）",
-                "source_url": "https://www.aucklandcouncil.govt.nz/en/building-and-consents/resource-consents/resource-consent-fees-deposits.html",
-                "notes": f"本方案需要 RC。官方工时：规划一级 ${bc['hourly']['planning_level_1']}/时、二级 ${bc['hourly']['planning_level_2']}/时。不虚构工时总数。原因：{'；'.join(filter_result.get('reasons') or [])}",
-                "formula": None,
+                "name_zh": "资源许可押金（住宅土地使用 lodgement）",
+                "quantity": 1,
+                "unit": "deposit",
+                "unit_price": rc["deposit"],
+                "amount_incl_gst": rc["deposit"],
+                "source_name": rc["source_name"],
+                "source_url": rc["source_url"],
+                "retrieved_at": rc["retrieved_at"],
+                "notes": f"{rc['notes']} 原因：{'；'.join(filter_result.get('reasons') or [])}",
+                "formula": "官方 Land use — Residential 押金 $6,500（多数案子会超出，超出未计价）",
             }
         )
 
@@ -303,7 +429,7 @@ def cost_option(
             "preliminaries_incl_gst": prelim,
             "design_incl_gst": design_incl,
             "statutory_incl_gst": round(
-                statutory_before_bc + bc["deposit"] + bc["branz"] + bc["mbie"] + bc["accreditation"],
+                statutory_before_bc + bc["deposit"] + bc["branz"] + bc["mbie"] + bc["accreditation"] + rc_deposit,
                 2,
             ),
             "contingency_incl_gst": contingency,
