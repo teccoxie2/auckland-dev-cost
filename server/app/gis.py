@@ -6,7 +6,6 @@ from typing import Any
 
 import httpx
 
-NOMINATIM = "https://nominatim.openstreetmap.org/search"
 ZONE_URL = (
     "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/"
     "Unitary_Plan_Base_Zone/FeatureServer/0/query"
@@ -46,6 +45,69 @@ PROPERTY_LAYERS = [
     },
 ]
 
+ADDRESS_URL = (
+    "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/"
+    "AC_Address_Query/FeatureServer/0/query"
+)
+ADDRESS_SOURCE_NAME = "Auckland Council AC_Address（Open Data, CC-BY 4.0）"
+ADDRESS_SOURCE_URL = ADDRESS_URL.rsplit("/query", 1)[0]
+
+STREET_TYPES = frozenset(
+    {
+        "STREET",
+        "ST",
+        "ROAD",
+        "RD",
+        "AVENUE",
+        "AVE",
+        "DRIVE",
+        "DR",
+        "LANE",
+        "LN",
+        "PLACE",
+        "PL",
+        "CRESCENT",
+        "CRES",
+        "TERRACE",
+        "TCE",
+        "WAY",
+        "PARADE",
+        "HIGHWAY",
+        "HWY",
+        "CLOSE",
+        "CL",
+        "COURT",
+        "CT",
+        "RISE",
+        "GROVE",
+        "ESPLANADE",
+        "CIRCUIT",
+        "QUAY",
+        "TRACK",
+        "BEND",
+        "LOOP",
+        "MALL",
+        "SQUARE",
+        "SQ",
+        "HEIGHTS",
+        "VIEW",
+        "HILL",
+        "VALE",
+        "GLADE",
+        "PARK",
+        "CREST",
+        "POINT",
+        "PT",
+        "WALK",
+        "MEWS",
+        "ROW",
+        "BOULEVARD",
+        "BLVD",
+    }
+)
+NUMBER_RE = re.compile(r"^(\d+)([A-Za-z])?(?:-(\d+)([A-Za-z])?)?$")
+CITY_TOKENS = frozenset({"AUCKLAND", "TAMAKI", "TĀMAKI", "MAKAURAU", "NZ", "NEW", "ZEALAND"})
+
 ELEVATION_URL = "https://api.opentopodata.org/v1/nzdem8m"
 
 AUCKLAND_BBOX = {
@@ -68,41 +130,247 @@ def _client() -> httpx.Client:
     return httpx.Client(timeout=20.0, headers={"User-Agent": USER_AGENT})
 
 
-def geocode_address(address: str) -> dict[str, Any]:
+def _sql_lit(value: str) -> str:
+    return value.replace("'", "''")
+
+
+def _clean_query(raw: str) -> str:
+    cleaned = re.sub(r"[%_]", "", raw)
+    cleaned = re.sub(r"[^A-Za-z0-9ĀāĒēĪīŌōŪū'\-\s,/]", " ", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def parse_address_query(raw: str) -> dict[str, str]:
+    cleaned = _clean_query(raw)
+    tokens = [token for token in re.split(r"[\s,/]+", cleaned) if token]
+    number = ""
+    number_index = -1
+    for index, token in enumerate(tokens):
+        if NUMBER_RE.fullmatch(token):
+            number = token.upper()
+            number_index = index
+            break
+    rest_upper = [token.upper() for token in (tokens[number_index + 1 :] if number_index >= 0 else tokens)]
+    street_index = -1
+    for index, token in enumerate(rest_upper):
+        if token in STREET_TYPES:
+            street_index = index
+    if street_index >= 0:
+        road_tokens = [token for token in rest_upper[:street_index] if token not in STREET_TYPES]
+        locality_tokens = [token for token in rest_upper[street_index + 1 :] if token not in STREET_TYPES]
+    elif len(rest_upper) >= 2:
+        locality_tokens = [rest_upper[-1]]
+        road_tokens = rest_upper[:-1]
+    else:
+        road_tokens = rest_upper
+        locality_tokens = []
+    while locality_tokens and locality_tokens[-1] in CITY_TOKENS:
+        locality_tokens = locality_tokens[:-1]
+    road = " ".join(road_tokens)
+    locality = " ".join(locality_tokens)
+    if locality and locality == road:
+        locality = ""
+    return {"raw": cleaned, "number": number, "road": road, "locality": locality}
+
+
+def _number_clause(number: str) -> str:
+    match = NUMBER_RE.fullmatch(number)
+    if not match:
+        return ""
+    head, unit, range_end, range_unit = match.groups()
+    if range_end:
+        literal = _sql_lit(number)
+        return f"UPPER(FullNumber)='{literal}'"
+    if unit:
+        literal = _sql_lit(number)
+        return f"UPPER(FullNumber)='{literal}'"
+    prefix = _sql_lit(head)
+    return (
+        f"(FullNumber='{prefix}' OR FullNumber LIKE '{prefix}-%' "
+        f"OR UPPER(FullNumber) LIKE '{prefix}[A-Z]%')"
+    )
+
+
+def _full_address_prefixes(number: str, road: str) -> list[str]:
+    if not number or not road:
+        return []
+    road_lit = _sql_lit(road)
+    match = NUMBER_RE.fullmatch(number)
+    if not match:
+        return [f"UPPER(FullAddress) LIKE '{_sql_lit(number)} {road_lit}%'"]
+    head, unit, range_end, _range_unit = match.groups()
+    clauses = [f"UPPER(FullAddress) LIKE '{_sql_lit(number)} {road_lit}%'"]
+    if range_end:
+        return clauses
+    if unit:
+        return clauses
+    prefix = _sql_lit(head)
+    clauses.append(f"UPPER(FullAddress) LIKE '{prefix}-% {road_lit}%'")
+    clauses.append(f"UPPER(FullAddress) LIKE '{prefix}[A-Z] {road_lit}%'")
+    return clauses
+
+
+def address_where(parsed: dict[str, str]) -> str | None:
+    number = parsed.get("number") or ""
+    road = parsed.get("road") or ""
+    locality = parsed.get("locality") or ""
+    if not number and not road:
+        return None
+    parts: list[str] = ["AddressStatus='Current'"]
+    match_bits: list[str] = []
+    if number and road:
+        number_sql = _number_clause(number)
+        match_bits.append(f"(UPPER(RoadName) LIKE '{_sql_lit(road)}%' AND {number_sql})")
+        match_bits.extend(_full_address_prefixes(number, road))
+    elif number:
+        match_bits.append(_number_clause(number))
+    else:
+        match_bits.append(f"UPPER(RoadName) LIKE '{_sql_lit(road)}%'")
+        match_bits.append(f"UPPER(FullAddress) LIKE '%{_sql_lit(road)}%'")
+    parts.append("(" + " OR ".join(bit for bit in match_bits if bit) + ")")
+    if locality:
+        parts.append(f"UPPER(Locality) LIKE '{_sql_lit(locality)}%'")
+    return " AND ".join(parts)
+
+
+def _hit_from_feature(feature: dict[str, Any]) -> dict[str, Any] | None:
+    attributes = feature.get("attributes") or {}
+    geometry = feature.get("geometry") or {}
+    lon = geometry.get("x")
+    lat = geometry.get("y")
+    if lat is None or lon is None:
+        return None
+    lat_f = float(lat)
+    lon_f = float(lon)
+    if not _in_auckland(lat_f, lon_f):
+        return None
+    full_address = (attributes.get("FullAddress") or "").strip()
+    if not full_address:
+        return None
+    road_name = attributes.get("RoadName") or ""
+    road_type = attributes.get("RoadType") or ""
+    road = " ".join(part for part in [road_name, road_type] if part).strip()
+    return {
+        "label": full_address,
+        "full_address": full_address,
+        "full_number": attributes.get("FullNumber"),
+        "road_name": road_name,
+        "road_type": road_type,
+        "road": road,
+        "locality": attributes.get("Locality"),
+        "address_type": attributes.get("AddressType"),
+        "lat": lat_f,
+        "lon": lon_f,
+        "sap_site_id": attributes.get("SAPsiteID"),
+        "sap_address_id": attributes.get("SAPAddressID"),
+        "source_name": ADDRESS_SOURCE_NAME,
+        "source_url": ADDRESS_SOURCE_URL,
+    }
+
+
+def search_addresses(query: str, limit: int = 12) -> list[dict[str, Any]]:
+    cleaned = _clean_query(query)
+    if len(cleaned) < 3:
+        return []
+    parsed = parse_address_query(cleaned)
+    where = address_where(parsed)
+    if not where:
+        return []
+    params = {
+        "where": where,
+        "outFields": (
+            "FullAddress,FullNumber,RoadName,RoadType,Locality,"
+            "AddressType,AddressStatus,SAPsiteID,SAPAddressID"
+        ),
+        "returnGeometry": "true",
+        "outSR": 4326,
+        "f": "json",
+        "resultRecordCount": max(1, min(limit, 20)),
+        "orderByFields": "FullAddress ASC",
+    }
+    with _client() as client:
+        try:
+            response = client.get(ADDRESS_URL, params=params)
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPError as exc:
+            raise GisError(f"议会地址库暂时读不到：{exc}", "address_search_failed") from exc
+    if payload.get("error"):
+        message = payload["error"].get("message") or "议会地址库查询失败"
+        raise GisError(message, "address_search_failed")
+    hits: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for feature in payload.get("features") or []:
+        hit = _hit_from_feature(feature)
+        if not hit:
+            continue
+        key = f"{hit['full_address']}|{round(hit['lat'], 6)}|{round(hit['lon'], 6)}"
+        if key in seen:
+            continue
+        seen.add(key)
+        hits.append(hit)
+    return hits
+
+
+def geocode_from_selection(
+    address: str,
+    *,
+    lat: float,
+    lon: float,
+    full_address: str | None = None,
+    sap_address_id: str | None = None,
+    sap_site_id: str | None = None,
+) -> dict[str, Any]:
+    if not _in_auckland(lat, lon):
+        raise GisError("该地址不在奥克兰范围内（第一期仅支持 Auckland）", "outside_auckland")
+    display = (full_address or address).strip()
+    return {
+        "query": address,
+        "display_name": display,
+        "lat": float(lat),
+        "lon": float(lon),
+        "sap_address_id": sap_address_id,
+        "sap_site_id": sap_site_id,
+        "source_name": ADDRESS_SOURCE_NAME,
+        "source_url": ADDRESS_SOURCE_URL,
+    }
+
+
+def geocode_address(
+    address: str,
+    *,
+    lat: float | None = None,
+    lon: float | None = None,
+    full_address: str | None = None,
+    sap_address_id: str | None = None,
+    sap_site_id: str | None = None,
+) -> dict[str, Any]:
     query = address.strip()
     if not query:
         raise GisError("请输入地址", "empty_address")
-    if "auckland" not in query.lower() and "tāmaki" not in query.lower():
-        query = f"{query}, Auckland, New Zealand"
-    with _client() as client:
-        response = client.get(
-            NOMINATIM,
-            params={"q": query, "format": "json", "limit": 5, "addressdetails": 1, "countrycodes": "nz"},
+    if lat is not None and lon is not None:
+        return geocode_from_selection(
+            query,
+            lat=lat,
+            lon=lon,
+            full_address=full_address,
+            sap_address_id=sap_address_id,
+            sap_site_id=sap_site_id,
         )
-        response.raise_for_status()
-        hits = response.json()
-    if not hits:
-        raise GisError("找不到该地址，请补全市区或邮编", "not_found")
-    chosen = None
-    for hit in hits:
-        lat = float(hit["lat"])
-        lon = float(hit["lon"])
-        if _in_auckland(lat, lon):
-            chosen = hit
-            break
-    if chosen is None:
-        raise GisError("该地址不在奥克兰范围内（第一期仅支持 Auckland）", "outside_auckland")
-    lat = float(chosen["lat"])
-    lon = float(chosen["lon"])
-    return {
-        "query": address,
-        "display_name": chosen.get("display_name"),
-        "lat": lat,
-        "lon": lon,
-        "osm_id": chosen.get("osm_id"),
-        "source_name": "OpenStreetMap Nominatim",
-        "source_url": "https://nominatim.openstreetmap.org/",
-    }
+    hits = search_addresses(query)
+    if len(hits) == 1:
+        hit = hits[0]
+        return geocode_from_selection(
+            query,
+            lat=hit["lat"],
+            lon=hit["lon"],
+            full_address=hit["full_address"],
+            sap_address_id=hit.get("sap_address_id"),
+            sap_site_id=hit.get("sap_site_id"),
+        )
+    if len(hits) > 1:
+        raise GisError("该门牌对应多条议会地址，请从下拉列表选择一条", "ambiguous_address")
+    raise GisError("奥克兰议会地址库没有匹配。请改写门牌或路名后从下拉列表选择。", "not_found")
 
 
 def _in_auckland(lat: float, lon: float) -> bool:

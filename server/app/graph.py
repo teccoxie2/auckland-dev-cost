@@ -12,6 +12,7 @@ from .zoning import apply_zone_rules
 
 class ProjectState(TypedDict, total=False):
     address: str
+    selected_address: dict
     spec: dict
     error: dict
     site: dict
@@ -32,8 +33,16 @@ def _trace(state: ProjectState, node: str, detail: str) -> list[dict[str, Any]]:
 
 
 def geocode_node(state: ProjectState) -> dict[str, Any]:
+    selected = state.get("selected_address") or {}
     try:
-        geo = geocode_address(state["address"])
+        geo = geocode_address(
+            state["address"],
+            lat=selected.get("lat"),
+            lon=selected.get("lon"),
+            full_address=selected.get("full_address"),
+            sap_address_id=selected.get("sap_address_id"),
+            sap_site_id=selected.get("sap_site_id"),
+        )
     except GisError as exc:
         return {"error": {"code": exc.code, "message": str(exc)}, "trace": _trace(state, "geocode", str(exc))}
     except Exception as exc:  # noqa: BLE001
@@ -184,8 +193,11 @@ def build_graph():
 WORKFLOW = build_graph()
 
 
-def run_address(address: str) -> ProjectState:
-    return WORKFLOW.invoke({"address": address, "trace": []})
+def run_address(address: str, selected_address: dict[str, Any] | None = None) -> ProjectState:
+    payload: ProjectState = {"address": address, "trace": []}
+    if selected_address:
+        payload["selected_address"] = selected_address
+    return WORKFLOW.invoke(payload)
 
 
 def configure_option(site: dict[str, Any], rules: dict[str, Any], spec: dict[str, Any]) -> dict[str, Any]:

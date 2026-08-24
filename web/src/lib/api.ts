@@ -1,3 +1,17 @@
+export interface AddressHit {
+  label: string;
+  full_address: string;
+  full_number?: string | null;
+  road?: string | null;
+  locality?: string | null;
+  lat: number;
+  lon: number;
+  sap_site_id?: string | null;
+  sap_address_id?: string | null;
+  source_name?: string;
+  source_url?: string;
+}
+
 export interface ProjectSummary {
   id: string;
   address: string;
@@ -92,7 +106,13 @@ export interface ProjectRecord {
     error?: { code: string; message: string };
     selected_id?: string;
     site?: {
-      geo: { display_name: string; lat: number; lon: number; source_url: string };
+      geo: {
+        display_name: string;
+        lat: number;
+        lon: number;
+        source_name?: string;
+        source_url: string;
+      };
       zone?: { zone_name: string; zone_code: number; source_url: string };
       overlays?: Array<{ key: string; present: boolean }>;
       parcel?: {

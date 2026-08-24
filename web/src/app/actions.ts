@@ -5,12 +5,21 @@ import { configureProject, postProject } from "@/lib/engine";
 
 export async function createProjectAction(_prev: { error: string } | null, formData: FormData) {
   const address = String(formData.get("address") || "").trim();
-  if (address.length < 3) {
-    return { error: "请输入完整的奥克兰地址" };
+  const lat = Number(formData.get("selected_lat"));
+  const lon = Number(formData.get("selected_lon"));
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || address.length < 3) {
+    return { error: "请从下拉列表选择一条奥克兰议会地址。同一门牌可能对应多条记录。" };
   }
   let project;
   try {
-    project = await postProject(address);
+    project = await postProject({
+      address,
+      lat,
+      lon,
+      full_address: String(formData.get("full_address") || address).trim(),
+      sap_address_id: String(formData.get("sap_address_id") || "") || null,
+      sap_site_id: String(formData.get("sap_site_id") || "") || null,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "核算失败";
     return { error: message };

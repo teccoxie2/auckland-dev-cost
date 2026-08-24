@@ -39,7 +39,7 @@
 
 规划数据：
 
-- 地址：[OpenStreetMap Nominatim](https://nominatim.openstreetmap.org/)
+- 地址：[Auckland Council AC_Address](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/AC_Address_Query/FeatureServer/0)（与 GeoMaps 同一套门牌；同一门牌多条记录时必须从下拉列表选择）
 - 区划：[Unitary Plan Base Zone Open Data](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Unitary_Plan_Base_Zone/FeatureServer/0)
 - 地块：[Auckland Council AC_Property](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/AC_Property_Query/FeatureServer/0)
 - 坡度：[LINZ NZ 8m DEM / OpenTopodata](https://www.opentopodata.org/datasets/nzdem/)
@@ -68,7 +68,7 @@ pnpm install
 pnpm dev
 ```
 
-浏览器打开 `http://127.0.0.1:43124`。先试 `115 Bruce Road, Glenfield, Auckland`（整宗地、Mixed Housing Urban），再对比 `115D Bruce Road`（细分后的小地块，加密方案会被标成放不下）。
+浏览器打开 `http://127.0.0.1:43124`。输入 `55 Nelson Street` 会列出 Howick 与 Auckland Central 等多条议会地址，必须点选一条。输入 `115 Bruce Road Glenfield` 会列出 115A–F；点选后再对比 `115D Bruce Road`（细分后的小地块，加密方案会被标成放不下）。
 
 ## 架构要点
 

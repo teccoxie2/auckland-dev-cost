@@ -16,11 +16,18 @@ export async function getProject(id: string): Promise<ProjectRecord | null> {
   return response.json();
 }
 
-export async function postProject(address: string): Promise<ProjectRecord> {
+export async function postProject(input: {
+  address: string;
+  lat: number;
+  lon: number;
+  full_address?: string;
+  sap_address_id?: string | null;
+  sap_site_id?: string | null;
+}): Promise<ProjectRecord> {
   const response = await fetch(`${ENGINE_URL}/projects`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address }),
+    body: JSON.stringify(input),
   });
   const data = await response.json();
   if (!response.ok) {

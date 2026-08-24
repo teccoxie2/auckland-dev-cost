@@ -53,7 +53,11 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
       </header>
 
       <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Fact label="规范地址" value={result.site?.geo.display_name || "—"} />
+        <Fact
+          label="规范地址"
+          value={result.site?.geo.display_name || "—"}
+          href={result.site?.geo.source_url}
+        />
         <Fact
           label="Unitary Plan 区划"
           value={result.site?.zone?.zone_name || "—"}

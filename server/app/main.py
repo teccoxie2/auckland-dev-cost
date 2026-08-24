@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .data_loader import council_fees, pricebook
+from .gis import ADDRESS_SOURCE_NAME, ADDRESS_SOURCE_URL, GisError, search_addresses
 from .graph import configure_option, hydrate_legacy_result, run_address
 from .store import create_project, get_project, list_projects, update_project
 
@@ -21,6 +22,11 @@ app.add_middleware(
 
 class CreateProjectBody(BaseModel):
     address: str = Field(min_length=3, max_length=200)
+    lat: float | None = None
+    lon: float | None = None
+    full_address: str | None = None
+    sap_address_id: str | None = None
+    sap_site_id: str | None = None
 
 
 class ConfigureBody(BaseModel):
@@ -68,6 +74,20 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/addresses")
+def get_addresses(q: str = "") -> dict[str, Any]:
+    try:
+        hits = search_addresses(q)
+    except GisError as exc:
+        raise HTTPException(status_code=502, detail={"error": {"code": exc.code, "message": str(exc)}}) from exc
+    return {
+        "query": q.strip(),
+        "addresses": hits,
+        "source_name": ADDRESS_SOURCE_NAME,
+        "source_url": ADDRESS_SOURCE_URL,
+    }
+
+
 @app.get("/pricebook")
 def get_pricebook() -> dict[str, Any]:
     return {"pricebook": pricebook(), "council_fees": council_fees()}
@@ -93,10 +113,39 @@ def get_one_project(project_id: str) -> dict[str, Any]:
 
 @app.post("/projects")
 def post_project(body: CreateProjectBody) -> dict[str, Any]:
-    state = run_address(body.address.strip())
+    address = body.address.strip()
+    selected: dict[str, Any] | None = None
+    if body.lat is not None and body.lon is not None:
+        selected = {
+            "lat": body.lat,
+            "lon": body.lon,
+            "full_address": (body.full_address or address).strip(),
+            "sap_address_id": body.sap_address_id,
+            "sap_site_id": body.sap_site_id,
+        }
+    else:
+        try:
+            hits = search_addresses(address)
+        except GisError as exc:
+            raise HTTPException(status_code=502, detail={"error": {"code": exc.code, "message": str(exc)}}) from exc
+        if len(hits) > 1:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": {
+                        "code": "ambiguous_address",
+                        "message": f"议会地址库有 {len(hits)} 条匹配，请从下拉列表选择一条。",
+                    },
+                    "addresses": hits,
+                },
+            )
+        if len(hits) == 1:
+            selected = hits[0]
+    label = ((selected or {}).get("full_address") or address).strip()
+    state = run_address(address, selected)
     public = _public_result(state)
     status = "error" if public.get("error") else "ready"
-    return create_project(body.address.strip(), public, status)
+    return create_project(label, public, status)
 
 
 @app.post("/projects/{project_id}/configure")
