@@ -57,12 +57,29 @@ export async function uploadDrawings(projectId: string, formData: FormData): Pro
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const detail = data?.detail;
-    const message =
-      typeof detail === "string"
-        ? detail
-        : detail?.error?.message || detail?.message || data?.error?.message || "图纸核算失败";
-    throw new Error(message);
+    throw new Error(errorMessage(data, "图纸核算失败"));
   }
   return data;
+}
+
+function errorMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== "object") return fallback;
+  const detail = (data as { detail?: unknown; error?: { message?: string } }).detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail.map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object" && "msg" in item) return String((item as { msg: string }).msg);
+      return "";
+    });
+    const joined = parts.filter(Boolean).join("；");
+    if (joined) return joined;
+  }
+  if (detail && typeof detail === "object") {
+    const record = detail as { error?: { message?: string }; message?: string };
+    if (record.error?.message) return record.error.message;
+    if (record.message) return record.message;
+  }
+  const message = (data as { error?: { message?: string } }).error?.message;
+  return message || fallback;
 }

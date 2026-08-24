@@ -236,8 +236,10 @@ async def post_drawings(
     try:
         parts = parse_files(saved)
         drawing_state = run_drawings(result["site"], result["rules"], parts)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"图纸解析失败：{exc}") from exc
     if drawing_state.get("error"):
         raise HTTPException(status_code=400, detail=_http_detail(drawing_state["error"]))
     option = drawing_state.get("option")

@@ -83,32 +83,35 @@ def cost_option(
             )
         )
 
+    joinery_priced: dict[str, dict[str, Any]] = {}
     for opening in qty["window_schedule"]:
         code = opening["code"]
         count = int(opening["count"])
         width = int(opening["w_mm"])
         height = int(opening["h_mm"])
-        if str(code).upper().startswith("ED") or (
-            800 <= width <= 920 and 1960 <= height <= 2100 and str(code).upper().startswith("E")
-        ):
-            lines.append(
-                line(
-                    "door_hume_nexus15_860",
-                    count,
-                    formula="户型表 ED 数量 × Hume Nexus 15 门扇零售价",
-                    extra_notes="门扇 1980×860，不是 2040 整樘含框。",
-                )
+        code_u = str(code).upper()
+        is_hume_leaf = (
+            800 <= width <= 920
+            and 1960 <= height <= 2100
+            and (code_u.startswith("ED") or code_u.startswith("D"))
+        )
+        if is_hume_leaf:
+            item_id = "door_hume_nexus15_860"
+            bucket = joinery_priced.setdefault(
+                item_id,
+                {"item_id": item_id, "count": 0, "codes": [], "formula": "门扇宽 800–920、高 1960–2100 × Hume Nexus 15 门扇零售价"},
             )
+            bucket["count"] += count
+            bucket["codes"].append(str(code))
             continue
         item_id = WINDOW_ITEMS.get((width, height))
         if item_id:
-            lines.append(
-                line(
-                    item_id,
-                    count,
-                    formula=f"{code} {width}×{height}mm 公开新窗标价 × {count}",
-                )
+            bucket = joinery_priced.setdefault(
+                item_id,
+                {"item_id": item_id, "count": 0, "codes": [], "formula": f"{width}×{height}mm 公开新窗标价"},
             )
+            bucket["count"] += count
+            bucket["codes"].append(str(code))
         else:
             lines.append(
                 missing_line(
@@ -119,6 +122,20 @@ def cost_option(
                     unit="樘",
                 )
             )
+    for bucket in joinery_priced.values():
+        extra = "、".join(bucket["codes"][:8])
+        if bucket["item_id"] == "door_hume_nexus15_860":
+            extra_notes = f"门扇 1980×860，不是整樘含框。对不上的门宽不套此 SKU。代码：{extra}"
+        else:
+            extra_notes = f"代码：{extra}"
+        lines.append(
+            line(
+                bucket["item_id"],
+                bucket["count"],
+                formula=f"{bucket['formula']} × {bucket['count']}",
+                extra_notes=extra_notes,
+            )
+        )
     kitchens = int(qty.get("kitchens") or 0)
     bathrooms = int(qty.get("bathrooms") or 0)
     dwellings = int(template.get("dwellings") or 1)

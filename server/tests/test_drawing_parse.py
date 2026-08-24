@@ -226,3 +226,77 @@ def test_run_drawings_builds_priced_option():
     assert option["origin"] == "drawings"
     assert option["cost"]["totals"]["confirmed_total_incl_gst"] > 0
     assert option["drawing_extract"]["fields"]["gfa_m2"]["value"] == 186.4
+
+
+BRUCE_RC = """
+Street Address 115 Bruce Road, Glenfield 0629
+Gross Site Area 733
+Building Coverage % of Net Site Area
+Allowable Coverage (MAX) 45 329.9
+Proposed Coverage 42.7 313 comply
+LOT 1 FFL= 48.0
+LOT 2 FFL= 49.2
+LOT 3 FFL= 48.9
+LOT 4 FFL= 48.6
+LOT 5 FFL= 48.3
+LOT 6 FFL= 48.0
+Second Floor Plan
+KITCHEN DINING LIVING
+ENS 1 MASTER BR 1
+ENS 2 MASTER BR 2
+BATH BED RM 3 BED RM 4
+Keystone Retaining Wall Max Height 1m
+2100H x 860W ED 11
+2100H x 2700W ED 12
+1200H x 1800W EW 08
+2100H x 3000W ED 14
+710W ED 08
+"""
+
+HART_BC = """
+NEW RESIDENCE FOR LOT 1 OF 49 Hart Road HAURAKI 0622 BUILDING CONSENT
+3000x2200 W-17
+2000w x600h W-1
+four bedrooms, three bathrooms
+Total 310m2
+"""
+
+
+def test_revit_style_height_width_and_proposed_coverage():
+    parsed = extract_from_text(BRUCE_RC, kind="rc", filename="115-bruce-rc.pdf")
+    assert parsed["address_hint"].startswith("115 Bruce Road")
+    assert parsed["fields"]["footprint_m2"]["value"] == 313.0
+    assert parsed["fields"]["coverage_pct"]["value"] == 42.7
+    assert parsed["fields"]["dwellings"]["value"] == 6
+    assert parsed["fields"]["storeys"]["value"] == 3
+    assert parsed["fields"]["kitchens"]["value"] == 6
+    assert parsed["fields"]["bathrooms"]["value"] == 18
+    assert parsed["fields"]["retaining_height_m"]["value"] == 1.0
+    by_code = {item["code"]: item for item in parsed["windows"]}
+    assert by_code["ED11"]["w_mm"] == 860
+    assert by_code["ED11"]["h_mm"] == 2100
+    assert by_code["EW08"]["w_mm"] == 1800
+    assert by_code["ED08"]["w_mm"] == 710
+    assert by_code["ED08"]["h_mm"] == 2100
+
+
+def test_merge_drops_bc_from_another_street():
+    rc = extract_from_text(BRUCE_RC, kind="rc", filename="115-bruce-rc.pdf")
+    bc = extract_from_text(HART_BC, kind="bc", filename="hart-bc.pdf")
+    merged = merge_extracts([rc, bc])
+    assert merged["fields"]["footprint_m2"]["value"] == 313.0
+    assert any("不一致" in item for item in merged["warnings"])
+    assert not any(item["code"] == "W-17" or item["code"] == "W17" for item in merged["windows"])
+    assert any(item["code"] == "ED11" for item in merged["windows"])
+
+
+def test_wide_slider_not_priced_as_hume_door():
+    template = template_from_extract(merge_extracts([extract_from_text(BRUCE_RC, kind="rc", filename="rc.pdf")]), _site())
+    result = cost_option(template, {"needs_resource_consent": True, "reasons": []}, site=_site())
+    by_id = {item["id"]: item for item in result["lines"]}
+    assert by_id["door_hume_nexus15_860"]["quantity"] == 1
+    assert by_id["window_alu_1800x1200_dg"]["quantity"] == 1
+    assert "joinery_ED14_3000x2100" in by_id
+    assert "joinery_ED08_710x2100" in by_id
+    assert "joinery_ED12_2700x2100" in by_id
+

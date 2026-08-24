@@ -93,10 +93,14 @@ def explain_node(state: DrawingState) -> dict[str, Any]:
     bits = ["第二阶段按 RC/BC 图纸文字层套价，不是户型模板估算，也没有用 YOLO 猜毫米。"]
     if fields.get("gfa_m2"):
         bits.append(f"建筑面积 {fields['gfa_m2']['value']} m²（{fields['gfa_m2']['evidence']}）。")
+    elif fields.get("footprint_m2"):
+        bits.append(f"占地 {fields['footprint_m2']['value']} m²（{fields['footprint_m2']['evidence']}）。")
     if n_win:
         bits.append(f"门窗表 {n_win} 樘。")
     if fields.get("stud_spacing_mm"):
         bits.append(f"立柱间距按图纸改为 {fields['stud_spacing_mm']['value']} mm。")
+    mismatch = [item for item in extracted.get("warnings") or [] if "不一致" in item]
+    bits.extend(mismatch)
     bits.append("金额仍只来自价库与官方费率，读不到的尺寸标缺项。")
     return {"explanation": "".join(bits), "trace": _trace(state, "drawing_explain", "drawing-brief")}
 
@@ -144,9 +148,11 @@ def template_from_extract(extracted: dict[str, Any], site: dict[str, Any]) -> di
     footprint = _value(fields, "footprint_m2")
     gfa = _value(fields, "gfa_m2")
     gfa_missing = gfa is None and footprint is None
+    gfa_derived = False
     if gfa is None and footprint:
         gfa = round(float(footprint) * storeys, 1)
         gfa_missing = False
+        gfa_derived = True
     if gfa is None:
         gfa = 0.0
     dwellings = int(_value(fields, "dwellings") or 1)
@@ -161,6 +167,8 @@ def template_from_extract(extracted: dict[str, Any], site: dict[str, Any]) -> di
         item = fields.get(key)
         if item:
             why.append(f"{key}={item['value']} ← {item.get('evidence')}")
+    if gfa_derived:
+        why.append(f"GFA {gfa} m² ← 占地 {footprint} × {storeys} 层（图纸未写 GFA）。")
     if _value(fields, "cladding") == "block_veneer":
         why.append("图纸写明砌块贴面或 400mm 立柱间距，木材按 400mm 间距计。")
     parcel = site.get("parcel") or {}
@@ -181,7 +189,13 @@ def template_from_extract(extracted: dict[str, Any], site: dict[str, Any]) -> di
         "gfa_m2": float(gfa),
         "gfa_per_unit_m2": round(float(gfa) / max(dwellings, 1), 1),
         "gfa_missing": gfa_missing,
-        "gfa_note": "图纸未读到建筑面积，木材/屋面/筏板按面积计的科目不套模板数。" if gfa_missing else None,
+        "gfa_note": (
+            "图纸未读到建筑面积，木材/屋面/筏板按面积计的科目不套模板数。"
+            if gfa_missing
+            else "GFA 由图纸占地×层数推算，文字层未写 GFA。"
+            if gfa_derived
+            else None
+        ),
         "aspect": 1.4,
         "eaves_mm": eaves,
         "wall_height_m": wall_height,

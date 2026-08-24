@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from pypdf import PdfReader
+from pypdf.errors import DependencyError, PdfReadError
 
 MAX_PDF_BYTES = 15 * 1024 * 1024
 
@@ -13,6 +14,20 @@ WINDOW_ROW = re.compile(
     r"(?P<a>\d{3,4})\s*[xX×]\s*(?P<b>\d{3,4})"
     r"(?:\s*(?:mm)?)?"
     r"(?:\s*(?:qty|no\.?|×|x)\s*(?P<qty>\d{1,2}))?",
+    re.IGNORECASE,
+)
+HW_THEN_CODE = re.compile(
+    r"(?P<h>\d{3,4})\s*[Hh]\s*[xX×]\s*(?P<w>\d{3,4})\s*[Ww]\s+"
+    r"(?P<code>(?:EW|ED|DW|SL|RS|W|D)[-\s]?\d+)",
+    re.IGNORECASE,
+)
+SIZE_THEN_CODE = re.compile(
+    r"(?P<a>\d{3,4})\s*[xX×]\s*(?P<b>\d{3,4})\s+"
+    r"(?P<code>(?:EW|ED|DW|SL|RS|W|D)[-\s]?\d+)",
+    re.IGNORECASE,
+)
+WIDTH_THEN_ED = re.compile(
+    r"(?P<w>\d{3,4})\s*[Ww]\s+(?P<code>ED[-\s]?\d+)",
     re.IGNORECASE,
 )
 DIM_WH = re.compile(
@@ -55,40 +70,93 @@ COVERAGE = re.compile(
     re.IGNORECASE,
 )
 RETAIN_H = re.compile(
-    r"retaining\s+wall[^\n]{0,40}?(\d+(?:\.\d+)?)\s*m",
+    r"retaining\s+wall[^\d]{0,40}?(\d+(?:\.\d+)?)\s*m",
     re.IGNORECASE,
 )
+PROPOSED_COVERAGE = re.compile(
+    r"Proposed Coverage\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+GROSS_SITE = re.compile(r"Gross Site Area\s+(\d+(?:\.\d+)?)", re.IGNORECASE)
+SECOND_FLOOR = re.compile(r"second\s+floor", re.IGNORECASE)
+FIRST_FLOOR = re.compile(r"first\s+floor", re.IGNORECASE)
+LOT_FFL = re.compile(r"\bLOT\s+([1-9])\s+FFL", re.IGNORECASE)
+STREET_ADDRESS = re.compile(r"Street Address\s+([^,\n]{5,80})", re.IGNORECASE)
+ROAD_ADDRESS = re.compile(
+    r"(\d+[A-Za-z]?\s+[A-Za-z][A-Za-z'-]*(?:\s+[A-Za-z'-]+)?\s+(?:Road|Street|Avenue|Drive|Place|Lane|Crescent))",
+    re.IGNORECASE,
+)
+BED_RM = re.compile(r"(?:MASTER\s+BR|BED\s*RM)\s*(\d)", re.IGNORECASE)
 BLOCK = re.compile(r"block\s+veneer|concrete\s+block\s+cladding|砌块贴面", re.IGNORECASE)
 STUD_400 = re.compile(r"(?:stud(?:s)?\s+(?:centres?|centers?|spacing)\s*[:：]?\s*400|立柱间距\s*400)", re.IGNORECASE)
 
 
+def _empty_parse(kind: str, filename: str, error: str, warning: str) -> dict[str, Any]:
+    return {
+        "kind": kind,
+        "filename": filename,
+        "error": error,
+        "char_count": 0,
+        "page_count": 0,
+        "fields": {},
+        "windows": [],
+        "warnings": [warning],
+        "address_hint": None,
+    }
+
+
 def extract_pdf(path: Path, *, kind: str, filename: str) -> dict[str, Any]:
     if path.stat().st_size > MAX_PDF_BYTES:
-        return {
-            "kind": kind,
-            "filename": filename,
-            "error": "PDF 超过 15MB，未解析。",
-            "char_count": 0,
-            "fields": {},
-            "windows": [],
-            "warnings": ["file_too_large"],
-        }
-    reader = PdfReader(str(path))
-    pages = []
-    for index, page in enumerate(reader.pages, start=1):
-        pages.append({"page": index, "text": page.extract_text() or ""})
-    text = "\n".join(item["text"] for item in pages)
-    parsed = extract_from_text(text, kind=kind, filename=filename)
-    parsed["page_count"] = len(pages)
-    parsed["char_count"] = len(text.strip())
-    if parsed["char_count"] < 80 and not parsed["fields"] and not parsed["windows"]:
-        parsed["warnings"].append("scanned_or_empty_text")
-        parsed["error"] = parsed.get("error") or "PDF 几乎没有文字层。扫描件无法按尺寸套价，请上传可选中文字的 RC/BC 图，或提供 IFC。"
-    return parsed
+        return _empty_parse(kind, filename, "PDF 超过 15MB，未解析。", "file_too_large")
+    try:
+        reader = PdfReader(str(path))
+        if getattr(reader, "is_encrypted", False):
+            try:
+                reader.decrypt("")
+            except Exception:  # noqa: BLE001
+                return _empty_parse(
+                    kind,
+                    filename,
+                    "PDF 有打开密码，无法读取文字层。请导出无密码副本后再上传。",
+                    "encrypted_password",
+                )
+        pages = []
+        page_warnings: list[str] = []
+        for index, page in enumerate(reader.pages, start=1):
+            try:
+                pages.append({"page": index, "text": page.extract_text() or ""})
+            except Exception as exc:  # noqa: BLE001
+                page_warnings.append(f"page_{index}_unreadable")
+                pages.append({"page": index, "text": ""})
+                if "cryptography" in str(exc).lower() or isinstance(exc, DependencyError):
+                    return _empty_parse(
+                        kind,
+                        filename,
+                        "加密 PDF 需要 cryptography 才能读文字层。服务已缺少该依赖时请重试。",
+                        "aes_dependency",
+                    )
+        text = "\n".join(item["text"] for item in pages)
+        parsed = extract_from_text(text, kind=kind, filename=filename)
+        parsed["page_count"] = len(pages)
+        parsed["char_count"] = len(text.strip())
+        parsed["warnings"] = list(dict.fromkeys([*(parsed.get("warnings") or []), *page_warnings]))
+        if parsed["char_count"] < 80 and not parsed["fields"] and not parsed["windows"]:
+            parsed["warnings"].append("scanned_or_empty_text")
+            parsed["error"] = parsed.get("error") or "PDF 几乎没有文字层。扫描件无法按尺寸套价，请上传可选中文字的 RC/BC 图，或提供 IFC。"
+        return parsed
+    except DependencyError:
+        return _empty_parse(
+            kind,
+            filename,
+            "加密 PDF 需要 cryptography 才能读文字层。",
+            "aes_dependency",
+        )
+    except (PdfReadError, OSError, ValueError) as exc:
+        return _empty_parse(kind, filename, f"无法解析 PDF：{exc}", "pdf_unreadable")
 
 
 def extract_from_text(text: str, *, kind: str, filename: str) -> dict[str, Any]:
-    compact = re.sub(r"[ \t]+", " ", text)
+    compact = re.sub(r"\s+", " ", text)
     fields: dict[str, Any] = {}
     warnings: list[str] = []
 
@@ -124,7 +192,7 @@ def extract_from_text(text: str, *, kind: str, filename: str) -> dict[str, Any]:
             "evidence": baths.group(0),
             "source_file": filename,
         }
-    _put_int(fields, "kitchens", KITCHENS, compact, filename, lo=1, hi=6)
+    _put_int(fields, "kitchens", KITCHENS, compact, filename, lo=1, hi=12)
     _put_int(fields, "dwellings", DWELLINGS, compact, filename, lo=1, hi=12)
     coverage = COVERAGE.search(compact)
     if coverage:
@@ -133,11 +201,77 @@ def extract_from_text(text: str, *, kind: str, filename: str) -> dict[str, Any]:
             "evidence": coverage.group(0),
             "source_file": filename,
         }
+    proposed = PROPOSED_COVERAGE.search(compact)
+    if proposed:
+        fields["coverage_pct"] = {
+            "value": float(proposed.group(1)),
+            "evidence": proposed.group(0),
+            "source_file": filename,
+        }
+        fields["footprint_m2"] = {
+            "value": float(proposed.group(2)),
+            "evidence": proposed.group(0),
+            "source_file": filename,
+        }
+    site_area = GROSS_SITE.search(compact)
+    if site_area:
+        fields["site_area_m2"] = {
+            "value": float(site_area.group(1)),
+            "evidence": site_area.group(0),
+            "source_file": filename,
+        }
     retain = RETAIN_H.search(compact)
     if retain:
         fields["retaining_height_m"] = {
             "value": float(retain.group(1)),
             "evidence": retain.group(0),
+            "source_file": filename,
+        }
+    lots = sorted({int(item) for item in LOT_FFL.findall(compact)})
+    if len(lots) >= 2:
+        fields["dwellings"] = {
+            "value": len(lots),
+            "evidence": "、".join(f"LOT {item} FFL" for item in lots),
+            "source_file": filename,
+        }
+        fields["kind_guess"] = {
+            "value": "terrace" if len(lots) >= 3 else "duplex",
+            "evidence": fields["dwellings"]["evidence"],
+            "source_file": filename,
+        }
+    if SECOND_FLOOR.search(compact) and int(_value(fields, "storeys") or 1) < 3:
+        fields["storeys"] = {"value": 3, "evidence": "图纸含 Second Floor", "source_file": filename}
+    elif FIRST_FLOOR.search(compact) and "storeys" not in fields:
+        fields["storeys"] = {"value": 2, "evidence": "图纸含 First Floor", "source_file": filename}
+    bed_nos = [int(item) for item in BED_RM.findall(compact)]
+    if bed_nos and int(_value(fields, "bedrooms") or 0) < max(bed_nos):
+        fields["bedrooms"] = {
+            "value": max(bed_nos),
+            "evidence": f"MASTER BR / BED RM 最大 {max(bed_nos)}",
+            "source_file": filename,
+        }
+    dwellings = int(_value(fields, "dwellings") or 0)
+    if dwellings and re.search(r"\bKITCHEN\b", compact, re.I) and int(_value(fields, "kitchens") or 0) < dwellings:
+        fields["kitchens"] = {
+            "value": dwellings,
+            "evidence": f"每套有 Kitchen 标注，按 {dwellings} 套计",
+            "source_file": filename,
+        }
+    wet = 0
+    wet_bits = []
+    if re.search(r"\bENS\s*1\b", compact, re.I):
+        wet += 1
+        wet_bits.append("ENS 1")
+    if re.search(r"\bENS\s*2\b", compact, re.I):
+        wet += 1
+        wet_bits.append("ENS 2")
+    if re.search(r"\bBATH\b", compact, re.I):
+        wet += 1
+        wet_bits.append("BATH")
+    if dwellings and wet and int(_value(fields, "bathrooms") or 0) < wet * dwellings:
+        fields["bathrooms"] = {
+            "value": wet * dwellings,
+            "evidence": f"每套 {'+'.join(wet_bits)}，×{dwellings} 套",
             "source_file": filename,
         }
     if BLOCK.search(compact) or STUD_400.search(compact):
@@ -156,7 +290,34 @@ def extract_from_text(text: str, *, kind: str, filename: str) -> dict[str, Any]:
         "fields": fields,
         "windows": windows,
         "warnings": warnings,
+        "address_hint": _address_hint(compact),
     }
+
+
+def _value(fields: dict[str, Any], key: str):
+    item = fields.get(key)
+    if item is None:
+        return None
+    if isinstance(item, dict) and "value" in item:
+        return item["value"]
+    return item
+
+
+def _address_hint(text: str) -> str | None:
+    street = STREET_ADDRESS.search(text)
+    if street:
+        return street.group(1).strip()
+    road = ROAD_ADDRESS.search(text)
+    if road:
+        return road.group(1).strip()
+    return None
+
+
+def _road_key(hint: str | None) -> str:
+    if not hint:
+        return ""
+    match = re.search(r"([a-z]+)\s+(?:road|street|avenue|drive|place|lane|crescent)", hint.lower())
+    return match.group(1) if match else re.sub(r"[^a-z]+", "", hint.lower())
 
 
 AREA_FIELD_KEYS = {
@@ -183,6 +344,7 @@ def merge_extracts(parts: list[dict[str, Any]]) -> dict[str, Any]:
     warnings: list[str] = []
     documents = []
     errors = []
+    rc_road = next((_road_key(part.get("address_hint")) for part in parts if part.get("kind") == "rc" and part.get("address_hint")), "")
     for part in parts:
         documents.append(
             {
@@ -191,11 +353,19 @@ def merge_extracts(parts: list[dict[str, Any]]) -> dict[str, Any]:
                 "page_count": part.get("page_count"),
                 "char_count": part.get("char_count"),
                 "error": part.get("error"),
+                "address_hint": part.get("address_hint"),
             }
         )
         if part.get("error") and part.get("char_count", 0) < 80:
             errors.append(part["error"])
         warnings.extend(part.get("warnings") or [])
+        part_road = _road_key(part.get("address_hint"))
+        if rc_road and part.get("kind") != "rc" and part_road and part_road != rc_road:
+            warnings.append(
+                f"{part.get('filename')} 文字层地址是「{part.get('address_hint')}」，"
+                f"与 RC 的道路「{rc_road}」不一致，这份图的面积和门窗表未并入。"
+            )
+            continue
         kind = part.get("kind")
         for key, value in (part.get("fields") or {}).items():
             if key not in fields:
@@ -231,31 +401,44 @@ def infer_kind(filename: str, declared: str | None = None) -> str:
 
 def _windows(text: str, filename: str) -> list[dict[str, Any]]:
     found: dict[str, dict[str, Any]] = {}
-    for match in WINDOW_ROW.finditer(text):
-        code = re.sub(r"\s+", "", match.group("code")).upper()
-        a = int(match.group("a"))
-        b = int(match.group("b"))
-        width, height = _orient(code, a, b)
-        qty = int(match.group("qty") or 1)
-        key = f"{code}-{width}x{height}"
+
+    def add(code: str, width: int, height: int, evidence: str, qty: int = 1) -> None:
+        if not _plausible_opening(width, height):
+            return
+        key = re.sub(r"\s+", "", code).upper()
         if key in found:
-            found[key]["count"] += qty
-        else:
-            found[key] = {
-                "code": code,
-                "w_mm": width,
-                "h_mm": height,
-                "count": qty,
-                "evidence": match.group(0).strip(),
-                "source_file": filename,
-            }
+            return
+        found[key] = {
+            "code": key,
+            "w_mm": width,
+            "h_mm": height,
+            "count": qty,
+            "evidence": evidence.strip(),
+            "source_file": filename,
+        }
+
+    for match in HW_THEN_CODE.finditer(text):
+        add(match.group("code"), int(match.group("w")), int(match.group("h")), match.group(0))
+    for match in WINDOW_ROW.finditer(text):
+        width, height = _orient(match.group("code"), int(match.group("a")), int(match.group("b")))
+        add(match.group("code"), width, height, match.group(0), int(match.group("qty") or 1))
+    for match in SIZE_THEN_CODE.finditer(text):
+        width, height = _orient(match.group("code"), int(match.group("a")), int(match.group("b")))
+        add(match.group("code"), width, height, match.group(0))
+    door_heights = [item["h_mm"] for item in found.values() if str(item["code"]).startswith("ED")]
+    default_h = 2100 if any(1960 <= item <= 2100 for item in door_heights) else None
+    if default_h:
+        for match in WIDTH_THEN_ED.finditer(text):
+            code = match.group("code")
+            width = int(match.group("w"))
+            add(code, width, default_h, f"{match.group(0)}（高度未标，同图 ED 为 {default_h}H）")
     if found:
         return list(found.values())
     loose: list[dict[str, Any]] = []
     for match in list(DIM_WH.finditer(text)) + list(DIM_HW.finditer(text)):
         width = int(match.group("w"))
         height = int(match.group("h"))
-        if width < 400 or height < 400:
+        if not _plausible_opening(width, height):
             continue
         snippet = text[max(match.start() - 40, 0) : match.end() + 40]
         qty_match = QTY_NEAR.search(snippet)
@@ -273,8 +456,19 @@ def _windows(text: str, filename: str) -> list[dict[str, Any]]:
     return _collapse(loose)
 
 
+def _plausible_opening(width: int, height: int) -> bool:
+    if width < 400 or height < 350:
+        return False
+    if width > 7000 or height > 4000:
+        return False
+    return True
+
+
 def _orient(code: str, a: int, b: int) -> tuple[int, int]:
-    if code.startswith("ED") or code.startswith("D"):
+    code_u = re.sub(r"\s+", "", code).upper()
+    if max(a, b) >= 2400:
+        return max(a, b), min(a, b)
+    if code_u.startswith("ED") or code_u.startswith("D"):
         return (min(a, b), max(a, b)) if max(a, b) >= 1800 else (a, b)
     return (max(a, b), min(a, b)) if max(a, b) >= 1500 and min(a, b) <= 1500 else (a, b)
 

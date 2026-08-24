@@ -27,3 +27,9 @@ Done
 Done
 
 项目页上传 RC/BC PDF，用 pypdf 读文字层（门窗表、GFA、底层/屋面、层高、覆盖率、砌块贴面/400mm 立柱、挡土墙高度），LangGraph 节点 parse_drawings → drawing_template → drawing_cost → drawing_explain 套同一价库。扫描件无文字层报错；无面积不套结构模板；无厨卫不套洁具；对不上的樘标缺项。仓库没有 115 Bruce 原图，不编造窗表。
+
+## 加密 RC/BC 读文字层失败修复
+
+Done
+
+补 cryptography 以读取 AES 加密图纸；按 `2100H x 860W ED 11` / Proposed Coverage / LOT FFL 抽取；BC 与 RC 地址不一致时不用错地的窗表。解析异常返回可读中文错误，不再只显示「图纸核算失败」。
