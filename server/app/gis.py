@@ -345,7 +345,7 @@ def split_estate_note(query: str, hits: list[dict[str, Any]]) -> str | None:
     where = f"{head} {place}".strip()
     return (
         f"议会已无整宗门牌 {where}；开发完成后现址为 {labels}。"
-        "请选其中一户读地。多套 RC 图纸按同一 DP 各户合计面积做覆盖率校核，不按单户小地块判整份图放不下。"
+        "请选其中一户读地。开发完成后只按该户的议会现址核算，不把兄弟地块合计成整宗。"
     )
 
 
@@ -555,6 +555,18 @@ def _score_parcel(candidate: dict[str, Any], address: str) -> float:
     return score
 
 
+def filter_parcels_for_address(candidates: list[dict[str, Any]], address: str) -> list[dict[str, Any]]:
+    number, unit = _house_token(address)
+    if not number or not unit:
+        return list(candidates)
+    matched: list[dict[str, Any]] = []
+    for item in candidates:
+        cand_number, cand_unit = _house_token(item.get("formatted_address") or "")
+        if cand_number == number and cand_unit == unit:
+            matched.append(item)
+    return matched or list(candidates)
+
+
 def _parcel_from_feature(feature: dict[str, Any], layer: dict[str, str]) -> dict[str, Any] | None:
     attributes = feature.get("attributes") or {}
     rings = ((feature.get("geometry") or {}).get("rings")) or []
@@ -641,6 +653,8 @@ def lookup_parcel(lat: float, lon: float, address: str) -> dict[str, Any]:
         key = f"{item.get('formatted_address')}|{item.get('area_m2')}|{item.get('layer_id')}"
         uniq[key] = item
     ranked = sorted(uniq.values(), key=lambda item: _score_parcel(item, address), reverse=True)
+    ranked = filter_parcels_for_address(ranked, address)
+    ranked = sorted(ranked, key=lambda item: _score_parcel(item, address), reverse=True)
     if not ranked:
         return {
             "found": False,
@@ -769,8 +783,7 @@ def lookup_unit_cluster(
     combined = round(sum(areas), 1) if areas else None
     source = units[0]
     selected_area = parcel.get("area_m2")
-    selected_bit = f"（约 {selected_area} m²）" if selected_area else ""
-    return {
+    cluster = {
         "found": True,
         "title_plan": f"DP {dp}",
         "unit_count": len(units),
@@ -786,15 +799,31 @@ def lookup_unit_cluster(
             }
             for item in units
         ],
-        "note": (
-            f"议会已无整宗 {number} 门牌。当前选中 {selected}{selected_bit}，"
-            f"同一 DP {dp} 共 {len(units)} 宗合计约 {combined} m²。"
-            "多套图纸按合计面积做覆盖率与能否放下的校核；在本户上新建独栋仍按本户面积。"
-        ),
         "source_name": source.get("source_name"),
         "source_url": source.get("source_url"),
         "retrieved_at": datetime.now(timezone.utc).date().isoformat(),
     }
+    cluster["note"] = display_note_for_cluster(cluster)
+    return cluster
+
+
+def display_note_for_cluster(cluster: dict[str, Any]) -> str:
+    selected = cluster.get("selected_unit") or "本户"
+    selected_area = cluster.get("selected_area_m2")
+    selected_bit = f"（约 {selected_area} m²）" if selected_area else ""
+    short_labels: list[str] = []
+    for item in cluster.get("units") or []:
+        house, letter = _house_token(item.get("formatted_address") or "")
+        if house and letter:
+            short_labels.append(f"{house}{letter}")
+    label_text = "、".join(short_labels) if short_labels else "拆分后各户"
+    plan = cluster.get("title_plan") or "同一 DP"
+    count = cluster.get("unit_count") or len(cluster.get("units") or [])
+    return (
+        f"开发完成后议会现址是当前选中的 {selected}{selected_bit}。"
+        f"同号还有 {label_text}（{count} 户，{plan}），需分别从地址库点选。"
+        "本页只显示并核算这一条议会记录，不把兄弟地块面积合计成整宗。"
+    )
 
 
 def attach_subdivision(site: dict[str, Any], address: str) -> dict[str, Any]:

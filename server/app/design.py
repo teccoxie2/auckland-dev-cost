@@ -5,7 +5,7 @@ from typing import Any
 from .costing import cost_option
 from .data_loader import design_rules, typologies
 from .quantity import takeoff
-from .zoning import filter_template
+from .zoning import filter_template, is_existing_unit_title
 
 
 KIND_LABELS = {
@@ -139,14 +139,52 @@ def costed_option(
     return option
 
 
-def recommend_schemes(rules: dict[str, Any], site: dict[str, Any]) -> list[dict[str, Any]]:
+CURRENT_TITLE_FILTER = "current_council_title"
+
+
+def fits_current_council_title(template: dict[str, Any], site: dict[str, Any] | None) -> bool:
+    if not is_existing_unit_title(site):
+        return True
+    return int(template.get("dwellings") or 1) == 1 and str(template.get("kind") or "") == "standalone"
+
+
+def scheme_filter_meta(site: dict[str, Any] | None, skipped: int) -> dict[str, Any] | None:
+    if not is_existing_unit_title(site):
+        return None
+    if skipped:
+        note = (
+            "开发完成后只显示当前这条议会记录。"
+            f"已筛掉 {skipped} 个需要整宗地或放不进本户的方案，不把拆分后的兄弟地块合计成一块地。"
+        )
+    else:
+        note = "开发完成后只显示当前这条议会记录，不把拆分后的兄弟地块合计成一块地。"
+    return {
+        "mode": CURRENT_TITLE_FILTER,
+        "skipped": skipped,
+        "note": note,
+    }
+
+
+def recommend_schemes(rules: dict[str, Any], site: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
     options = []
+    skipped = 0
     for template in typologies()["templates"]:
+        if not fits_current_council_title(template, site):
+            skipped += 1
+            continue
         why = _why(template, rules, site)
         options.append(costed_option(template, rules, site, why=why, origin="typology"))
     fitted = _site_fit_option(rules, site, options)
     if fitted:
         options.insert(0, fitted)
+    if is_existing_unit_title(site):
+        kept: list[dict[str, Any]] = []
+        for item in options:
+            if item["verdict"]["status"] == "infeasible":
+                skipped += 1
+                continue
+            kept.append(item)
+        options = kept
     feasible = [item for item in options if item["verdict"]["status"] != "infeasible"]
     ranked = sorted(
         feasible,
@@ -162,7 +200,7 @@ def recommend_schemes(rules: dict[str, Any], site: dict[str, Any]) -> list[dict[
         if "初版优先推荐" not in item["why"]:
             item["why"] = ["初版优先推荐：更贴合这块地的区划、面积与坡度。", *item["why"]]
     blocked = [item for item in options if item["verdict"]["status"] == "infeasible"]
-    return ranked + blocked
+    return ranked + blocked, skipped
 
 
 def _site_fit_option(rules: dict[str, Any], site: dict[str, Any], existing: list[dict[str, Any]]) -> dict[str, Any] | None:

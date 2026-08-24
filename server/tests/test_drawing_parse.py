@@ -235,7 +235,7 @@ def test_drawing_still_costs_when_parcel_is_too_small():
     assert state["option"]["cost"]["totals"]["confirmed_total_incl_gst"] > 0
 
 
-def test_drawing_uses_split_titles_combined_area():
+def test_drawing_parent_rc_mismatch_on_unit_title():
     site = {
         "parcel": {"found": True, "area_m2": 109.5, "frontage_m": 8},
         "subdivision": {
@@ -243,12 +243,14 @@ def test_drawing_uses_split_titles_combined_area():
             "combined_area_m2": 734.9,
             "title_plan": "DP 580591",
             "unit_count": 6,
+            "selected_unit": "115B",
         },
         "terrain": {"slope_deg": 1, "height_range_m": 0.2},
     }
     state = run_drawings(site, _rules(), [extract_from_text(BRUCE_RC, kind="rc", filename="rc.pdf")])
-    assert state["option"]["verdict"]["status"] != "infeasible"
-    assert any("合计" in item for item in state["template"]["why"])
+    assert state["option"]["verdict"]["status"] == "infeasible"
+    assert state["option"]["cost"]["totals"]["confirmed_total_incl_gst"] > 0
+    assert any("现址" in item or "本户" in item for item in state["option"]["verdict"]["reasons"])
 
 
 BRUCE_RC = """

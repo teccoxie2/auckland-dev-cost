@@ -5,9 +5,18 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from .advise import build_advice
-from .design import build_template, costed_option, recommend_schemes
-from .gis import GisError, attach_subdivision, geocode_address, lookup_overlays, lookup_parcel, lookup_terrain, lookup_zone
-from .zoning import apply_zone_rules, filter_template
+from .design import CURRENT_TITLE_FILTER, build_template, costed_option, recommend_schemes, scheme_filter_meta
+from .gis import (
+    GisError,
+    attach_subdivision,
+    display_note_for_cluster,
+    geocode_address,
+    lookup_overlays,
+    lookup_parcel,
+    lookup_terrain,
+    lookup_zone,
+)
+from .zoning import apply_zone_rules, filter_template, is_existing_unit_title
 
 
 class ProjectState(TypedDict, total=False):
@@ -24,6 +33,7 @@ class ProjectState(TypedDict, total=False):
     trace: list
     explanation: str
     pm_review: dict
+    scheme_filter: dict
 
 
 def _trace(state: ProjectState, node: str, detail: str) -> list[dict[str, Any]]:
@@ -89,7 +99,7 @@ def parcel_node(state: ProjectState) -> dict[str, Any]:
     if cluster.get("found"):
         detail = (
             f"{parcel.get('formatted_address')} {parcel.get('area_m2')} m²; "
-            f"cluster {cluster.get('title_plan')} {cluster.get('combined_area_m2')} m² × {cluster.get('unit_count')}"
+            f"current title {cluster.get('selected_unit')} among {cluster.get('unit_count')}"
         )
     elif parcel.get("found"):
         detail = f"{parcel.get('formatted_address')} {parcel.get('area_m2')} m²"
@@ -132,8 +142,15 @@ def advise_node(state: ProjectState) -> dict[str, Any]:
 def options_node(state: ProjectState) -> dict[str, Any]:
     if state.get("error"):
         return {}
-    options = recommend_schemes(state["rules"], state["site"])
-    return {"options": options, "trace": _trace(state, "options", f"{len(options)} schemes")}
+    options, skipped = recommend_schemes(state["rules"], state["site"])
+    meta = scheme_filter_meta(state["site"], skipped)
+    payload: dict[str, Any] = {
+        "options": options,
+        "trace": _trace(state, "options", meta["note"] if meta else f"{len(options)} schemes"),
+    }
+    if meta:
+        payload["scheme_filter"] = meta
+    return payload
 
 
 def explain_node(state: ProjectState) -> dict[str, Any]:
@@ -151,7 +168,7 @@ def explain_node(state: ProjectState) -> dict[str, Any]:
         f"规则表中许可住宅套数上限为 {rules.get('permitted_dwellings')} 套，高度约 {rules.get('height_m')} m，覆盖率 {int((rules.get('coverage') or 0)*100)}%。",
     ]
     if cluster.get("found"):
-        parts.append(cluster.get("note") or f"拆分后同一 {cluster.get('title_plan')} 合计约 {cluster.get('combined_area_m2')} m²。")
+        parts.append(cluster.get("note") or "开发完成后只按当前议会门牌核算。")
     elif parcel.get("found"):
         parts.append(f"地块面积约 {parcel['area_m2']} m²（{parcel.get('formatted_address')}）。")
     if terrain.get("slope_deg") is not None:
@@ -230,7 +247,8 @@ def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any
     needs_parcel = not parcel.get("found")
     needs_terrain = terrain.get("slope_deg") is None
     needs_cluster = "subdivision" not in site or (site.get("subdivision") or {}).get("reason") == "cluster_lookup_failed"
-    if not needs_parcel and not needs_terrain and not needs_cluster and result.get("advice"):
+    needs_title_filter = is_existing_unit_title(site) and (result.get("scheme_filter") or {}).get("mode") != CURRENT_TITLE_FILTER
+    if not needs_parcel and not needs_terrain and not needs_cluster and not needs_title_filter and result.get("advice"):
         return None
     changed = False
     if needs_parcel:
@@ -244,6 +262,9 @@ def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any
         site = attach_subdivision(site, address)
         if site.get("subdivision") != before:
             changed = True
+        needs_title_filter = is_existing_unit_title(site) and (result.get("scheme_filter") or {}).get("mode") != CURRENT_TITLE_FILTER
+    if needs_title_filter:
+        changed = True
     if needs_terrain:
         try:
             site["terrain"] = lookup_terrain(float(geo["lat"]), float(geo["lon"]), site.get("parcel"))
@@ -255,15 +276,43 @@ def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any
         return None
     result = dict(result)
     result["site"] = site
+    if is_existing_unit_title(site):
+        cluster = dict(site.get("subdivision") or {})
+        cluster["note"] = display_note_for_cluster(cluster)
+        site = dict(site)
+        site["subdivision"] = cluster
+        result["site"] = site
     if result.get("rules"):
         result["advice"] = build_advice(site, result["rules"])
-    _refresh_drawing_verdicts(result, site)
+    if is_existing_unit_title(site):
+        _apply_current_title_filter(result, site)
+    else:
+        _refresh_drawing_verdicts(result, site)
     cluster = site.get("subdivision") or {}
     if cluster.get("found") and cluster.get("note"):
         explanation = result.get("explanation") or ""
         if cluster["note"] not in explanation:
             result["explanation"] = explanation + cluster["note"]
     return result
+
+
+def _apply_current_title_filter(result: dict[str, Any], site: dict[str, Any]) -> None:
+    rules = result.get("rules") or {}
+    preserved = [
+        option
+        for option in result.get("options") or []
+        if option.get("origin") in {"drawings", "custom"} or option.get("id") in {"drawings", "custom"}
+    ]
+    fresh: list[dict[str, Any]] = []
+    skipped = 0
+    if rules:
+        fresh, skipped = recommend_schemes(rules, site)
+    kept_ids = {option["id"] for option in preserved}
+    result["options"] = preserved + [option for option in fresh if option["id"] not in kept_ids]
+    meta = scheme_filter_meta(site, skipped)
+    if meta:
+        result["scheme_filter"] = meta
+    _refresh_drawing_verdicts(result, site)
 
 
 def _refresh_drawing_verdicts(result: dict[str, Any], site: dict[str, Any]) -> None:

@@ -189,6 +189,11 @@ export interface ProjectRecord {
       error?: string | null;
     }>;
     drawing_trace?: Array<{ node: string; detail: string }>;
+    scheme_filter?: {
+      mode?: string;
+      skipped?: number;
+      note?: string;
+    };
     pm_review?: { status: string; note: string };
     options?: SchemeOption[];
     trace?: Array<{ node: string; detail: string }>;

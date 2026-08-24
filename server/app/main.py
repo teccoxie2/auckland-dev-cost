@@ -80,6 +80,7 @@ def _public_result(state: dict[str, Any]) -> dict[str, Any]:
         "explanation": state.get("explanation"),
         "pm_review": state.get("pm_review"),
         "options": [_public_option(option) for option in state.get("options") or []],
+        "scheme_filter": state.get("scheme_filter"),
         "trace": state.get("trace") or [],
     }
 

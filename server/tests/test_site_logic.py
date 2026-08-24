@@ -1,4 +1,5 @@
-from app.design import default_gfa_m2, parse_spec
+from app.design import default_gfa_m2, parse_spec, recommend_schemes
+from app.gis import filter_parcels_for_address
 from app.graph import _refresh_drawing_verdicts
 from app.quantity import retaining_takeoff
 from app.zoning import filter_template
@@ -57,7 +58,7 @@ def test_typology_ignores_subdivision_combined_area():
     assert verdict["status"] == "infeasible"
 
 
-def test_drawing_uses_subdivision_combined_area():
+def test_drawing_stays_on_current_council_parcel():
     rules = {
         "residential": True,
         "permitted_dwellings": 3,
@@ -86,14 +87,15 @@ def test_drawing_uses_subdivision_combined_area():
                 "combined_area_m2": 734.9,
                 "title_plan": "DP 580591",
                 "unit_count": 6,
+                "selected_unit": "115B",
             },
         },
     )
-    assert clustered["status"] != "infeasible"
-    assert "放不下" not in "".join(clustered["reasons"])
+    assert clustered["status"] == "infeasible"
+    assert "现址" in "".join(clustered["reasons"])
 
 
-def test_refresh_stored_drawing_verdict_after_cluster():
+def test_refresh_stored_drawing_verdict_uses_current_parcel():
     result = {
         "rules": {
             "residential": True,
@@ -116,9 +118,9 @@ def test_refresh_stored_drawing_verdict_after_cluster():
                     "footprint_m2_drawn": 313,
                 },
                 "verdict": {
-                    "status": "infeasible",
-                    "needs_resource_consent": False,
-                    "reasons": ["初版占地 313 m² 已大于地块 110 m²，这块地放不下该户型。"],
+                    "status": "resource_consent",
+                    "needs_resource_consent": True,
+                    "reasons": ["套数 6 超过许可活动上限 3，需要 Resource Consent。"],
                 },
             }
         ],
@@ -132,10 +134,11 @@ def test_refresh_stored_drawing_verdict_after_cluster():
                 "combined_area_m2": 734.9,
                 "title_plan": "DP 580591",
                 "unit_count": 6,
+                "selected_unit": "115B",
             },
         },
     )
-    assert result["options"][0]["verdict"]["status"] != "infeasible"
+    assert result["options"][0]["verdict"]["status"] == "infeasible"
 
 
 def test_retaining_none_on_flat_site():
@@ -158,3 +161,60 @@ def test_retaining_sleeper_on_moderate_rise():
     assert qty["sleeper_ok"] is True
     assert qty["surcharge_likely"] is True
     assert qty["timber_lm"] > 0
+
+
+def test_existing_unit_title_filters_multi_unit_schemes():
+    rules = {
+        "residential": True,
+        "permitted_dwellings": 3,
+        "terrace_ok": True,
+        "storeys": 3,
+        "coverage": 0.5,
+        "qualifying_matters": [],
+        "height_m": 11,
+    }
+    site = {
+        "parcel": {"found": True, "area_m2": 109.5, "frontage_m": 8},
+        "subdivision": {
+            "found": True,
+            "combined_area_m2": 734.9,
+            "title_plan": "DP 580591",
+            "unit_count": 6,
+            "selected_unit": "115B",
+        },
+        "terrain": {"slope_deg": 1.0, "height_range_m": 0.4},
+    }
+    options, skipped = recommend_schemes(rules, site)
+    kinds = {item["template"]["kind"] for item in options}
+    assert "terrace" not in kinds
+    assert "duplex" not in kinds
+    assert skipped >= 2
+    assert all(item["template"]["dwellings"] == 1 for item in options)
+    assert all(item["verdict"]["status"] != "infeasible" for item in options)
+
+
+def test_vacant_lot_still_lists_terrace_templates():
+    rules = {
+        "residential": True,
+        "permitted_dwellings": 3,
+        "terrace_ok": True,
+        "storeys": 3,
+        "coverage": 0.5,
+        "qualifying_matters": [],
+        "height_m": 11,
+    }
+    site = {"parcel": {"found": True, "area_m2": 800, "frontage_m": 20}, "terrain": {"slope_deg": 1.0, "height_range_m": 0.4}}
+    options, skipped = recommend_schemes(rules, site)
+    assert skipped == 0
+    assert any(item["template"]["kind"] == "terrace" for item in options)
+
+
+def test_parcel_filter_keeps_selected_unit_only():
+    candidates = [
+        {"formatted_address": "115A Bruce Road Glenfield", "area_m2": 159.3},
+        {"formatted_address": "115B Bruce Road Glenfield", "area_m2": 109.5},
+        {"formatted_address": "115C Bruce Road Glenfield", "area_m2": 109.4},
+    ]
+    kept = filter_parcels_for_address(candidates, "115B Bruce Road Glenfield")
+    assert len(kept) == 1
+    assert kept[0]["formatted_address"].startswith("115B")

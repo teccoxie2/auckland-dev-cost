@@ -20,7 +20,7 @@ export default async function HomePage() {
           <p className="text-sm tracking-[0.18em] text-[#7a5a2b]">AUCKLAND · MVP</p>
           <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">奥克兰住宅开发核算台</h1>
           <p className="mt-3 max-w-2xl text-[15px] leading-7 text-[#5c6754]">
-            从奥克兰议会地址库选出物业后，系统读取地块面积、Unitary Plan 区划和 DEM 坡度，给出适合这块地的初版方案。开发完成后的拆分门牌（例如 115 Bruce 现址为 115A–F）按现址读地；多套图纸用同一 DP 合计面积校核。
+            从奥克兰议会地址库选出物业后，系统读取地块面积、Unitary Plan 区划和 DEM 坡度，给出适合这块地的初版方案。开发完成后的拆分门牌（例如 115 Bruce 现址为 115A–F）只显示当前选中这一户的议会数据，并筛掉放不进本户的整宗方案。
           </p>
         </div>
       </header>

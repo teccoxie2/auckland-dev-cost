@@ -75,11 +75,11 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
         />
         {cluster?.found ? (
           <Fact
-            label={`拆分后合计（${cluster.title_plan || "同一 DP"}）`}
+            label="议会现址"
             value={
-              cluster.combined_area_m2 != null && result.rules?.coverage
-                ? `${cluster.combined_area_m2} m² · ${cluster.unit_count ?? "?"} 户 · 图纸校核覆盖率约 ${Math.round(cluster.combined_area_m2 * result.rules.coverage)} m²`
-                : `${cluster.combined_area_m2} m² · ${cluster.unit_count ?? "?"} 户`
+              cluster.selected_unit
+                ? `${cluster.selected_unit}${cluster.unit_count ? ` · 同号 ${cluster.unit_count} 户需分别点选` : ""}`
+                : cluster.note || "—"
             }
             href={cluster.source_url}
           />
@@ -122,7 +122,9 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
 
       <section className="mt-8">
         <h2 className="text-lg font-semibold">因地制宜初版方案</h2>
-        <p className="mt-1 text-sm text-[#5c6754]">点选一张方案，下方会打开这一版的分项总账；再改厨卫和户型后重新核算。</p>
+        <p className="mt-1 text-sm text-[#5c6754]">
+          {result.scheme_filter?.note || "点选一张方案，下方会打开这一版的分项总账；再改厨卫和户型后重新核算。"}
+        </p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {(result.options || []).map((item) => (
             <OptionCard
@@ -299,7 +301,7 @@ function CostPanel({ option }: { option: SchemeOption }) {
       </div>
       {option.verdict.status === "infeasible" ? (
         <p className="mt-3 rounded-lg bg-[#f8e7dc] px-3 py-2 text-sm leading-6 text-[#8a3b1d]" role="alert">
-          {option.verdict.reasons.join(" ")} 下方仍按图纸文字层套价，方便对照。多套图纸按拆分后同一 DP 合计面积校核；户型模板仍按当前选中的这一户面积。
+          {option.verdict.reasons.join(" ")} 下方仍按图纸文字层套价，方便对照。开发完成后只按议会现址本户校核；整宗开发图与当前门牌不符时不会把兄弟地块合计进去。
         </p>
       ) : null}
       {option.totals?.rlb_benchmark_low ? (

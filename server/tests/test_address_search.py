@@ -110,3 +110,4 @@ def test_unit_cluster_for_115a_bruce():
     labels = " ".join(item.get("formatted_address") or "" for item in cluster["units"])
     assert "115A" in labels
     assert "115F" in labels
+    assert "只显示并核算" in cluster["note"]

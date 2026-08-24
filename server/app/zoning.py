@@ -30,27 +30,24 @@ def apply_zone_rules(zone_code: int | None, overlays: list[dict[str, Any]]) -> d
     return spec
 
 
+def is_existing_unit_title(site: dict[str, Any] | None) -> bool:
+    return bool(((site or {}).get("subdivision") or {}).get("found"))
+
+
 def coverage_site_area(template: dict[str, Any], site: dict[str, Any] | None) -> tuple[float | None, str]:
-    site = site or {}
-    parcel = site.get("parcel") or {}
-    cluster = site.get("subdivision") or {}
-    parcel_area = float(parcel["area_m2"]) if parcel.get("found") and parcel.get("area_m2") else None
-    combined = float(cluster["combined_area_m2"]) if cluster.get("found") and cluster.get("combined_area_m2") else None
-    drawing_multi = template.get("quantity_source") == "drawing" and int(template.get("dwellings") or 1) > 1
-    if drawing_multi and combined:
-        return combined, "subdivision"
-    if parcel_area:
-        return parcel_area, "parcel"
+    del template
+    parcel = (site or {}).get("parcel") or {}
+    if parcel.get("found") and parcel.get("area_m2"):
+        return float(parcel["area_m2"]), "parcel"
     return None, "none"
 
 
 def coverage_area_label(source: str, area: float, site: dict[str, Any] | None) -> str:
-    cluster = (site or {}).get("subdivision") or {}
-    if source == "subdivision":
-        plan = cluster.get("title_plan") or "同一 DP"
-        count = cluster.get("unit_count")
-        count_bit = f"{count} 宗" if count else "各户"
-        return f"拆分后合计地块 {area:.0f} m²（{plan} · {count_bit}）"
+    del source
+    if is_existing_unit_title(site):
+        selected = ((site or {}).get("subdivision") or {}).get("selected_unit")
+        unit_bit = f"本户 {selected} " if selected else "本户 "
+        return f"{unit_bit}地块 {area:.0f} m²"
     return f"地块 {area:.0f} m²"
 
 
@@ -89,10 +86,17 @@ def filter_template(template: dict[str, Any], spec: dict[str, Any], site: dict[s
         coverage_cap = area * float(spec.get("coverage") or 0)
         area_label = coverage_area_label(area_source, area, site)
         if footprint > area:
+            if is_existing_unit_title(site) and template.get("quantity_source") == "drawing":
+                reason = (
+                    f"图纸是开发完成前的整宗方案（占地 {footprint:.0f} m²），"
+                    f"议会现址{area_label}。本页只按当前门牌地籍校核，不把兄弟地块合计进去。"
+                )
+            else:
+                reason = f"初版占地 {footprint:.0f} m² 已大于{area_label}，这块地放不下该户型。"
             return {
                 "status": "infeasible",
                 "needs_resource_consent": False,
-                "reasons": [f"初版占地 {footprint:.0f} m² 已大于{area_label}，这块地放不下该户型。"],
+                "reasons": [reason],
             }
         min_fp = 40.0
         if dwellings * min_fp > coverage_cap and coverage_cap > 0:
