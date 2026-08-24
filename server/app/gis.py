@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -106,6 +107,8 @@ STREET_TYPES = frozenset(
     }
 )
 NUMBER_RE = re.compile(r"^(\d+)([A-Za-z])?(?:-(\d+)([A-Za-z])?)?$")
+DP_RE = re.compile(r"\bDP\s+(\d+)\b", re.I)
+MAX_CLUSTER_LOTS = 12
 CITY_TOKENS = frozenset({"AUCKLAND", "TAMAKI", "TĀMAKI", "MAKAURAU", "NZ", "NEW", "ZEALAND"})
 
 ELEVATION_URL = "https://api.opentopodata.org/v1/nzdem8m"
@@ -276,6 +279,10 @@ def search_addresses(query: str, limit: int = 12) -> list[dict[str, Any]]:
     where = address_where(parsed)
     if not where:
         return []
+    fetch_limit = limit
+    number_match = NUMBER_RE.fullmatch(parsed.get("number") or "")
+    if number_match and not number_match.group(2) and not number_match.group(3):
+        fetch_limit = max(limit, 16)
     params = {
         "where": where,
         "outFields": (
@@ -285,7 +292,7 @@ def search_addresses(query: str, limit: int = 12) -> list[dict[str, Any]]:
         "returnGeometry": "true",
         "outSR": 4326,
         "f": "json",
-        "resultRecordCount": max(1, min(limit, 20)),
+        "resultRecordCount": max(1, min(fetch_limit, 20)),
         "orderByFields": "FullAddress ASC",
     }
     with _client() as client:
@@ -310,6 +317,36 @@ def search_addresses(query: str, limit: int = 12) -> list[dict[str, Any]]:
         seen.add(key)
         hits.append(hit)
     return hits
+
+
+def split_estate_note(query: str, hits: list[dict[str, Any]]) -> str | None:
+    parsed = parse_address_query(query)
+    number = (parsed.get("number") or "").upper()
+    match = NUMBER_RE.fullmatch(number)
+    if not match or match.group(2) or match.group(3):
+        return None
+    if len(hits) < 2:
+        return None
+    head = match.group(1)
+    units: list[str] = []
+    for hit in hits:
+        token = (hit.get("full_number") or "").strip().upper().replace(" ", "")
+        if not token:
+            token = (hit.get("full_address") or "").split()[0].upper()
+        house = NUMBER_RE.fullmatch(token)
+        if not house or house.group(1) != head or not house.group(2) or house.group(3):
+            return None
+        units.append(house.group(2).upper())
+    unique = sorted(set(units))
+    if len(unique) < 2:
+        return None
+    labels = "、".join(f"{head}{unit}" for unit in unique)
+    place = " ".join(part for part in [parsed.get("road") or "", parsed.get("locality") or ""] if part).title()
+    where = f"{head} {place}".strip()
+    return (
+        f"议会已无整宗门牌 {where}；开发完成后现址为 {labels}。"
+        "请选其中一户读地。多套 RC 图纸按同一 DP 各户合计面积做覆盖率校核，不按单户小地块判整份图放不下。"
+    )
 
 
 def geocode_from_selection(
@@ -613,6 +650,171 @@ def lookup_parcel(lat: float, lon: float, address: str) -> dict[str, Any]:
     chosen["found"] = True
     chosen["note"] = "面积由地块多边形经纬度环按球面近似计算，不是 Shape__Area（Web Mercator）原值。"
     return chosen
+
+
+def deposited_plan_id(legal: str | None) -> str | None:
+    if not legal:
+        return None
+    match = DP_RE.search(legal)
+    return match.group(1) if match else None
+
+
+def _siblings_by_deposited_plan(dp: str, street: str, number: str) -> list[dict[str, Any]]:
+    if not dp.isdigit() or not street or not number:
+        return []
+    where = (
+        f"UPPER(PROPERTYDESCRIPTION) LIKE '%DP {_sql_lit(dp)}%' "
+        f"AND UPPER(STREETNAME) LIKE '%{_sql_lit(street)}%' "
+        f"AND UPPER(FORMATTEDADDRESS) LIKE '{_sql_lit(number)}[A-Z]%'"
+    )
+    units: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    with _client() as client:
+        for layer in PROPERTY_LAYERS:
+            try:
+                response = client.get(
+                    layer["url"],
+                    params={
+                        "where": where,
+                        "outFields": "*",
+                        "returnGeometry": "true",
+                        "outSR": 4326,
+                        "f": "json",
+                        "resultRecordCount": 20,
+                    },
+                )
+                response.raise_for_status()
+                payload = response.json()
+            except httpx.HTTPError:
+                continue
+            for feature in payload.get("features") or []:
+                parsed = _parcel_from_feature(feature, layer)
+                if not parsed:
+                    continue
+                legal = parsed.get("legal_description") or ""
+                if not re.search(rf"\bDP\s+{re.escape(dp)}\b", legal, re.I):
+                    continue
+                formatted = parsed.get("formatted_address") or ""
+                sib_number, sib_unit = _house_token(formatted)
+                if sib_number != number or not sib_unit:
+                    continue
+                key = str(parsed.get("property_id") or formatted or parsed.get("legal_description"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                units.append(parsed)
+            if units:
+                break
+    units.sort(key=lambda item: (item.get("formatted_address") or "", item.get("legal_description") or ""))
+    return units
+
+
+def lookup_unit_cluster(
+    lat: float,
+    lon: float,
+    address: str,
+    parcel: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    _ = (lat, lon)
+    number, unit = _house_token(address)
+    if not unit:
+        return {"found": False, "reason": "not_a_unit_title"}
+    parcel = parcel or {}
+    legal = parcel.get("legal_description") or ""
+    dp = deposited_plan_id(legal)
+    selected = f"{number}{unit}"
+    if not dp:
+        return {
+            "found": False,
+            "reason": "no_deposited_plan",
+            "selected_unit": selected,
+            "selected_area_m2": parcel.get("area_m2"),
+        }
+    street = ""
+    street_match = re.search(r"\d+[A-Za-z]?\s+([A-Za-z]+)", address)
+    if not street_match:
+        street_match = re.search(r"\d+[A-Za-z]?\s+([A-Za-z]+)", parcel.get("formatted_address") or "")
+    if street_match:
+        street = street_match.group(1).upper()
+    try:
+        units = _siblings_by_deposited_plan(dp, street, number)
+    except Exception:  # noqa: BLE001
+        return {
+            "found": False,
+            "reason": "cluster_lookup_failed",
+            "title_plan": f"DP {dp}",
+            "selected_unit": selected,
+            "selected_area_m2": parcel.get("area_m2"),
+        }
+    if len(units) < 2:
+        return {
+            "found": False,
+            "reason": "no_sibling_lots",
+            "title_plan": f"DP {dp}",
+            "selected_unit": selected,
+            "selected_area_m2": parcel.get("area_m2"),
+        }
+    if len(units) > MAX_CLUSTER_LOTS:
+        return {
+            "found": False,
+            "reason": "too_many_lots",
+            "title_plan": f"DP {dp}",
+            "unit_count": len(units),
+            "note": (
+                f"同一 DP {dp} 命中 {len(units)} 宗，超出单元簇上限 {MAX_CLUSTER_LOTS}，"
+                "不按合计面积核算。"
+            ),
+        }
+    areas = [float(item["area_m2"]) for item in units if item.get("area_m2")]
+    combined = round(sum(areas), 1) if areas else None
+    source = units[0]
+    selected_area = parcel.get("area_m2")
+    selected_bit = f"（约 {selected_area} m²）" if selected_area else ""
+    return {
+        "found": True,
+        "title_plan": f"DP {dp}",
+        "unit_count": len(units),
+        "combined_area_m2": combined,
+        "selected_unit": selected,
+        "selected_area_m2": selected_area,
+        "units": [
+            {
+                "formatted_address": item.get("formatted_address"),
+                "legal_description": item.get("legal_description"),
+                "area_m2": item.get("area_m2"),
+                "property_id": item.get("property_id"),
+            }
+            for item in units
+        ],
+        "note": (
+            f"议会已无整宗 {number} 门牌。当前选中 {selected}{selected_bit}，"
+            f"同一 DP {dp} 共 {len(units)} 宗合计约 {combined} m²。"
+            "多套图纸按合计面积做覆盖率与能否放下的校核；在本户上新建独栋仍按本户面积。"
+        ),
+        "source_name": source.get("source_name"),
+        "source_url": source.get("source_url"),
+        "retrieved_at": datetime.now(timezone.utc).date().isoformat(),
+    }
+
+
+def attach_subdivision(site: dict[str, Any], address: str) -> dict[str, Any]:
+    existing = site.get("subdivision") or {}
+    if existing.get("found"):
+        return site
+    if existing.get("reason") in {"not_a_unit_title", "no_deposited_plan", "no_sibling_lots", "too_many_lots"}:
+        return site
+    parcel = site.get("parcel") or {}
+    geo = site.get("geo") or {}
+    if not parcel.get("found") or geo.get("lat") is None or geo.get("lon") is None:
+        return site
+    display = address or geo.get("display_name") or ""
+    try:
+        cluster = lookup_unit_cluster(float(geo["lat"]), float(geo["lon"]), display, parcel)
+    except Exception:  # noqa: BLE001
+        cluster = {"found": False, "reason": "cluster_lookup_failed"}
+    out = dict(site)
+    out["subdivision"] = cluster
+    return out
 
 
 def lookup_terrain(lat: float, lon: float, parcel: dict[str, Any] | None = None) -> dict[str, Any]:

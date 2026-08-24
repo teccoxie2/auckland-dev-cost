@@ -108,6 +108,7 @@ def wrap_typology(template: dict[str, Any]) -> dict[str, Any]:
         "gfa_m2": template["gfa_m2"],
         "gfa_missing": bool(template.get("gfa_missing")),
         "quantity_source": template.get("quantity_source") or "template",
+        "footprint_m2_drawn": template.get("footprint_m2_drawn"),
     }
 
 

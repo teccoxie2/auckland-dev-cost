@@ -25,7 +25,7 @@ export default function DrawingUpload({ projectId }: { projectId: string }) {
     <form action={formAction} className="rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 sm:p-6">
       <h2 className="text-lg font-semibold">第二阶段：RC / BC 图纸套价</h2>
       <p className="mt-1 text-sm leading-6 text-[#5c6754]">
-        上传可选中文字的 Resource Consent 或 Building Consent PDF。系统只读文字层里的面积、层高、覆盖率、砌块贴面和门窗表，再套同一份公开价库。扫描件没有文字层会报错，不会用图像识别猜毫米。
+        上传可选中文字的 Resource Consent 或 Building Consent PDF。系统只读文字层里的面积、层高、覆盖率、砌块贴面和门窗表，再套同一份公开价库。扫描件没有文字层会报错，不会用图像识别猜毫米。若议会已把整宗拆成 115A/B/C… 等多户，多套 RC 按同一 DP 合计面积校核，不按当前选中的单户小地块判整份图放不下。
       </p>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <label className="flex flex-col gap-1">

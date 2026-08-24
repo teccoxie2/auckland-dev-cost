@@ -7,10 +7,19 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from .advise import build_advice
 from .data_loader import council_fees, pricebook
 from .drawing_flow import parse_files, run_drawings
 from .drawing_parse import MAX_PDF_BYTES
-from .gis import ADDRESS_SOURCE_NAME, ADDRESS_SOURCE_URL, GisError, in_auckland, search_addresses
+from .gis import (
+    ADDRESS_SOURCE_NAME,
+    ADDRESS_SOURCE_URL,
+    GisError,
+    attach_subdivision,
+    in_auckland,
+    search_addresses,
+    split_estate_note,
+)
 from .graph import configure_option, hydrate_legacy_result, run_address
 from .store import create_project, get_project, list_projects, update_project
 
@@ -89,6 +98,7 @@ def get_addresses(q: str = "") -> dict[str, Any]:
     return {
         "query": q.strip(),
         "addresses": hits,
+        "split_note": split_estate_note(q, hits),
         "source_name": ADDRESS_SOURCE_NAME,
         "source_url": ADDRESS_SOURCE_URL,
     }
@@ -206,6 +216,10 @@ async def post_drawings(
     result = record.get("result") or {}
     if result.get("error") or not result.get("site") or not result.get("rules"):
         raise HTTPException(status_code=400, detail="项目还没有完整地块数据，无法按图纸套价")
+    site = attach_subdivision(dict(result["site"]), record.get("address") or "")
+    result["site"] = site
+    if result.get("rules"):
+        result["advice"] = build_advice(site, result["rules"])
     uploads = [item for item in files if item.filename]
     if not uploads:
         raise HTTPException(status_code=400, detail="请至少上传一份 PDF")
@@ -235,7 +249,7 @@ async def post_drawings(
         )
     try:
         parts = parse_files(saved)
-        drawing_state = run_drawings(result["site"], result["rules"], parts)
+        drawing_state = run_drawings(site, result["rules"], parts)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001

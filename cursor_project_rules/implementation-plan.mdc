@@ -28,6 +28,12 @@ Done
 
 项目页上传 RC/BC PDF，用 pypdf 读文字层（门窗表、GFA、底层/屋面、层高、覆盖率、砌块贴面/400mm 立柱、挡土墙高度），LangGraph 节点 parse_drawings → drawing_template → drawing_cost → drawing_explain 套同一价库。扫描件无文字层报错；无面积不套结构模板；无厨卫不套洁具；对不上的樘标缺项。仓库没有 115 Bruce 原图，不编造窗表。
 
+## 拆分后门牌按同一 DP 合计面积核算图纸
+
+Done
+
+选 115A 这类单元门牌时，按地籍 DP 拉取同路同号的兄弟地块（Glenfield 115 Bruce 现址为 115A–F / DP 580591）。多套图纸覆盖率与能否放下用合计面积；户型模板仍按当前这一户。地址下拉在搜无字母的 115 时说明议会已无整宗门牌。
+
 ## 加密 RC/BC 读文字层失败修复
 
 Done

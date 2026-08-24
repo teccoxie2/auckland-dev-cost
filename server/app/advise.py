@@ -45,11 +45,11 @@ def build_advice(site: dict[str, Any], rules: dict[str, Any]) -> list[dict[str, 
             {
                 "id": "parcel",
                 "severity": "info",
-                "title_zh": f"地块约 {parcel['area_m2']} m²",
+                "title_zh": f"本户地块约 {parcel['area_m2']} m²",
                 "body_zh": (
                     f"公开地籍「{parcel.get('formatted_address')}」"
                     f"{(' · ' + parcel['legal_description']) if parcel.get('legal_description') else ''}。"
-                    f"按覆盖率，初版建筑占地不宜超过约 {coverage_m2} m²。"
+                    f"按覆盖率，本户初版建筑占地不宜超过约 {coverage_m2} m²。"
                     f"面宽约 {parcel.get('frontage_m')} m、进深约 {parcel.get('depth_m')} m。"
                 ),
                 "source_name": parcel.get("source_name"),
@@ -65,6 +65,37 @@ def build_advice(site: dict[str, Any], rules: dict[str, Any]) -> list[dict[str, 
                 "body_zh": parcel.get("note") or "覆盖率与挡土墙长度只能按地址点估算。",
                 "source_name": None,
                 "source_url": None,
+            }
+        )
+
+    cluster = site.get("subdivision") or {}
+    if cluster.get("found"):
+        combined = cluster.get("combined_area_m2")
+        coverage_combined = (
+            round(float(combined) * float(rules.get("coverage") or 0), 1) if combined else None
+        )
+        labels = [
+            (item.get("formatted_address") or item.get("legal_description") or "").strip()
+            for item in cluster.get("units") or []
+        ]
+        labels = [item for item in labels if item]
+        items.append(
+            {
+                "id": "subdivision",
+                "severity": "watch",
+                "title_zh": f"拆分后合计约 {combined} m²（{cluster.get('title_plan')}）",
+                "body_zh": (
+                    cluster.get("note")
+                    or "开发完成后议会不再保留整宗门牌，现址是同一 DP 下的多户。"
+                )
+                + (f" 现址：{'；'.join(labels)}。" if labels else "")
+                + (
+                    f" 多套图纸按合计覆盖率约 {coverage_combined} m² 占地来校核。"
+                    if coverage_combined
+                    else ""
+                ),
+                "source_name": cluster.get("source_name"),
+                "source_url": cluster.get("source_url"),
             }
         )
 

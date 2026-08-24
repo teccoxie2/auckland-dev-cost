@@ -8,7 +8,7 @@ from .costing import cost_option
 from .design import wrap_typology
 from .drawing_parse import extract_pdf, infer_kind, merge_extracts
 from .quantity import takeoff
-from .zoning import filter_template
+from .zoning import coverage_area_label, coverage_site_area, filter_template
 
 
 class DrawingState(TypedDict, total=False):
@@ -171,11 +171,16 @@ def template_from_extract(extracted: dict[str, Any], site: dict[str, Any]) -> di
         why.append(f"GFA {gfa} m² ← 占地 {footprint} × {storeys} 层（图纸未写 GFA）。")
     if _value(fields, "cladding") == "block_veneer":
         why.append("图纸写明砌块贴面或 400mm 立柱间距，木材按 400mm 间距计。")
-    parcel = site.get("parcel") or {}
     coverage = _value(fields, "coverage_pct")
-    if coverage is not None and parcel.get("found") and parcel.get("area_m2") and footprint:
-        cap = float(parcel["area_m2"]) * (float(coverage) / 100.0)
-        why.append(f"RC 覆盖率 {coverage}%：地块 {parcel['area_m2']} m² 对应占地上限约 {cap:.0f} m²。")
+    area, area_source = coverage_site_area(
+        {"quantity_source": "drawing", "dwellings": dwellings},
+        site,
+    )
+    if coverage is not None and area and footprint:
+        cap = float(area) * (float(coverage) / 100.0)
+        why.append(
+            f"RC 覆盖率 {coverage}%：{coverage_area_label(area_source, area, site)} 对应占地上限约 {cap:.0f} m²。"
+        )
     return {
         "id": "drawings",
         "name_zh": f"图纸核算 · {int(gfa)}m² · {storeys}层 · {len(windows)}种门窗",

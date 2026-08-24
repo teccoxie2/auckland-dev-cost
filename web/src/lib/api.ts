@@ -53,6 +53,7 @@ export interface SchemeOption {
     gfa_m2: number;
     gfa_missing?: boolean;
     quantity_source?: string;
+    footprint_m2_drawn?: number;
   };
   verdict: {
     status: string;
@@ -145,6 +146,21 @@ export interface ProjectRecord {
         legal_description?: string;
         source_url?: string;
         note?: string;
+      };
+      subdivision?: {
+        found?: boolean;
+        title_plan?: string;
+        unit_count?: number;
+        combined_area_m2?: number;
+        selected_unit?: string;
+        selected_area_m2?: number;
+        note?: string;
+        source_url?: string;
+        units?: Array<{
+          formatted_address?: string;
+          legal_description?: string;
+          area_m2?: number;
+        }>;
       };
       terrain?: {
         slope_deg?: number;

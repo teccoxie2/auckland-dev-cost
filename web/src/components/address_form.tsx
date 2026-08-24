@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 import { createProjectAction } from "@/app/actions";
 import type { AddressHit } from "@/lib/api";
 
-const EXAMPLES = ["55 Nelson Street", "115 Bruce Road Glenfield", "115D Bruce Road Glenfield"];
+const EXAMPLES = ["55 Nelson Street", "115 Bruce Road Glenfield", "115A Bruce Road Glenfield"];
 
 function SubmitButton({ canSubmit }: { canSubmit: boolean }) {
   const { pending } = useFormStatus();
@@ -30,6 +30,7 @@ export default function AddressForm() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [splitNote, setSplitNote] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [state, formAction] = useActionState(createProjectAction, null);
 
@@ -45,6 +46,7 @@ export default function AddressForm() {
       setHits([]);
       setLoading(false);
       setSearchError("");
+      setSplitNote("");
       return;
     }
     const controller = new AbortController();
@@ -62,11 +64,13 @@ export default function AddressForm() {
         }
         const addresses = (data.addresses || []) as AddressHit[];
         setHits(addresses);
+        setSplitNote(typeof data.split_note === "string" ? data.split_note : "");
         setActiveIndex(0);
         setOpen(true);
       } catch (error) {
         if (controller.signal.aborted) return;
         setHits([]);
+        setSplitNote("");
         setSearchError(error instanceof Error ? error.message : "议会地址库暂时读不到");
         setOpen(true);
       } finally {
@@ -126,7 +130,7 @@ export default function AddressForm() {
         物业地址
       </label>
       <p id="address-hint" className="mt-1 text-xs leading-5 text-[#7b8474]">
-        从奥克兰议会地址库检索。像 55 Nelson Street 这种门牌会列出多条，必须点选一条后再核算。
+        从奥克兰议会地址库检索。开发完成后的拆分门牌（如 115A/B/C…）没有整宗 115，必须点选现址中的一户。
       </p>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start">
         <div ref={boxRef} className="relative flex-1">
@@ -221,6 +225,11 @@ export default function AddressForm() {
           </button>
         ))}
       </div>
+      {splitNote ? (
+        <p className="mt-4 rounded-lg bg-[#f7f0de] px-3 py-2 text-sm leading-6 text-[#9a6b12]" role="status">
+          {splitNote}
+        </p>
+      ) : null}
       {selected ? (
         <p className="mt-4 text-sm text-[#2f6b4f]">已选择 {selected.full_address}</p>
       ) : query.trim().length >= 3 ? (

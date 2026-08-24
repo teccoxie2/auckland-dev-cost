@@ -36,6 +36,7 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
   }
 
   const parcel = result.site?.parcel;
+  const cluster = result.site?.subdivision;
   const terrain = result.site?.terrain;
   const overlays = (result.site?.overlays || []).filter((item) => item.present);
 
@@ -68,10 +69,21 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
           href={result.site?.zone?.source_url}
         />
         <Fact
-          label="地块面积"
+          label="本户地块"
           value={parcel?.found && parcel.area_m2 ? `${parcel.area_m2} m²` : parcel?.note || "未读到"}
           href={parcel?.source_url}
         />
+        {cluster?.found ? (
+          <Fact
+            label={`拆分后合计（${cluster.title_plan || "同一 DP"}）`}
+            value={
+              cluster.combined_area_m2 != null && result.rules?.coverage
+                ? `${cluster.combined_area_m2} m² · ${cluster.unit_count ?? "?"} 户 · 图纸校核覆盖率约 ${Math.round(cluster.combined_area_m2 * result.rules.coverage)} m²`
+                : `${cluster.combined_area_m2} m² · ${cluster.unit_count ?? "?"} 户`
+            }
+            href={cluster.source_url}
+          />
+        ) : null}
         <Fact
           label="DEM 坡度 / 高差"
           value={
@@ -86,7 +98,7 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
           label="覆盖率上限"
           value={
             parcel?.found && parcel.area_m2 && result.rules?.coverage
-              ? `约 ${Math.round(parcel.area_m2 * result.rules.coverage)} m² 占地`
+              ? `本户约 ${Math.round(parcel.area_m2 * result.rules.coverage)} m² 占地`
               : `${intPct(result.rules?.coverage)} 覆盖率`
           }
         />
@@ -287,7 +299,7 @@ function CostPanel({ option }: { option: SchemeOption }) {
       </div>
       {option.verdict.status === "infeasible" ? (
         <p className="mt-3 rounded-lg bg-[#f8e7dc] px-3 py-2 text-sm leading-6 text-[#8a3b1d]" role="alert">
-          {option.verdict.reasons.join(" ")} 下方仍按图纸文字层套价，方便对照；议会门牌地块与整份 RC 不一致时，请改选对应的整宗地再核可行性。
+          {option.verdict.reasons.join(" ")} 下方仍按图纸文字层套价，方便对照。多套图纸按拆分后同一 DP 合计面积校核；户型模板仍按当前选中的这一户面积。
         </p>
       ) : null}
       {option.totals?.rlb_benchmark_low ? (

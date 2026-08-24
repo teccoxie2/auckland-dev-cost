@@ -1,4 +1,13 @@
-from app.gis import address_where, in_auckland, parse_address_query, search_addresses
+from app.gis import (
+    address_where,
+    deposited_plan_id,
+    in_auckland,
+    lookup_parcel,
+    lookup_unit_cluster,
+    parse_address_query,
+    search_addresses,
+    split_estate_note,
+)
 
 
 def test_zero_coords_are_not_auckland():
@@ -48,3 +57,56 @@ def test_search_nelson_street_from_council_layer():
         assert item["lat"] < 0
         assert item["lon"] > 0
         assert item["source_url"].endswith("AC_Address_Query/FeatureServer/0")
+
+
+def test_split_note_only_when_all_hits_are_unit_titles():
+    hits = [
+        {"full_number": "115A", "full_address": "115A Bruce Road Glenfield"},
+        {"full_number": "115B", "full_address": "115B Bruce Road Glenfield"},
+        {"full_number": "115C", "full_address": "115C Bruce Road Glenfield"},
+        {"full_number": "115D", "full_address": "115D Bruce Road Glenfield"},
+        {"full_number": "115E", "full_address": "115E Bruce Road Glenfield"},
+        {"full_number": "115F", "full_address": "115F Bruce Road Glenfield"},
+    ]
+    note = split_estate_note("115 Bruce Road Glenfield", hits)
+    assert note is not None
+    assert "115A" in note
+    assert "115F" in note
+    assert "整宗" in note
+    mixed = [*hits, {"full_number": "115", "full_address": "115 Bruce Road Glenfield"}]
+    assert split_estate_note("115 Bruce Road Glenfield", mixed) is None
+    assert split_estate_note("115A Bruce Road Glenfield", hits) is None
+
+
+def test_deposited_plan_id():
+    assert deposited_plan_id("LOT 1 DP 580591") == "580591"
+    assert deposited_plan_id("Lot 6 DP 580591") == "580591"
+    assert deposited_plan_id("FEE SIMPLE") is None
+
+
+def test_search_bruce_glenfield_has_no_parent_115():
+    hits = search_addresses("115 Bruce Road Glenfield")
+    numbers = [(item.get("full_number") or "").upper().replace(" ", "") for item in hits]
+    assert any(item.startswith("115A") for item in numbers)
+    assert any(item.startswith("115F") for item in numbers)
+    assert not any(item == "115" for item in numbers)
+    note = split_estate_note("115 Bruce Road Glenfield", hits)
+    assert note is not None
+    assert "115A" in note
+
+
+def test_unit_cluster_for_115a_bruce():
+    hits = search_addresses("115A Bruce Road Glenfield")
+    assert hits
+    hit = hits[0]
+    parcel = lookup_parcel(hit["lat"], hit["lon"], hit["full_address"])
+    assert parcel.get("found")
+    cluster = lookup_unit_cluster(hit["lat"], hit["lon"], hit["full_address"], parcel)
+    assert cluster["found"] is True
+    assert cluster["title_plan"] == "DP 580591"
+    assert cluster["unit_count"] == 6
+    assert cluster["combined_area_m2"] is not None
+    assert 700 < float(cluster["combined_area_m2"]) < 800
+    labels = " ".join(item.get("formatted_address") or "" for item in cluster["units"])
+    assert "115A" in labels
+    assert "115F" in labels

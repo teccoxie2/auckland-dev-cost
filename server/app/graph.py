@@ -6,8 +6,8 @@ from langgraph.graph import END, START, StateGraph
 
 from .advise import build_advice
 from .design import build_template, costed_option, recommend_schemes
-from .gis import GisError, geocode_address, lookup_overlays, lookup_parcel, lookup_terrain, lookup_zone
-from .zoning import apply_zone_rules
+from .gis import GisError, attach_subdivision, geocode_address, lookup_overlays, lookup_parcel, lookup_terrain, lookup_zone
+from .zoning import apply_zone_rules, filter_template
 
 
 class ProjectState(TypedDict, total=False):
@@ -84,11 +84,17 @@ def parcel_node(state: ProjectState) -> dict[str, Any]:
         parcel = {"found": False, "note": f"地籍查询失败：{exc}"}
     site = dict(state["site"])
     site["parcel"] = parcel
-    detail = (
-        f"{parcel.get('formatted_address')} {parcel.get('area_m2')} m²"
-        if parcel.get("found")
-        else parcel.get("note") or "parcel missing"
-    )
+    site = attach_subdivision(site, state.get("address") or geo.get("display_name") or "")
+    cluster = site.get("subdivision") or {}
+    if cluster.get("found"):
+        detail = (
+            f"{parcel.get('formatted_address')} {parcel.get('area_m2')} m²; "
+            f"cluster {cluster.get('title_plan')} {cluster.get('combined_area_m2')} m² × {cluster.get('unit_count')}"
+        )
+    elif parcel.get("found"):
+        detail = f"{parcel.get('formatted_address')} {parcel.get('area_m2')} m²"
+    else:
+        detail = parcel.get("note") or "parcel missing"
     return {"site": site, "trace": _trace(state, "parcel", str(detail))}
 
 
@@ -136,6 +142,7 @@ def explain_node(state: ProjectState) -> dict[str, Any]:
     zone = state["zone"]
     rules = state["rules"]
     parcel = (state.get("site") or {}).get("parcel") or {}
+    cluster = (state.get("site") or {}).get("subdivision") or {}
     terrain = (state.get("site") or {}).get("terrain") or {}
     overlays = [item["key"] for item in state.get("overlays") or [] if item.get("present")]
     feasible = [opt for opt in state.get("options") or [] if opt["verdict"]["status"] != "infeasible"]
@@ -143,7 +150,9 @@ def explain_node(state: ProjectState) -> dict[str, Any]:
         f"这块地公开区划为「{zone.get('zone_name')}」。",
         f"规则表中许可住宅套数上限为 {rules.get('permitted_dwellings')} 套，高度约 {rules.get('height_m')} m，覆盖率 {int((rules.get('coverage') or 0)*100)}%。",
     ]
-    if parcel.get("found"):
+    if cluster.get("found"):
+        parts.append(cluster.get("note") or f"拆分后同一 {cluster.get('title_plan')} 合计约 {cluster.get('combined_area_m2')} m²。")
+    elif parcel.get("found"):
         parts.append(f"地块面积约 {parcel['area_m2']} m²（{parcel.get('formatted_address')}）。")
     if terrain.get("slope_deg") is not None:
         parts.append(f"DEM 坡度约 {terrain['slope_deg']}°、高差 {terrain['height_range_m']} m。")
@@ -220,7 +229,8 @@ def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any
     terrain = site.get("terrain") or {}
     needs_parcel = not parcel.get("found")
     needs_terrain = terrain.get("slope_deg") is None
-    if not needs_parcel and not needs_terrain and result.get("advice"):
+    needs_cluster = "subdivision" not in site or (site.get("subdivision") or {}).get("reason") == "cluster_lookup_failed"
+    if not needs_parcel and not needs_terrain and not needs_cluster and result.get("advice"):
         return None
     changed = False
     if needs_parcel:
@@ -229,6 +239,11 @@ def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any
             changed = True
         except Exception:  # noqa: BLE001
             site["parcel"] = {"found": False, "note": "地籍补读失败"}
+    if needs_cluster:
+        before = site.get("subdivision")
+        site = attach_subdivision(site, address)
+        if site.get("subdivision") != before:
+            changed = True
     if needs_terrain:
         try:
             site["terrain"] = lookup_terrain(float(geo["lat"]), float(geo["lon"]), site.get("parcel"))
@@ -242,4 +257,38 @@ def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any
     result["site"] = site
     if result.get("rules"):
         result["advice"] = build_advice(site, result["rules"])
+    _refresh_drawing_verdicts(result, site)
+    cluster = site.get("subdivision") or {}
+    if cluster.get("found") and cluster.get("note"):
+        explanation = result.get("explanation") or ""
+        if cluster["note"] not in explanation:
+            result["explanation"] = explanation + cluster["note"]
     return result
+
+
+def _refresh_drawing_verdicts(result: dict[str, Any], site: dict[str, Any]) -> None:
+    rules = result.get("rules") or {}
+    if not rules:
+        return
+    options = []
+    changed = False
+    for option in result.get("options") or []:
+        origin = option.get("origin") or ""
+        if origin != "drawings" and option.get("id") != "drawings":
+            options.append(option)
+            continue
+        template = dict(option.get("template") or {})
+        if template.get("footprint_m2_drawn") is None:
+            fields = (option.get("drawing_extract") or {}).get("fields") or {}
+            raw = fields.get("footprint_m2")
+            if isinstance(raw, dict) and raw.get("value") is not None:
+                template["footprint_m2_drawn"] = raw["value"]
+            elif (option.get("quantities") or {}).get("footprint_m2"):
+                template["footprint_m2_drawn"] = option["quantities"]["footprint_m2"]
+        verdict = filter_template(template, rules, site)
+        if verdict != option.get("verdict"):
+            option = {**option, "verdict": verdict, "recommended": verdict["status"] != "infeasible"}
+            changed = True
+        options.append(option)
+    if changed:
+        result["options"] = options
