@@ -73,3 +73,14 @@ pnpm dev
 ## 架构要点
 
 LangGraph 节点：`geocode → planning → parcel → terrain → rules → advise → options → explain → pm_gate`。选装走 `POST /projects/{id}/configure`，不再重新查 GIS。`pm_gate` 第一期自动通过。核算在 `costing.py`，模型只写中文说明。
+
+## 开发要求
+
+**不允许使用假数据。** 这是硬性要求，不是可选风格。
+
+- 地址、坐标、地籍、区划、叠加层、DEM 必须来自奥克兰议会 / LINZ 等公开接口；选址必须从 `AC_Address` 下拉点选。
+- 金额必须来自带链接与取价日期的价表或官方费率表；禁止大模型定价，禁止编造单价或总价。
+- 没有可核对来源的科目标成缺项（`missing`），不要用估算、经验值、mock、默认地块或缓存值把页面凑完整。
+- 单测可以给纯函数喂显式数字；不得把假 GIS / 假价源当成议会或供应商返回值。
+
+Agent 实现时遵守 `.cursor/rules/no-fake-data.mdc` 与 `cursor_project_rules/development-requirements.mdc`。

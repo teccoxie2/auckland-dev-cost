@@ -1,0 +1,33 @@
+---
+description: 开发硬性要求：禁止假数据、禁止编造金额与地块事实。
+alwaysApply: true
+---
+
+# 禁止假数据
+
+本仓库做奥克兰住宅开发核算。地块、地址、区划、坡度、价格必须来自可核对的公开源。缺数据就标缺项或报错，禁止用假数据把流程跑通。
+
+## 不允许
+
+- 编造或回填地址、坐标、地籍面积、区划、叠加层、高程、坡度
+- 用 Nominatim 或其他非议会门牌库冒充 Auckland Council 选址结果
+- Mock / stub / fixture JSON 充当 GIS、价源、Council 费用，并当作真实结果展示
+- 大模型生成或改写任何金额、单价、工程量、费率
+- 无 SKU、无官方表、无检索日期的「估算价」「市场价」「经验值」
+- 界面 lorem、示例项目、假客户、假图纸读数
+- 外部接口失败时用上一份缓存编造值或默认地块顶上
+
+## 允许
+
+- 现场调用 Auckland Council / LINZ 等公开接口；失败则空列表、错误或 `missing`
+- `server/app/data/*.json` 中带 `source_url` 与 `retrieved_at` 的已检索公开标价与官方费率
+- 无公开总价的科目用 `status: "missing"`，金额为 0，并写明缺项原因
+- 纯函数单测用**显式数字入参**（例如给定 `area_m2=110` 测覆盖率），入参不得冒充议会图层返回值
+- 打真实外部接口的测试（如 `AC_Address` 检索 `55 Nelson Street`）
+
+## 落地约定
+
+- 地址：只从 `AC_Address` 下拉选择；核算点必须是所选记录的经纬度
+- 地块 / 区划 / DEM：只走 `server/app/gis.py` 中的公开图层与 OpenTopodata
+- 金额：只走 `pricing.py` / `costing.py` 与价表；禁止在 graph 的说明节点里写数字
+- 新数据源：先能在浏览器打开官方 URL，再写入代码；写不进价表就标缺项

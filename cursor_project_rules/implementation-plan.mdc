@@ -1,0 +1,11 @@
+---
+description: 功能开发步骤记录。每完成一步标注 Done 并写两行说明。
+---
+
+# implementation-plan
+
+## 禁止假数据写入开发要求
+
+Done
+
+把「不允许使用假数据」写成仓库硬性约定：Cursor 规则、cursor_project_rules 知识库、README 开发要求。缺公开源必须标缺项或报错，不得用 mock 或大模型补数。
