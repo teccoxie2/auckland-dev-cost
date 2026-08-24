@@ -21,6 +21,7 @@ def line(
     formula: str,
     extra_notes: str = "",
     line_id: str | None = None,
+    name_zh: str | None = None,
 ) -> dict[str, Any]:
     row_id = line_id or item_id
     item = get_item(item_id)
@@ -40,7 +41,7 @@ def line(
         "status": "priced",
         "category": item["category"],
         "trade": item["trade"],
-        "name_zh": item["name_zh"],
+        "name_zh": name_zh or item["name_zh"],
         "name_en": item["name_en"],
         "unit": item["unit"],
         "quantity": round(quantity, 3),

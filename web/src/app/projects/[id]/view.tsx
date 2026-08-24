@@ -264,7 +264,7 @@ function CostPanel({ option }: { option: SchemeOption }) {
       </div>
       {option.totals?.rlb_benchmark_low ? (
         <p className="mt-3 rounded-lg bg-[#f3eee4] px-3 py-2 text-sm leading-6 text-[#5c6754]">
-          上方是已核对 SKU/官方费率的部分账单，不是整房交钥匙价。未命中公开尺寸的铝窗、水管安装、整栋脚手架等缺价未计入。
+          上方是已核对 SKU/官方费率的部分账单，不是整房交钥匙价。未命中公开尺寸的铝窗、厨房水槽安装与电器接线、洗衣房/热水器水管等缺价未计入。
           完整施工公开基准（
           <a href={option.totals.rlb_source_url} target="_blank" rel="noreferrer" className="text-[#2f4a32] underline">
             RLB 2025 Auckland 独栋 $2,500–$3,800/m²

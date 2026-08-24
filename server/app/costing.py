@@ -165,6 +165,7 @@ def cost_option(
             formula="每套厨房 1 个给排水点 × Chambers 预埋 $1,000 含 GST",
             extra_notes="只计厨房水槽给排水预埋，不含台面开孔。",
             line_id="plumber_prepipe_kitchen",
+            name_zh="厨房给排水预埋",
         )
     )
     lines.append(
@@ -220,6 +221,7 @@ def cost_option(
             formula="每间卫生间马桶+淋浴+面盆 3 个给排水点 × Chambers 预埋 $1,000 含 GST",
             extra_notes="洗衣房、热水器、室外龙头未计入，户型表没有这些数量。",
             line_id="plumber_prepipe_bathroom",
+            name_zh="卫生间给排水预埋（马桶+淋浴+面盆）",
         )
     )
     lines.append(
