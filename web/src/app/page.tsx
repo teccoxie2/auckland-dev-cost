@@ -1,43 +1,16 @@
-"use client";
-
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createProject, fetchProjects, type ProjectSummary } from "@/lib/api";
+import AddressForm from "@/components/address_form";
+import { listProjects } from "@/lib/engine";
 
-const EXAMPLES = [
-  "115 Bruce Road, Glenfield, Auckland",
-  "1 Queen Street, Auckland CBD",
-  "24 Hurstmere Road, Takapuna, Auckland",
-];
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const router = useRouter();
-  const [address, setAddress] = useState("115 Bruce Road, Glenfield, Auckland");
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isListing, setIsListing] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    fetchProjects()
-      .then(setProjects)
-      .catch(() => setProjects([]))
-      .finally(() => setIsListing(false));
-  }, []);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setIsLoading(true);
-    try {
-      const project = await createProject(address.trim());
-      router.push(`/projects/${project.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "核算失败");
-    } finally {
-      setIsLoading(false);
-    }
+export default async function HomePage() {
+  let projects: Awaited<ReturnType<typeof listProjects>> = [];
+  let listError = "";
+  try {
+    projects = await listProjects();
+  } catch {
+    listError = "暂时读不到已建项目（核算服务未启动时会这样）。你仍可以直接输入地址开始核算。";
   }
 
   return (
@@ -52,58 +25,12 @@ export default function HomePage() {
         </div>
       </header>
 
-      <form
-        onSubmit={handleSubmit}
-        className="rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 shadow-[0_12px_40px_rgba(40,32,18,0.06)] sm:p-7"
-      >
-        <label htmlFor="address" className="text-sm font-medium">
-          物业地址
-        </label>
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-          <input
-            id="address"
-            name="address"
-            value={address}
-            onChange={(event) => setAddress(event.target.value)}
-            placeholder="例如 115 Bruce Road, Glenfield"
-            className="h-12 flex-1 rounded-xl border border-[#cfc4b0] bg-white px-4 text-base outline-none ring-[#2f4a32] focus:ring-2"
-            aria-label="物业地址"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || address.trim().length < 3}
-            className="h-12 rounded-xl bg-[#2f4a32] px-6 text-sm font-medium text-white transition hover:bg-[#3f6b45] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isLoading ? "正在读地并核算…" : "生成开发方案"}
-          </button>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {EXAMPLES.map((example) => (
-            <button
-              key={example}
-              type="button"
-              onClick={() => setAddress(example)}
-              className="rounded-full border border-[#d9d0c0] px-3 py-1 text-xs text-[#5c6754] hover:border-[#2f4a32] hover:text-[#1c2416]"
-            >
-              {example}
-            </button>
-          ))}
-        </div>
-        {error ? (
-          <p className="mt-4 rounded-lg bg-[#f8e7dc] px-3 py-2 text-sm text-[#8a3b1d]" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <p className="mt-4 text-xs leading-5 text-[#7b8474]">
-          第一期金额禁止由模型口算。材料以 Bunnings 公开 SKU 为主，法定费用以 Auckland Council / Watercare
-          官方表为准；厨房、铝窗整樘等无公开总价的科目会标成缺项，不会填假数。
-        </p>
-      </form>
+      <AddressForm />
 
       <section className="mt-10">
         <h2 className="text-lg font-semibold">已建项目</h2>
-        {isListing ? (
-          <p className="mt-3 text-sm text-[#5c6754]">正在读取项目列表…</p>
+        {listError ? (
+          <p className="mt-3 text-sm text-[#9a6b12]">{listError}</p>
         ) : projects.length === 0 ? (
           <p className="mt-3 rounded-xl border border-dashed border-[#d9d0c0] px-4 py-8 text-sm text-[#5c6754]">
             还没有项目。输入地址后会保存在本机工作台，可同时对比多块地。

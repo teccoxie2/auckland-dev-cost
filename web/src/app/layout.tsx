@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   description: "输入地址，按地块规划生成多种开发方案，并用公开报价源核算成本。",
 };
 
+export const maxDuration = 60;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="zh-CN" className={`${noto.variable} ${geistMono.variable} h-full antialiased`}>

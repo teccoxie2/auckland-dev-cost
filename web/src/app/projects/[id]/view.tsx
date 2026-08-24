@@ -1,53 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { fetchProject, type CostLine, type ProjectRecord, type SchemeOption } from "@/lib/api";
+import { useMemo, useState } from "react";
+import type { CostLine, ProjectRecord, SchemeOption } from "@/lib/api";
 import { nzd, nzdExact } from "@/lib/money";
 
-export default function ProjectView({ params }: { params: Promise<{ id: string }> }) {
-  const [id, setId] = useState<string>("");
-  const [project, setProject] = useState<ProjectRecord | null>(null);
-  const [error, setError] = useState("");
-  const [selected, setSelected] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    params.then((value) => setId(value.id));
-  }, [params]);
-
-  useEffect(() => {
-    if (!id) return;
-    fetchProject(id)
-      .then((record) => {
-        setProject(record);
-        const first = record.result.options?.find((item) => item.verdict.status !== "infeasible");
-        setSelected(first?.id || record.result.options?.[0]?.id || "");
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "读取失败"))
-      .finally(() => setIsLoading(false));
-  }, [id]);
-
+export default function ProjectView({ project }: { project: ProjectRecord }) {
+  const firstId =
+    project.result.options?.find((item) => item.verdict.status !== "infeasible")?.id ||
+    project.result.options?.[0]?.id ||
+    "";
+  const [selected, setSelected] = useState(firstId);
   const option = useMemo(
-    () => project?.result.options?.find((item) => item.id === selected),
+    () => project.result.options?.find((item) => item.id === selected),
     [project, selected],
   );
-
-  if (isLoading) {
-    return (
-      <main className="mx-auto max-w-6xl px-4 py-16 text-sm text-[#5c6754]">正在读取核算结果…</main>
-    );
-  }
-  if (error || !project) {
-    return (
-      <main className="mx-auto max-w-6xl px-4 py-16">
-        <p className="text-[#8a3b1d]">{error || "项目不存在"}</p>
-        <Link href="/" className="mt-4 inline-block text-sm text-[#2f4a32]">
-          返回
-        </Link>
-      </main>
-    );
-  }
 
   const result = project.result;
   if (result.error) {

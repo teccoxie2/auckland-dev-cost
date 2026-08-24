@@ -1,6 +1,8 @@
 node_modules
 .next
 .venv
+web/AGENTS.md
+web/CLAUDE.md
 __pycache__
 *.pyc
 server/data/*.sqlite
