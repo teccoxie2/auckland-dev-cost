@@ -111,12 +111,16 @@ export default function AddressForm() {
       }}
       className="rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 shadow-[0_12px_40px_rgba(40,32,18,0.06)] sm:p-7"
     >
-      <input type="hidden" name="address" value={selected?.full_address || ""} />
-      <input type="hidden" name="full_address" value={selected?.full_address || ""} />
-      <input type="hidden" name="selected_lat" value={selected ? String(selected.lat) : ""} />
-      <input type="hidden" name="selected_lon" value={selected ? String(selected.lon) : ""} />
-      <input type="hidden" name="sap_address_id" value={selected?.sap_address_id || ""} />
-      <input type="hidden" name="sap_site_id" value={selected?.sap_site_id || ""} />
+      {selected ? (
+        <>
+          <input type="hidden" name="address" value={selected.full_address} />
+          <input type="hidden" name="full_address" value={selected.full_address} />
+          <input type="hidden" name="selected_lat" value={String(selected.lat)} />
+          <input type="hidden" name="selected_lon" value={String(selected.lon)} />
+          <input type="hidden" name="sap_address_id" value={selected.sap_address_id || ""} />
+          <input type="hidden" name="sap_site_id" value={selected.sap_site_id || ""} />
+        </>
+      ) : null}
 
       <label htmlFor="address-search" className="text-sm font-medium">
         物业地址

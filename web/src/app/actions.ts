@@ -5,9 +5,12 @@ import { configureProject, postProject } from "@/lib/engine";
 
 export async function createProjectAction(_prev: { error: string } | null, formData: FormData) {
   const address = String(formData.get("address") || "").trim();
-  const lat = Number(formData.get("selected_lat"));
-  const lon = Number(formData.get("selected_lon"));
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || address.length < 3) {
+  const latRaw = String(formData.get("selected_lat") || "").trim();
+  const lonRaw = String(formData.get("selected_lon") || "").trim();
+  const lat = Number(latRaw);
+  const lon = Number(lonRaw);
+  const inAuckland = lat >= -37.3 && lat <= -35.89 && lon >= 174.15 && lon <= 175.59;
+  if (!latRaw || !lonRaw || !Number.isFinite(lat) || !Number.isFinite(lon) || !inAuckland || address.length < 3) {
     return { error: "请从下拉列表选择一条奥克兰议会地址。同一门牌可能对应多条记录。" };
   }
   let project;

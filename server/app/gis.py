@@ -242,7 +242,7 @@ def _hit_from_feature(feature: dict[str, Any]) -> dict[str, Any] | None:
         return None
     lat_f = float(lat)
     lon_f = float(lon)
-    if not _in_auckland(lat_f, lon_f):
+    if not in_auckland(lat_f, lon_f):
         return None
     full_address = (attributes.get("FullAddress") or "").strip()
     if not full_address:
@@ -321,7 +321,7 @@ def geocode_from_selection(
     sap_address_id: str | None = None,
     sap_site_id: str | None = None,
 ) -> dict[str, Any]:
-    if not _in_auckland(lat, lon):
+    if not in_auckland(lat, lon):
         raise GisError("该地址不在奥克兰范围内（第一期仅支持 Auckland）", "outside_auckland")
     display = (full_address or address).strip()
     return {
@@ -373,7 +373,7 @@ def geocode_address(
     raise GisError("奥克兰议会地址库没有匹配。请改写门牌或路名后从下拉列表选择。", "not_found")
 
 
-def _in_auckland(lat: float, lon: float) -> bool:
+def in_auckland(lat: float, lon: float) -> bool:
     box = AUCKLAND_BBOX
     return box["min_lat"] <= lat <= box["max_lat"] and box["min_lon"] <= lon <= box["max_lon"]
 

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .data_loader import council_fees, pricebook
-from .gis import ADDRESS_SOURCE_NAME, ADDRESS_SOURCE_URL, GisError, search_addresses
+from .gis import ADDRESS_SOURCE_NAME, ADDRESS_SOURCE_URL, GisError, in_auckland, search_addresses
 from .graph import configure_option, hydrate_legacy_result, run_address
 from .store import create_project, get_project, list_projects, update_project
 
@@ -116,6 +116,16 @@ def post_project(body: CreateProjectBody) -> dict[str, Any]:
     address = body.address.strip()
     selected: dict[str, Any] | None = None
     if body.lat is not None and body.lon is not None:
+        if not in_auckland(body.lat, body.lon):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": {
+                        "code": "invalid_selection",
+                        "message": "请从下拉列表选择一条奥克兰议会地址。同一门牌可能对应多条记录。",
+                    }
+                },
+            )
         selected = {
             "lat": body.lat,
             "lon": body.lon,

@@ -1,4 +1,9 @@
-from app.gis import address_where, parse_address_query, search_addresses
+from app.gis import address_where, in_auckland, parse_address_query, search_addresses
+
+
+def test_zero_coords_are_not_auckland():
+    assert in_auckland(0, 0) is False
+    assert in_auckland(-36.89839, 174.92383) is True
 
 
 def test_parse_nelson_street():
