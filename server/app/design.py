@@ -140,6 +140,7 @@ def costed_option(
 
 
 CURRENT_TITLE_FILTER = "current_council_title"
+CURRENT_TITLE_FILTER_COPY = 1
 
 
 def fits_current_council_title(template: dict[str, Any], site: dict[str, Any] | None) -> bool:
@@ -160,6 +161,7 @@ def scheme_filter_meta(site: dict[str, Any] | None, skipped: int) -> dict[str, A
         note = "开发完成后只显示当前这条议会记录，不把拆分后的兄弟地块合计成一块地。"
     return {
         "mode": CURRENT_TITLE_FILTER,
+        "copy": CURRENT_TITLE_FILTER_COPY,
         "skipped": skipped,
         "note": note,
     }

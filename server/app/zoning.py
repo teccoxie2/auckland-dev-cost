@@ -42,13 +42,20 @@ def coverage_site_area(template: dict[str, Any], site: dict[str, Any] | None) ->
     return None, "none"
 
 
+def format_area_m2(area: float) -> str:
+    rounded = round(float(area), 1)
+    if abs(rounded - round(rounded)) < 1e-9:
+        return str(int(round(rounded)))
+    return f"{rounded:.1f}"
+
+
 def coverage_area_label(source: str, area: float, site: dict[str, Any] | None) -> str:
     del source
     if is_existing_unit_title(site):
         selected = ((site or {}).get("subdivision") or {}).get("selected_unit")
         unit_bit = f"本户 {selected} " if selected else "本户 "
-        return f"{unit_bit}地块 {area:.0f} m²"
-    return f"地块 {area:.0f} m²"
+        return f"{unit_bit}地块 {format_area_m2(area)} m²"
+    return f"地块 {format_area_m2(area)} m²"
 
 
 def filter_template(template: dict[str, Any], spec: dict[str, Any], site: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -114,7 +121,7 @@ def filter_template(template: dict[str, Any], spec: dict[str, Any], site: dict[s
             status = "resource_consent"
             reasons.append(
                 f"初版占地 {footprint:.0f} m² 超过覆盖率上限约 {coverage_cap:.0f} m²"
-                f"（{area:.0f} m² × {int((spec.get('coverage') or 0)*100)}%）。"
+                f"（{format_area_m2(area)} m² × {int((spec.get('coverage') or 0)*100)}%）。"
             )
 
     return {

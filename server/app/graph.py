@@ -5,7 +5,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from .advise import build_advice
-from .design import CURRENT_TITLE_FILTER, build_template, costed_option, recommend_schemes, scheme_filter_meta
+from .design import CURRENT_TITLE_FILTER_COPY, build_template, costed_option, recommend_schemes, scheme_filter_meta
 from .gis import (
     GisError,
     attach_subdivision,
@@ -247,7 +247,7 @@ def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any
     needs_parcel = not parcel.get("found")
     needs_terrain = terrain.get("slope_deg") is None
     needs_cluster = "subdivision" not in site or (site.get("subdivision") or {}).get("reason") == "cluster_lookup_failed"
-    needs_title_filter = is_existing_unit_title(site) and (result.get("scheme_filter") or {}).get("mode") != CURRENT_TITLE_FILTER
+    needs_title_filter = is_existing_unit_title(site) and (result.get("scheme_filter") or {}).get("copy") != CURRENT_TITLE_FILTER_COPY
     if not needs_parcel and not needs_terrain and not needs_cluster and not needs_title_filter and result.get("advice"):
         return None
     changed = False
@@ -262,7 +262,7 @@ def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any
         site = attach_subdivision(site, address)
         if site.get("subdivision") != before:
             changed = True
-        needs_title_filter = is_existing_unit_title(site) and (result.get("scheme_filter") or {}).get("mode") != CURRENT_TITLE_FILTER
+        needs_title_filter = is_existing_unit_title(site) and (result.get("scheme_filter") or {}).get("copy") != CURRENT_TITLE_FILTER_COPY
     if needs_title_filter:
         changed = True
     if needs_terrain:
