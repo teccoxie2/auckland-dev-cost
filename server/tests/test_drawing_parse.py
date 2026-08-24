@@ -228,6 +228,13 @@ def test_run_drawings_builds_priced_option():
     assert option["drawing_extract"]["fields"]["gfa_m2"]["value"] == 186.4
 
 
+def test_drawing_still_costs_when_parcel_is_too_small():
+    site = {"parcel": {"found": True, "area_m2": 110, "frontage_m": 8}, "terrain": {"slope_deg": 1, "height_range_m": 0.2}}
+    state = run_drawings(site, _rules(), [extract_from_text(BRUCE_RC, kind="rc", filename="rc.pdf")])
+    assert state["option"]["verdict"]["status"] == "infeasible"
+    assert state["option"]["cost"]["totals"]["confirmed_total_incl_gst"] > 0
+
+
 BRUCE_RC = """
 Street Address 115 Bruce Road, Glenfield 0629
 Gross Site Area 733

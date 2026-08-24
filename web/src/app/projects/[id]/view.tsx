@@ -118,7 +118,7 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
               option={item}
               selected={item.id === selected}
               onSelect={() => {
-                if (item.verdict.status === "infeasible") return;
+                if (item.verdict.status === "infeasible" && item.origin !== "drawings") return;
                 setSelected(item.id);
                 requestAnimationFrame(() =>
                   document.getElementById("cost-ledger")?.scrollIntoView({ behavior: "smooth", block: "start" }),
@@ -129,7 +129,9 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
         </div>
       </section>
 
-      {option && option.verdict.status !== "infeasible" ? <CostPanel option={option} /> : null}
+      {option && (option.verdict.status !== "infeasible" || option.origin === "drawings") ? (
+        <CostPanel option={option} />
+      ) : null}
 
       <div className="mt-8">
         <DrawingUpload projectId={project.id} />
@@ -211,13 +213,14 @@ function OptionCard({
   onSelect: () => void;
 }) {
   const blocked = option.verdict.status === "infeasible";
+  const drawingBlocked = blocked && option.origin === "drawings";
   return (
     <button
       type="button"
       onClick={onSelect}
-      disabled={blocked}
+      disabled={blocked && !drawingBlocked}
       className={`rounded-2xl border p-4 text-left transition ${
-        blocked
+        blocked && !drawingBlocked
           ? "cursor-not-allowed border-dashed border-[#d9d0c0] bg-transparent opacity-80"
           : selected
             ? "border-[#2f4a32] bg-[#fffaf3] shadow-[0_8px_24px_rgba(47,74,50,0.08)]"
@@ -250,12 +253,13 @@ function OptionCard({
       ) : null}
       {blocked ? (
         <p className="mt-3 text-sm text-[#8a3b1d]">{option.verdict.reasons.join(" ")}</p>
-      ) : (
+      ) : null}
+      {option.totals?.confirmed_total_incl_gst != null && (!blocked || option.origin === "drawings") ? (
         <p className="mt-3 text-2xl font-semibold tracking-tight">
           {nzd(option.totals?.confirmed_total_incl_gst)}
           <span className="ml-2 text-xs font-normal text-[#7b8474]">已核对公开价（部分账单）</span>
         </p>
-      )}
+      ) : null}
       {(option.totals?.missing_count || 0) > 0 && !blocked ? (
         <p className="mt-1 text-xs text-[#9a6b12]">另有 {option.totals?.missing_count} 项缺价未计入</p>
       ) : null}
@@ -281,6 +285,11 @@ function CostPanel({ option }: { option: SchemeOption }) {
         </div>
         <p className="text-2xl font-semibold">{nzd(option.totals?.confirmed_total_incl_gst)}</p>
       </div>
+      {option.verdict.status === "infeasible" ? (
+        <p className="mt-3 rounded-lg bg-[#f8e7dc] px-3 py-2 text-sm leading-6 text-[#8a3b1d]" role="alert">
+          {option.verdict.reasons.join(" ")} 下方仍按图纸文字层套价，方便对照；议会门牌地块与整份 RC 不一致时，请改选对应的整宗地再核可行性。
+        </p>
+      ) : null}
       {option.totals?.rlb_benchmark_low ? (
         <p className="mt-3 rounded-lg bg-[#f3eee4] px-3 py-2 text-sm leading-6 text-[#5c6754]">
           上方是已核对 SKU/官方费率的部分账单，不是整房交钥匙价。未命中公开尺寸的铝窗、厨房水槽安装与电器接线、洗衣房/热水器水管等缺价未计入。

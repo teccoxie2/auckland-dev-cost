@@ -77,7 +77,7 @@ def cost_node(state: DrawingState) -> dict[str, Any]:
             "warnings": state["extracted"].get("warnings") or [],
         },
     }
-    if verdict["status"] != "infeasible":
+    if verdict["status"] != "infeasible" or template.get("quantity_source") == "drawing":
         option["quantities"] = takeoff(template, site)
         option["cost"] = cost_option(template, verdict, existing_dwellings=1, site=site)
     return {"option": option, "trace": _trace(state, "drawing_cost", verdict["status"])}
