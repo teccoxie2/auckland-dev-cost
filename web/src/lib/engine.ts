@@ -49,3 +49,20 @@ export async function configureProject(projectId: string, spec: ConfigureSpec): 
   }
   return data;
 }
+
+export async function uploadDrawings(projectId: string, formData: FormData): Promise<ProjectRecord> {
+  const response = await fetch(`${ENGINE_URL}/projects/${projectId}/drawings`, {
+    method: "POST",
+    body: formData,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = data?.detail;
+    const message =
+      typeof detail === "string"
+        ? detail
+        : detail?.error?.message || detail?.message || data?.error?.message || "图纸核算失败";
+    throw new Error(message);
+  }
+  return data;
+}

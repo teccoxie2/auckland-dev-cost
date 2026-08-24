@@ -38,9 +38,9 @@ export default function SchemeConfig({
   const [dwellings, setDwellings] = useState(template?.dwellings || 1);
   const [storeys, setStoreys] = useState(template?.storeys || 1);
   const [bedrooms, setBedrooms] = useState(template?.bedrooms || 3);
-  const [bathrooms, setBathrooms] = useState(template?.bathrooms || 2);
-  const [kitchens, setKitchens] = useState(template?.kitchens || 1);
-  const [gfa, setGfa] = useState(template?.gfa_m2 || 110);
+  const [bathrooms, setBathrooms] = useState(template?.bathrooms ?? 2);
+  const [kitchens, setKitchens] = useState(template?.kitchens ?? 1);
+  const [gfa, setGfa] = useState(template?.gfa_m2 ?? 110);
   const [gfaTouched, setGfaTouched] = useState(false);
 
   const handleStoreys = (value: number) => {
@@ -62,7 +62,7 @@ export default function SchemeConfig({
     <form action={formAction} className="rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 sm:p-6">
       <h2 className="text-lg font-semibold">按你的需求选装</h2>
       <p className="mt-1 text-sm leading-6 text-[#5c6754]">
-        先点上方一张初版方案作起点，再改户型大小、厨房和卫生间。核算仍用这块地已经读到的区划、面积和坡度。
+        先点上方一张初版方案作起点，再改户型大小、厨房和卫生间。核算仍用这块地已经读到的区划、面积和坡度。图纸方案改选装后会走户型模板，不再沿用图纸文字层。
       </p>
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="形态">

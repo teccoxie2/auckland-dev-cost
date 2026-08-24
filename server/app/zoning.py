@@ -59,9 +59,9 @@ def filter_template(template: dict[str, Any], spec: dict[str, Any], site: dict[s
         reasons.append("叠加层（qualifying matter）可能限制加密，需按 Resource Consent 路径评估。")
 
     parcel = (site or {}).get("parcel") or {}
-    if parcel.get("found"):
+    if parcel.get("found") and not template.get("gfa_missing"):
         area = float(parcel["area_m2"])
-        footprint = float(template["gfa_m2"]) / max(storeys, 1)
+        footprint = float(template.get("footprint_m2_drawn") or (float(template["gfa_m2"]) / max(storeys, 1)))
         coverage_cap = area * float(spec.get("coverage") or 0)
         if footprint > area:
             return {

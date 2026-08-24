@@ -34,7 +34,9 @@ def test_priced_catalog_lines_use_public_skus():
     assert by_id["sink_mondella_concerto"]["amount_incl_gst"] == 198.0
     assert by_id["oven_bellini_60_pack"]["amount_incl_gst"] == 549.0
     assert by_id["tap_mondella_resonance_kitchen"]["amount_incl_gst"] == 146.0
+    assert by_id["plumber_prepipe_kitchen"]["name_zh"] == "厨房给排水预埋"
     assert by_id["plumber_prepipe_kitchen"]["amount_incl_gst"] == 1000.0
+    assert by_id["plumber_prepipe_bathroom"]["name_zh"] == "卫生间给排水预埋（马桶+淋浴+面盆）"
     assert by_id["plumber_prepipe_bathroom"]["quantity"] == 6
     assert by_id["plumber_prepipe_bathroom"]["amount_incl_gst"] == 6000.0
     assert by_id["plumber_prepipe_mains"]["amount_incl_gst"] == 1000.0

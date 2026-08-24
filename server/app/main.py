@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .data_loader import council_fees, pricebook
+from .drawing_flow import parse_files, run_drawings
+from .drawing_parse import MAX_PDF_BYTES
 from .gis import ADDRESS_SOURCE_NAME, ADDRESS_SOURCE_URL, GisError, in_auckland, search_addresses
 from .graph import configure_option, hydrate_legacy_result, run_address
 from .store import create_project, get_project, list_projects, update_project
+
+DRAWINGS_DIR = Path(__file__).resolve().parent.parent / "data" / "drawings"
 
 app = FastAPI(title="Auckland Development Cost MVP", version="0.2.0")
 app.add_middleware(
@@ -48,6 +53,7 @@ def _public_option(option: dict[str, Any]) -> dict[str, Any]:
         "why": option.get("why") or [],
         "recommended": bool(option.get("recommended")),
         "origin": option.get("origin") or "typology",
+        "drawing_extract": option.get("drawing_extract"),
         "quantities": (cost or {}).get("quantities") or option.get("quantities"),
         "totals": (cost or {}).get("totals"),
         "lines": (cost or {}).get("lines"),
@@ -171,6 +177,80 @@ def post_configure(project_id: str, body: ConfigureBody) -> dict[str, Any]:
     public_custom = _public_option(custom)
     result["options"] = [public_custom, *options]
     result["selected_id"] = "custom"
+    updated = update_project(project_id, result, record.get("status") or "ready")
+    if not updated:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    return updated
+
+
+def _http_detail(detail: Any) -> str:
+    if isinstance(detail, str):
+        return detail
+    if isinstance(detail, dict):
+        error = detail.get("error") or detail
+        if isinstance(error, dict) and error.get("message"):
+            return str(error["message"])
+        return str(detail.get("message") or detail)
+    return str(detail)
+
+
+@app.post("/projects/{project_id}/drawings")
+async def post_drawings(
+    project_id: str,
+    files: list[UploadFile] = File(...),
+    kinds: str | None = Form(default=None),
+) -> dict[str, Any]:
+    record = get_project(project_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    result = record.get("result") or {}
+    if result.get("error") or not result.get("site") or not result.get("rules"):
+        raise HTTPException(status_code=400, detail="项目还没有完整地块数据，无法按图纸套价")
+    uploads = [item for item in files if item.filename]
+    if not uploads:
+        raise HTTPException(status_code=400, detail="请至少上传一份 PDF")
+    if len(uploads) > 6:
+        raise HTTPException(status_code=400, detail="一次最多上传 6 份 PDF")
+    kind_list = [item.strip().lower() for item in (kinds or "").split(",") if item.strip()]
+    dest = DRAWINGS_DIR / project_id
+    dest.mkdir(parents=True, exist_ok=True)
+    saved: list[dict[str, Any]] = []
+    for index, upload in enumerate(uploads):
+        name = Path(upload.filename or f"drawing-{index}.pdf").name
+        if not name.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail=f"{name} 不是 PDF")
+        blob = await upload.read()
+        if not blob:
+            raise HTTPException(status_code=400, detail=f"{name} 是空文件")
+        if len(blob) > MAX_PDF_BYTES:
+            raise HTTPException(status_code=400, detail=f"{name} 超过 15MB")
+        path = dest / f"{index}-{name}"
+        path.write_bytes(blob)
+        saved.append(
+            {
+                "path": str(path),
+                "filename": name,
+                "kind": kind_list[index] if index < len(kind_list) else None,
+            }
+        )
+    try:
+        parts = parse_files(saved)
+        drawing_state = run_drawings(result["site"], result["rules"], parts)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if drawing_state.get("error"):
+        raise HTTPException(status_code=400, detail=_http_detail(drawing_state["error"]))
+    option = drawing_state.get("option")
+    if not option:
+        raise HTTPException(status_code=400, detail="图纸未能生成核算方案")
+    public = _public_option(option)
+    others = [item for item in result.get("options") or [] if item.get("id") != "drawings"]
+    result["options"] = [public, *others]
+    result["selected_id"] = "drawings"
+    extracted = drawing_state.get("extracted") or {}
+    result["drawings"] = extracted.get("documents") or []
+    result["drawing_explanation"] = drawing_state.get("explanation")
+    result["drawing_trace"] = drawing_state.get("trace") or []
     updated = update_project(project_id, result, record.get("status") or "ready")
     if not updated:
         raise HTTPException(status_code=404, detail="项目不存在")

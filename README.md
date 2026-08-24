@@ -1,6 +1,6 @@
-# 奥克兰住宅开发核算台（第一期 MVP）
+# 奥克兰住宅开发核算台
 
-输入奥克兰地址后，系统读取公开地块面积、Unitary Plan 区划和 DEM 坡度，给出**适合这块地的初版方案**。你再选户型大小、厨房和卫生间数量。挡土墙、覆盖率和叠加层会写进建议；金额不由大模型生成。
+输入奥克兰地址后，系统读取公开地块面积、Unitary Plan 区划和 DEM 坡度，给出**适合这块地的初版方案**。你再选户型大小、厨房和卫生间数量，或上传 RC/BC 图纸按文字层套价。挡土墙、覆盖率和叠加层会写进建议；金额不由大模型生成。
 
 ## 能做什么
 
@@ -11,6 +11,7 @@
 - 户型模板工程量（尺寸进入木材、空腔、屋面、石膏板、卫生间洁具数量）
 - 分项总账带报价源链接、SKU、取价日期
 - 能核对到公开 SKU 的厨房柜体/水槽/灶具包、部分铝窗、EPS 垫块、龙头防水、卫生间水管工时、外围脚手架按标价计入；对不上尺寸或没有工时的仍标缺项
+- 第二阶段：在项目页上传 RC / BC PDF，按文字层门窗表和面积套同一价库（扫描件无文字层会失败）
 
 ## 报价源（2026-08-24 检索）
 
@@ -89,9 +90,11 @@ pnpm dev
 
 浏览器打开 `http://127.0.0.1:43124`。输入 `55 Nelson Street` 会列出 Howick 与 Auckland Central 等多条议会地址，必须点选一条。输入 `115 Bruce Road Glenfield` 会列出 115A–F；点选后再对比 `115D Bruce Road`（细分后的小地块，加密方案会被标成放不下）。
 
+第二阶段在项目页上传 RC/BC PDF。仓库不附带某块地的批准图；没有文字层的扫描件无法量尺寸。门窗表对得上公开尺寸（例如 1800×1200、1200×1200 新铝窗，或 Hume 860 门扇）才计价，其余樘标缺项。
+
 ## 架构要点
 
-LangGraph 节点：`geocode → planning → parcel → terrain → rules → advise → options → explain → pm_gate`。选装走 `POST /projects/{id}/configure`，不再重新查 GIS。`pm_gate` 第一期自动通过。核算在 `costing.py`，模型只写中文说明。
+LangGraph 地址流：`geocode → planning → parcel → terrain → rules → advise → options → explain → pm_gate`。选装走 `POST /projects/{id}/configure`，不再重新查 GIS。图纸流：`parse_drawings → drawing_template → drawing_cost → drawing_explain`，入口为 `POST /projects/{id}/drawings`。`pm_gate` 第一期自动通过。核算在 `costing.py`，模型只写中文说明。
 
 ## 开发要求
 
@@ -100,6 +103,7 @@ LangGraph 节点：`geocode → planning → parcel → terrain → rules → ad
 - 地址、坐标、地籍、区划、叠加层、DEM 必须来自奥克兰议会 / LINZ 等公开接口；选址必须从 `AC_Address` 下拉点选。
 - 金额必须来自带链接与取价日期的价表或官方费率表；禁止大模型定价，禁止编造单价或总价。
 - 没有可核对来源的科目标成缺项（`missing`），不要用估算、经验值、mock、默认地块或缓存值把页面凑完整。
+- 图纸只读 PDF 文字层；读不到面积就不要套户型模板的 110 m²，读不到厨卫就不要套模板洁具。
 - 单测可以给纯函数喂显式数字；不得把假 GIS / 假价源当成议会或供应商返回值。
 
 Agent 实现时遵守 `.cursor/rules/no-fake-data.mdc` 与 `cursor_project_rules/development-requirements.mdc`。

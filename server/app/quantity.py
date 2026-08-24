@@ -26,33 +26,49 @@ GEOTEXTILE_ROLL_M2 = 50.0
 def takeoff(template: dict[str, Any], site: dict[str, Any] | None = None) -> dict[str, Any]:
     gfa = float(template["gfa_m2"])
     storeys = int(template["storeys"])
-    footprint = gfa / storeys
-    length, width = _rectangle(footprint, float(template.get("aspect") or 1.4))
+    heights = [float(item) for item in (template.get("storey_heights_m") or []) if item]
+    if heights:
+        storeys = max(storeys, len(heights))
+        wall_stack = sum(heights)
+        wall_height = wall_stack / len(heights)
+    else:
+        wall_height = float(template.get("wall_height_m") or 2.55)
+        wall_stack = wall_height * storeys
+    footprint = float(template["footprint_m2_drawn"]) if template.get("footprint_m2_drawn") else (gfa / max(storeys, 1) if gfa else 0.0)
+    length, width = _rectangle(footprint, float(template.get("aspect") or 1.4)) if footprint else (0.0, 0.0)
     perimeter = 2 * (length + width)
-    wall_height = float(template["wall_height_m"])
-    external_wall_m2 = perimeter * wall_height * storeys
+    external_wall_m2 = perimeter * wall_stack
     openings = _opening_area(template.get("windows") or [])
-    lining_m2 = max(external_wall_m2 * 1.65 - openings, external_wall_m2 * 0.8)
-    bathrooms = int(template.get("bathrooms") or 1)
-    kitchens = int(template.get("kitchens") or template.get("dwellings") or 1)
+    lining_m2 = max(external_wall_m2 * 1.65 - openings, external_wall_m2 * 0.8) if external_wall_m2 else 0.0
+    bathrooms = int(template["bathrooms"]) if template.get("bathrooms") is not None else 1
+    kitchens = int(template["kitchens"]) if template.get("kitchens") is not None else int(template.get("dwellings") or 1)
     extra_wet = max(bathrooms - 1, 0) * 16 + max(kitchens - 1, 0) * 10
     lining_m2 += extra_wet
     pitch = math.radians(float(template.get("roof_pitch_deg") or 25))
-    roof_m2 = footprint / max(math.cos(pitch), 0.5)
+    if template.get("roof_m2_drawn"):
+        roof_m2 = float(template["roof_m2_drawn"])
+    else:
+        roof_m2 = footprint / max(math.cos(pitch), 0.5) if footprint else 0.0
     spacing = float(template.get("stud_spacing_mm") or 600) / 1000.0
-    studs = (perimeter / spacing) * storeys + 8
-    timber_90_lm = studs * wall_height + 3 * perimeter * storeys
-    e2 = e2_score(template)
+    storey_count = max(len(heights) if heights else storeys, 1)
+    studs = (perimeter / spacing) * storey_count + 8 if perimeter else 0.0
+    timber_90_lm = studs * (wall_stack / storey_count) + 3 * perimeter * storey_count if perimeter else 0.0
+    e2 = e2_score({**template, "storeys": storeys, "wall_height_m": wall_height})
     cavity = e2["score"] >= 7 or storeys >= 2
     batten_lm = (external_wall_m2 / 0.6) if cavity else 0.0
-    roof_sheet_lm = roof_m2 / ROOF_COVER_M
+    roof_sheet_lm = roof_m2 / ROOF_COVER_M if roof_m2 else 0.0
     slab_m2 = footprint
     slab_m3 = slab_m2 * 0.085
-    wide_slider = any(item["w_mm"] >= 3000 and item["h_mm"] >= 2000 for item in template.get("windows") or [])
+    wide_openings = [
+        item
+        for item in template.get("windows") or []
+        if int(item["w_mm"]) >= 3000 and int(item["h_mm"]) >= 2000
+    ]
+    wide_slider = bool(wide_openings)
     if wide_slider:
-        timber_140_lm = 8.0
+        timber_140_lm = 4.0 * sum(int(item["count"]) for item in wide_openings)
     else:
-        timber_140_lm = 2.4
+        timber_140_lm = 2.4 if perimeter else 0.0
     retaining = retaining_takeoff(template, site or {}, length)
     pod_nx = max(int(length // POD_GRID_M), 0)
     pod_ny = max(int(width // POD_GRID_M), 0)
@@ -89,6 +105,8 @@ def takeoff(template: dict[str, Any], site: dict[str, Any] | None = None) -> dic
         "kitchen_bench_2400": KITCHEN_BENCH_2400 * kitchens,
         "pod_count": pod_count,
         "pod_grid_m": POD_GRID_M,
+        "quantity_source": template.get("quantity_source") or "template",
+        "gfa_missing": bool(template.get("gfa_missing")),
         "retaining": retaining,
     }
 
@@ -136,6 +154,31 @@ def _opening_area(windows: list[dict[str, Any]]) -> float:
 def retaining_takeoff(template: dict[str, Any], site: dict[str, Any], building_length_m: float) -> dict[str, Any] | None:
     terrain = site.get("terrain") or {}
     parcel = site.get("parcel") or {}
+    drawn_height = template.get("retaining_height_m")
+    if drawn_height is not None:
+        height = float(drawn_height)
+        length = float(template.get("retaining_length_m") or parcel.get("frontage_m") or building_length_m or 0)
+        if length <= 0:
+            return None
+        length = max(min(length, 40.0), 1.0)
+        courses = max(math.ceil(height / 0.20), 1)
+        timber_lm = courses * length * (1 + WASTAGE["timber"])
+        posts = max(math.ceil(length / RETAINING_POST_SPACING_M), 1)
+        face_m2 = height * length
+        geotextile_rolls = max(math.ceil(face_m2 / GEOTEXTILE_ROLL_M2), 1)
+        return {
+            "needed": True,
+            "height_m": round(height, 2),
+            "length_m": round(length, 1),
+            "courses": courses,
+            "timber_lm": round(timber_lm, 2),
+            "posts": posts,
+            "geotextile_rolls": geotextile_rolls,
+            "surcharge_likely": True,
+            "sleeper_ok": height <= 1.2,
+            "formula": "墙高取图纸标注；延米优先图纸长度否则用地块面宽",
+            "note": "挡土墙高度来自图纸文字，不是 DEM 推算。",
+        }
     rise = float(terrain.get("height_range_m") or 0)
     slope_deg = float(terrain.get("slope_deg") or 0)
     if rise < 2.0 and slope_deg < 5:

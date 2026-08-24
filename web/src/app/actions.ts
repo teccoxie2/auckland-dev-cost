@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { configureProject, postProject } from "@/lib/engine";
+import { configureProject, postProject, uploadDrawings } from "@/lib/engine";
 
 export async function createProjectAction(_prev: { error: string } | null, formData: FormData) {
   const address = String(formData.get("address") || "").trim();
@@ -43,6 +43,38 @@ export async function configureProjectAction(projectId: string, _prev: { error: 
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "选装核算失败";
+    return { error: message };
+  }
+  redirect(`/projects/${projectId}`);
+}
+
+export async function uploadDrawingsAction(projectId: string, _prev: { error: string } | null, formData: FormData) {
+  const forward = new FormData();
+  const kinds: string[] = [];
+  const rc = formData.get("rc");
+  const bc = formData.get("bc");
+  if (rc instanceof File && rc.size > 0) {
+    forward.append("files", rc);
+    kinds.push("rc");
+  }
+  if (bc instanceof File && bc.size > 0) {
+    forward.append("files", bc);
+    kinds.push("bc");
+  }
+  for (const extra of formData.getAll("extras")) {
+    if (extra instanceof File && extra.size > 0) {
+      forward.append("files", extra);
+      kinds.push("unknown");
+    }
+  }
+  if (!forward.has("files")) {
+    return { error: "请至少上传一份 RC 或 BC 的 PDF。" };
+  }
+  forward.append("kinds", kinds.join(","));
+  try {
+    await uploadDrawings(projectId, forward);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "图纸核算失败";
     return { error: message };
   }
   redirect(`/projects/${projectId}`);

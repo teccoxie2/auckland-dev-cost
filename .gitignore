@@ -6,5 +6,6 @@ web/CLAUDE.md
 __pycache__
 *.pyc
 server/data/*.sqlite
+server/data/drawings/
 .DS_Store
 agent-tools

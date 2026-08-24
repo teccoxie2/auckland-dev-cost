@@ -89,17 +89,25 @@ def build_template(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def wrap_typology(template: dict[str, Any]) -> dict[str, Any]:
-    kitchens = int(template.get("kitchens") or default_kitchens(int(template["dwellings"])))
+    drawing = template.get("quantity_source") == "drawing"
+    if drawing:
+        kitchens = int(template["kitchens"]) if template.get("kitchens") is not None else 0
+        bathrooms = int(template["bathrooms"]) if template.get("bathrooms") is not None else 0
+    else:
+        kitchens = int(template.get("kitchens") or default_kitchens(int(template["dwellings"])))
+        bathrooms = int(template["bathrooms"])
     return {
         "id": template["id"],
         "name_zh": template["name_zh"],
         "kind": template["kind"],
         "dwellings": template["dwellings"],
         "bedrooms": template["bedrooms"],
-        "bathrooms": template["bathrooms"],
+        "bathrooms": bathrooms,
         "kitchens": kitchens,
         "storeys": template["storeys"],
         "gfa_m2": template["gfa_m2"],
+        "gfa_missing": bool(template.get("gfa_missing")),
+        "quantity_source": template.get("quantity_source") or "template",
     }
 
 

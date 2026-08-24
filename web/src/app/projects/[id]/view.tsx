@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import DrawingUpload from "@/components/drawing_upload";
 import SchemeConfig from "@/components/scheme_config";
 import type { AdviceItem, CostLine, ProjectRecord, SchemeOption } from "@/lib/api";
 import { nzd, nzdExact } from "@/lib/money";
@@ -48,6 +49,9 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
           <p className="text-sm text-[#7a5a2b]">初版设计方案</p>
           <h1 className="mt-1 text-3xl font-semibold">{project.address}</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[#5c6754]">{result.explanation}</p>
+          {result.drawing_explanation ? (
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#2f4a32]">{result.drawing_explanation}</p>
+          ) : null}
         </div>
         <p className="text-xs text-[#7b8474]">{result.pm_review?.note}</p>
       </header>
@@ -128,6 +132,10 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
       {option && option.verdict.status !== "infeasible" ? <CostPanel option={option} /> : null}
 
       <div className="mt-8">
+        <DrawingUpload projectId={project.id} />
+      </div>
+
+      <div className="mt-8">
         <SchemeConfig projectId={project.id} option={option} />
       </div>
 
@@ -136,6 +144,13 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
         <ol className="mt-3 space-y-2 text-sm text-[#5c6754]">
           {(result.trace || []).map((step, index) => (
             <li key={`${step.node}-${index}`}>
+              <span className="font-medium text-[#1c2416]">{step.node}</span>
+              <span className="mx-2">→</span>
+              <span>{step.detail}</span>
+            </li>
+          ))}
+          {(result.drawing_trace || []).map((step, index) => (
+            <li key={`drawing-${step.node}-${index}`}>
               <span className="font-medium text-[#1c2416]">{step.node}</span>
               <span className="mx-2">→</span>
               <span>{step.detail}</span>
@@ -212,6 +227,9 @@ function OptionCard({
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-semibold">{option.template.name_zh}</h3>
         <span className="flex flex-wrap justify-end gap-1">
+          {option.origin === "drawings" ? (
+            <span className="rounded-full bg-[#e8efe6] px-2 py-0.5 text-xs text-[#2f4a32]">图纸套价</span>
+          ) : null}
           {option.recommended ? (
             <span className="rounded-full bg-[#e4f0e6] px-2 py-0.5 text-xs text-[#2f6b4f]">初版推荐</span>
           ) : null}
@@ -220,11 +238,12 @@ function OptionCard({
       </div>
       <p className="mt-2 text-sm text-[#5c6754]">
         {option.template.dwellings} 套 · {option.template.bedrooms} 房 {option.template.bathrooms} 卫 ·{" "}
-        {option.template.kitchens ?? option.template.dwellings} 厨 · {option.template.storeys} 层 · {option.template.gfa_m2} m²
+        {option.template.kitchens ?? option.template.dwellings} 厨 · {option.template.storeys} 层 ·{" "}
+        {option.template.gfa_missing ? "面积未从图纸读到" : `${option.template.gfa_m2} m²`}
       </p>
       {option.why?.length ? (
         <ul className="mt-2 space-y-1 text-xs leading-5 text-[#5c6754]">
-          {option.why.slice(0, 3).map((reason) => (
+          {option.why.slice(0, option.origin === "drawings" ? 6 : 3).map((reason) => (
             <li key={reason}>· {reason}</li>
           ))}
         </ul>
@@ -280,8 +299,8 @@ function CostPanel({ option }: { option: SchemeOption }) {
       </dl>
       {option.quantities ? (
         <p className="mt-4 text-xs leading-5 text-[#7b8474]">
-          占地 {option.quantities.footprint_m2} m² · {option.quantities.kitchens || 1} 厨 ·{" "}
-          {option.quantities.bathrooms || option.template.bathrooms} 卫 · 90×45 木材 {option.quantities.timber_90_lm} m
+          占地 {option.quantities.footprint_m2} m² · {option.quantities.kitchens ?? option.template.kitchens ?? 0}{" "}
+          厨 · {option.quantities.bathrooms ?? option.template.bathrooms} 卫 · 90×45 木材 {option.quantities.timber_90_lm} m
           {option.quantities.retaining
             ? ` · 挡土墙约 ${option.quantities.retaining.height_m} m × ${option.quantities.retaining.length_m} m`
             : ""}
@@ -289,6 +308,7 @@ function CostPanel({ option }: { option: SchemeOption }) {
           {option.quantities.cavity_required ? "（计入空腔垫条）" : ""}。{option.quantities.e2.note}
         </p>
       ) : null}
+      {option.drawing_extract ? <DrawingEvidence extract={option.drawing_extract} /> : null}
       <div className="mt-5 overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead>
@@ -324,6 +344,69 @@ function Mini({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg bg-[#f3eee4] px-3 py-3">
       <p className="text-xs text-[#7b8474]">{label}</p>
       <p className="mt-1 font-medium">{value}</p>
+    </div>
+  );
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  gfa_m2: "建筑面积",
+  footprint_m2: "底层面积",
+  roof_m2: "屋面面积",
+  storeys: "层数",
+  wall_height_m: "层高",
+  eaves_mm: "屋檐",
+  bedrooms: "卧室",
+  bathrooms: "卫生间",
+  kitchens: "厨房",
+  dwellings: "套数",
+  coverage_pct: "覆盖率",
+  retaining_height_m: "挡土墙高度",
+  stud_spacing_mm: "立柱间距",
+  cladding: "外墙",
+};
+
+function DrawingEvidence({ extract }: { extract: NonNullable<SchemeOption["drawing_extract"]> }) {
+  const fields = Object.entries(extract.fields || {});
+  return (
+    <div className="mt-5 rounded-xl border border-[#e4dccb] bg-[#f3eee4] p-4">
+      <h3 className="text-sm font-semibold">图纸文字层证据</h3>
+      {(extract.documents || []).length ? (
+        <p className="mt-2 text-xs leading-5 text-[#5c6754]">
+          {(extract.documents || [])
+            .map((item) => `${item.filename || "PDF"}（${item.kind || "unknown"}，${item.char_count ?? 0} 字）`)
+            .join("；")}
+        </p>
+      ) : null}
+      {fields.length ? (
+        <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+          {fields.map(([key, item]) => (
+            <div key={key}>
+              <dt className="text-xs text-[#7b8474]">{FIELD_LABELS[key] || key}</dt>
+              <dd className="text-sm">
+                {Array.isArray(item.value) ? item.value.join(" / ") : String(item.value)}
+              </dd>
+              {item.evidence ? <dd className="text-xs text-[#7b8474]">{item.evidence}</dd> : null}
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="mt-3 text-sm text-[#9a6b12]">文字层没有读到面积或层高字段。</p>
+      )}
+      {(extract.windows || []).length ? (
+        <ul className="mt-3 space-y-1 text-xs text-[#5c6754]">
+          {extract.windows?.map((item) => (
+            <li key={`${item.code}-${item.w_mm}x${item.h_mm}`}>
+              {item.code} {item.w_mm}×{item.h_mm} mm × {item.count}
+              {item.evidence ? ` ← ${item.evidence}` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm text-[#9a6b12]">没有读到门窗表。</p>
+      )}
+      {(extract.warnings || []).length ? (
+        <p className="mt-3 text-xs text-[#9a6b12]">{extract.warnings?.join("；")}</p>
+      ) : null}
     </div>
   );
 }

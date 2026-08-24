@@ -5,3 +5,4 @@ pydantic==2.11.7
 langgraph==0.6.4
 langchain-core==0.3.74
 python-multipart==0.0.20
+pypdf==6.4.0

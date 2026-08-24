@@ -21,3 +21,9 @@ Done
 Done
 
 水槽/灶具包/厨房龙头按 Bunnings SKU 计价；卫生间预埋与 fit-off 按 Chambers 分项指引；外围脚手架按 SK Scaffold $18/m²+$1/m²/周（最低 1 周，另加 GST）。水槽安装与电器接线、洗衣房/热水器仍缺项。
+
+## 第二阶段：RC/BC 图纸文字层套价
+
+Done
+
+项目页上传 RC/BC PDF，用 pypdf 读文字层（门窗表、GFA、底层/屋面、层高、覆盖率、砌块贴面/400mm 立柱、挡土墙高度），LangGraph 节点 parse_drawings → drawing_template → drawing_cost → drawing_explain 套同一价库。扫描件无文字层报错；无面积不套结构模板；无厨卫不套洁具；对不上的樘标缺项。仓库没有 115 Bruce 原图，不编造窗表。

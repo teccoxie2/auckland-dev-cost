@@ -23,61 +23,74 @@ def cost_option(
 ) -> dict[str, Any]:
     qty = takeoff(template, site)
     lines: list[dict[str, Any]] = []
+    area_known = not bool(template.get("gfa_missing")) and float(qty.get("gfa_m2") or 0) > 0
 
-    lines.append(
-        line(
-            "timber_sg8_90x45_h12",
-            qty["timber_90_lm"],
-            formula="立柱+墙板延米（含10%损耗）= (周长/间距×层数 + 8) × 层高 + 3×周长×层数",
-        )
-    )
-    lines.append(
-        line(
-            "timber_sg8_140x45_h12",
-            qty["timber_140_lm"],
-            formula="宽推拉门或过梁加强时增加 140×45，否则仅少量过梁备料",
-            extra_notes="窗表最大宽≥3000mm 时增加过梁木料。",
-        )
-    )
-    if qty["cavity_required"]:
+    if area_known:
         lines.append(
             line(
-                "cavity_batten_h31_45x20",
-                qty["batten_lm"],
-                formula="外墙面积 / 0.6m 间距，E2 得分≥7 或二层及以上计入空腔",
+                "timber_sg8_90x45_h12",
+                qty["timber_90_lm"],
+                formula="立柱+墙板延米（含10%损耗）= (周长/间距×层数 + 8) × 层高 + 3×周长×层数",
             )
         )
-    lines.append(line("gib_std_10mm", qty["gib_m2"], formula="内衬面积 × 1.15 损耗，并扣门窗洞口"))
-    lines.append(line("pink_batts_r22_wall", qty["insulation_m2"], formula="外墙面积 × 1.08 损耗"))
-    lines.append(
-        line(
-            "roofing_corrugate_colour_845",
-            qty["roof_sheet_lm"],
-            formula="屋面斜面积 / 0.762m 覆盖宽 × 1.10 损耗",
+    if area_known:
+        lines.append(
+            line(
+                "timber_sg8_140x45_h12",
+                qty["timber_140_lm"],
+                formula="宽推拉门或过梁加强时增加 140×45，否则仅少量过梁备料",
+                extra_notes="窗表最大宽≥3000mm 时增加过梁木料。",
+            )
         )
-    )
-    lines.append(
-        line(
-            "concrete_readymix_20mpa",
-            qty["slab_m3"],
-            formula="底层占地 × 85mm 面层（Rib-raft 表层口径）× 1.05 损耗",
-            extra_notes="EPS 垫块本身未计价。",
+        if qty["cavity_required"]:
+            lines.append(
+                line(
+                    "cavity_batten_h31_45x20",
+                    qty["batten_lm"],
+                    formula="外墙面积 / 0.6m 间距，E2 得分≥7 或二层及以上计入空腔",
+                )
+            )
+        lines.append(line("gib_std_10mm", qty["gib_m2"], formula="内衬面积 × 1.15 损耗，并扣门窗洞口"))
+        lines.append(line("pink_batts_r22_wall", qty["insulation_m2"], formula="外墙面积 × 1.08 损耗"))
+        lines.append(
+            line(
+                "roofing_corrugate_colour_845",
+                qty["roof_sheet_lm"],
+                formula="屋面斜面积 / 0.762m 覆盖宽 × 1.10 损耗",
+            )
         )
-    )
-    lines.append(
-        line(
-            "framing_labour_gfa",
-            qty["gfa_m2"],
-            formula="GFA × 框架安装公开区间中位",
+        lines.append(
+            line(
+                "concrete_readymix_20mpa",
+                qty["slab_m3"],
+                formula="底层占地 × 85mm 面层（Rib-raft 表层口径）× 1.05 损耗",
+                extra_notes="EPS 垫块本身未计价。",
+            )
         )
-    )
+        lines.append(
+            line(
+                "framing_labour_gfa",
+                qty["gfa_m2"],
+                formula="GFA × 框架安装公开区间中位",
+            )
+        )
+    elif template.get("quantity_source") == "drawing":
+        lines.append(
+            missing_line(
+                "drawing_area_unknown",
+                "按面积计的结构/屋面/筏板",
+                "图纸文字层没有建筑面积或底层面积，这些科目不套户型模板。",
+            )
+        )
 
     for opening in qty["window_schedule"]:
         code = opening["code"]
         count = int(opening["count"])
         width = int(opening["w_mm"])
         height = int(opening["h_mm"])
-        if code == "ED":
+        if str(code).upper().startswith("ED") or (
+            800 <= width <= 920 and 1960 <= height <= 2100 and str(code).upper().startswith("E")
+        ):
             lines.append(
                 line(
                     "door_hume_nexus15_860",
@@ -106,155 +119,173 @@ def cost_option(
                     unit="樘",
                 )
             )
-    kitchens = int(qty.get("kitchens") or 1)
-    bathrooms = int(qty.get("bathrooms") or 1)
+    kitchens = int(qty.get("kitchens") or 0)
+    bathrooms = int(qty.get("bathrooms") or 0)
     dwellings = int(template.get("dwellings") or 1)
-    lines.append(
-        line(
-            "kaboodle_base_600",
-            qty["kitchen_base_600"],
-            formula="每套厨房 5 个 600mm 地柜",
+    if kitchens <= 0:
+        lines.append(
+            missing_line(
+                "kitchen_count_unknown",
+                "厨房套数",
+                "图纸未读到厨房数量，不套模板厨具。",
+            )
         )
-    )
-    lines.append(
-        line(
-            "kaboodle_wall_600",
-            qty["kitchen_wall_600"],
-            formula="每套厨房 5 个 600mm 吊柜",
+    else:
+        lines.append(
+            line(
+                "kaboodle_base_600",
+                qty["kitchen_base_600"],
+                formula="每套厨房 5 个 600mm 地柜",
+            )
         )
-    )
-    lines.append(
-        line(
-            "kaboodle_door_600_seasalt",
-            qty["kitchen_door_600"],
-            formula="每套厨房 10 扇 600mm 门板",
+        lines.append(
+            line(
+                "kaboodle_wall_600",
+                qty["kitchen_wall_600"],
+                formula="每套厨房 5 个 600mm 吊柜",
+            )
         )
-    )
-    lines.append(
-        line(
-            "kaboodle_benchtop_2400x600",
-            qty["kitchen_bench_2400"],
-            formula="每套厨房 2 块 2400×600 台面",
+        lines.append(
+            line(
+                "kaboodle_door_600_seasalt",
+                qty["kitchen_door_600"],
+                formula="每套厨房 10 扇 600mm 门板",
+            )
         )
-    )
-    lines.append(
-        line(
-            "sink_mondella_concerto",
-            kitchens,
-            formula="每套厨房 1 个 Mondella Concerto 单盆水槽零售价",
+        lines.append(
+            line(
+                "kaboodle_benchtop_2400x600",
+                qty["kitchen_bench_2400"],
+                formula="每套厨房 2 块 2400×600 台面",
+            )
         )
-    )
-    lines.append(
-        line(
-            "oven_bellini_60_pack",
-            kitchens,
-            formula="每套厨房 1 套 Bellini 60cm 烤箱+电灶包零售价",
+        lines.append(
+            line(
+                "sink_mondella_concerto",
+                kitchens,
+                formula="每套厨房 1 个 Mondella Concerto 单盆水槽零售价",
+            )
         )
-    )
-    lines.append(
-        line(
-            "tap_mondella_resonance_kitchen",
-            kitchens,
-            formula="每套厨房 1 套 Mondella Resonance 厨房龙头零售价",
+        lines.append(
+            line(
+                "oven_bellini_60_pack",
+                kitchens,
+                formula="每套厨房 1 套 Bellini 60cm 烤箱+电灶包零售价",
+            )
         )
-    )
-    lines.append(
-        line(
-            "plumber_prepipe_fixture",
-            kitchens,
-            formula="每套厨房 1 个给排水点 × Chambers 预埋 $1,000 含 GST",
-            extra_notes="只计厨房水槽给排水预埋，不含台面开孔。",
-            line_id="plumber_prepipe_kitchen",
-            name_zh="厨房给排水预埋",
+        lines.append(
+            line(
+                "tap_mondella_resonance_kitchen",
+                kitchens,
+                formula="每套厨房 1 套 Mondella Resonance 厨房龙头零售价",
+            )
         )
-    )
-    lines.append(
-        missing_line(
-            "kitchen_install_other_trades",
-            "厨房水槽安装与电器接线",
-            "水槽、灶具包、龙头已按 Bunnings SKU 计价。Chambers 写明台面与水槽常由其他工种安装；Bellini 灶具需 30A 硬接线，无公开电工工时。冰箱、洗碗机、烟机未列入本 SKU。",
-            quantity=kitchens,
-            unit="套",
+        lines.append(
+            line(
+                "plumber_prepipe_fixture",
+                kitchens,
+                formula="每套厨房 1 个给排水点 × Chambers 预埋 $1,000 含 GST",
+                extra_notes="只计厨房水槽给排水预埋，不含台面开孔。",
+                line_id="plumber_prepipe_kitchen",
+                name_zh="厨房给排水预埋",
+            )
         )
-    )
-    lines.append(
-        line(
-            "toilet_stein_ero",
-            bathrooms,
-            formula="卫生间数量 × 公开马桶套装零售价",
-            extra_notes="马桶套装材料价；安装见水管工 fit-off 行。",
+        lines.append(
+            missing_line(
+                "kitchen_install_other_trades",
+                "厨房水槽安装与电器接线",
+                "水槽、灶具包、龙头已按 Bunnings SKU 计价。Chambers 写明台面与水槽常由其他工种安装；Bellini 灶具需 30A 硬接线，无公开电工工时。冰箱、洗碗机、烟机未列入本 SKU。",
+                quantity=kitchens,
+                unit="套",
+            )
         )
-    )
-    lines.append(
-        line(
-            "shower_stein_georgia_750",
-            bathrooms,
-            formula="卫生间数量 × 750mm 整体淋浴房零售价",
-            extra_notes="龙头花洒未含；贴砖淋浴不套用此 SKU。",
+    if bathrooms <= 0:
+        lines.append(
+            missing_line(
+                "bathroom_count_unknown",
+                "卫生间套数",
+                "图纸未读到卫生间数量，不套模板洁具。",
+            )
         )
-    )
-    lines.append(
-        line(
-            "tap_caroma_luna_shower",
-            bathrooms,
-            formula="卫生间数量 × Caroma Luna 淋浴混水阀零售价",
+    else:
+        lines.append(
+            line(
+                "toilet_stein_ero",
+                bathrooms,
+                formula="卫生间数量 × 公开马桶套装零售价",
+                extra_notes="马桶套装材料价；安装见水管工 fit-off 行。",
+            )
         )
-    )
-    lines.append(
-        line(
-            "tap_caroma_luna_basin",
-            bathrooms,
-            formula="卫生间数量 × Caroma Luna 面盆龙头 RRP",
+        lines.append(
+            line(
+                "shower_stein_georgia_750",
+                bathrooms,
+                formula="卫生间数量 × 750mm 整体淋浴房零售价",
+                extra_notes="龙头花洒未含；贴砖淋浴不套用此 SKU。",
+            )
         )
-    )
-    lines.append(
-        line(
-            "membrane_crommelin_4l",
-            bathrooms,
-            formula="卫生间数量 × Crommelin 4L 防水涂料",
+        lines.append(
+            line(
+                "tap_caroma_luna_shower",
+                bathrooms,
+                formula="卫生间数量 × Caroma Luna 淋浴混水阀零售价",
+            )
         )
-    )
-    lines.append(
-        line(
-            "plumber_prepipe_fixture",
-            bathrooms * 3,
-            formula="每间卫生间马桶+淋浴+面盆 3 个给排水点 × Chambers 预埋 $1,000 含 GST",
-            extra_notes="洗衣房、热水器、室外龙头未计入，户型表没有这些数量。",
-            line_id="plumber_prepipe_bathroom",
-            name_zh="卫生间给排水预埋（马桶+淋浴+面盆）",
+        lines.append(
+            line(
+                "tap_caroma_luna_basin",
+                bathrooms,
+                formula="卫生间数量 × Caroma Luna 面盆龙头 RRP",
+            )
         )
-    )
-    lines.append(
-        line(
-            "plumber_prepipe_mains",
-            dwellings,
-            formula="Chambers：整栋主进出水另 $1,000 含 GST × 住宅单元数，不按卫生间重复",
+        lines.append(
+            line(
+                "membrane_crommelin_4l",
+                bathrooms,
+                formula="卫生间数量 × Crommelin 4L 防水涂料",
+            )
         )
-    )
-    lines.append(
-        line(
-            "plumber_fitoff_toilet",
-            bathrooms,
-            formula="卫生间数量 × 马桶 fit-off $400 含 GST",
-            extra_notes="官网示例为配件与安装；马桶套装已按 Stein SKU 另计。",
+        lines.append(
+            line(
+                "plumber_prepipe_fixture",
+                bathrooms * 3,
+                formula="每间卫生间马桶+淋浴+面盆 3 个给排水点 × Chambers 预埋 $1,000 含 GST",
+                extra_notes="洗衣房、热水器、室外龙头未计入，户型表没有这些数量。",
+                line_id="plumber_prepipe_bathroom",
+                name_zh="卫生间给排水预埋（马桶+淋浴+面盆）",
+            )
         )
-    )
-    lines.append(
-        line(
-            "plumber_fitoff_shower",
-            bathrooms,
-            formula="卫生间数量 × 淋浴 fit-off $450 含 GST",
-            extra_notes="淋浴房和混水阀已按 SKU 另计。",
+        lines.append(
+            line(
+                "plumber_prepipe_mains",
+                dwellings,
+                formula="Chambers：整栋主进出水另 $1,000 含 GST × 住宅单元数，不按卫生间重复",
+            )
         )
-    )
-    lines.append(
-        line(
-            "plumber_fitoff_basin",
-            bathrooms,
-            formula="卫生间数量 × 面盆/龙头 fit-off $400 含 GST",
-            extra_notes="面盆龙头已按 Caroma RRP 另计；面盆柜无公开整套 SKU。",
+        lines.append(
+            line(
+                "plumber_fitoff_toilet",
+                bathrooms,
+                formula="卫生间数量 × 马桶 fit-off $400 含 GST",
+                extra_notes="官网示例为配件与安装；马桶套装已按 Stein SKU 另计。",
+            )
         )
-    )
+        lines.append(
+            line(
+                "plumber_fitoff_shower",
+                bathrooms,
+                formula="卫生间数量 × 淋浴 fit-off $450 含 GST",
+                extra_notes="淋浴房和混水阀已按 SKU 另计。",
+            )
+        )
+        lines.append(
+            line(
+                "plumber_fitoff_basin",
+                bathrooms,
+                formula="卫生间数量 × 面盆/龙头 fit-off $400 含 GST",
+                extra_notes="面盆龙头已按 Caroma RRP 另计；面盆柜无公开整套 SKU。",
+            )
+        )
     retaining = qty.get("retaining")
     if retaining:
         if retaining.get("sleeper_ok"):
@@ -297,30 +328,39 @@ def cost_option(
                 "立柱和土工布材料已按 SKU 计价（仅≤1.2m 枕木墙）。碎石无全国标价，人工无公开工时。",
             )
         )
-    lines.append(
-        line(
-            "expol_tuffpod_1100x300",
-            qty["pod_count"],
-            formula="占地长宽按 1.2m 网格取整格子数（1.1m 垫块 + 0.1m 肋）",
+    if area_known:
+        lines.append(
+            line(
+                "expol_tuffpod_1100x300",
+                qty["pod_count"],
+                formula="占地长宽按 1.2m 网格取整格子数（1.1m 垫块 + 0.1m 肋）",
+            )
         )
-    )
-    wall_m2 = float(qty["external_wall_m2"])
-    lines.append(
-        line(
-            "scaffolding_perimeter_erect",
-            wall_m2,
-            formula="外墙立面面积 × SK Scaffold 搭拆运 $18/m²（不含 GST）",
-            extra_notes="立面=周长×层高×层数。人行道占道许可未计价。",
+        wall_m2 = float(qty["external_wall_m2"])
+        lines.append(
+            line(
+                "scaffolding_perimeter_erect",
+                wall_m2,
+                formula="外墙立面面积 × SK Scaffold 搭拆运 $18/m²（不含 GST）",
+                extra_notes="立面=周长×层高×层数。人行道占道许可未计价。",
+            )
         )
-    )
-    lines.append(
-        line(
-            "scaffolding_perimeter_hire_week",
-            wall_m2,
-            formula="外墙立面面积 × $1/m²/周 × 官网最低 1 周（不含 GST）",
-            extra_notes="工期未定价，只计入官网最低租期。周检 $75 未计入。",
+        lines.append(
+            line(
+                "scaffolding_perimeter_hire_week",
+                wall_m2,
+                formula="外墙立面面积 × $1/m²/周 × 官网最低 1 周（不含 GST）",
+                extra_notes="工期未定价，只计入官网最低租期。周检 $75 未计入。",
+            )
         )
-    )
+        if template.get("quantity_source") == "drawing" and qty.get("cavity_required"):
+            lines.append(
+                missing_line(
+                    "cavity_closers_flashings",
+                    "空腔防虫网与门窗泛水",
+                    "E2 空腔系统需要 cavity closer 和 flashing tape；检索当日无稳定公开 SKU。",
+                )
+            )
 
     construction = _sum_priced(lines, categories={"materials", "labour"})
     prelim = round(construction * PRELIM_PCT, 2)

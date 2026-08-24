@@ -51,6 +51,8 @@ export interface SchemeOption {
     kitchens?: number;
     storeys: number;
     gfa_m2: number;
+    gfa_missing?: boolean;
+    quantity_source?: string;
   };
   verdict: {
     status: string;
@@ -86,6 +88,25 @@ export interface SchemeOption {
   };
   lines?: CostLine[];
   intensity_note?: string;
+  drawing_extract?: {
+    documents?: Array<{
+      kind?: string | null;
+      filename?: string;
+      page_count?: number;
+      char_count?: number;
+      error?: string | null;
+    }>;
+    fields?: Record<string, { value: unknown; evidence?: string; source_file?: string }>;
+    windows?: Array<{
+      code: string;
+      w_mm: number;
+      h_mm: number;
+      count: number;
+      evidence?: string;
+      source_file?: string;
+    }>;
+    warnings?: string[];
+  };
 }
 
 export interface AdviceItem {
@@ -143,6 +164,15 @@ export interface ProjectRecord {
     };
     advice?: AdviceItem[];
     explanation?: string;
+    drawing_explanation?: string;
+    drawings?: Array<{
+      kind?: string | null;
+      filename?: string;
+      page_count?: number;
+      char_count?: number;
+      error?: string | null;
+    }>;
+    drawing_trace?: Array<{ node: string; detail: string }>;
     pm_review?: { status: string; note: string };
     options?: SchemeOption[];
     trace?: Array<{ node: string; detail: string }>;
