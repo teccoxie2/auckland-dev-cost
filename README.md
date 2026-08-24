@@ -10,7 +10,7 @@
 - 坡地建议：分台、挡土墙、E12 土方门槛（500m² / 250m³）；支撑建筑平台的墙按 surcharge 提示建筑许可
 - 户型模板工程量（尺寸进入木材、空腔、屋面、石膏板、卫生间洁具数量）
 - 分项总账带报价源链接、SKU、取价日期
-- 能核对到公开 SKU 的厨房柜体、部分铝窗、EPS 垫块、龙头防水、移动脚手架按标价计入；对不上尺寸或没有工时的仍标缺项
+- 能核对到公开 SKU 的厨房柜体/水槽/灶具包、部分铝窗、EPS 垫块、龙头防水、卫生间水管工时、外围脚手架按标价计入；对不上尺寸或没有工时的仍标缺项
 
 ## 报价源（2026-08-24 检索）
 
@@ -36,14 +36,18 @@
 - H5 125×125 2.4m 锚桩：[$62.28](https://www.bunnings.co.nz/125-x-125mm-2-4m-square-h5-anchor-pile_p0276414)
 - Strol GeoPlus 1×50m 土工布：[$140.50](https://www.bunnings.co.nz/strol-1-x-50m-geoplus-filter-cloth_p0571904)
 - Hume Nexus 15 门扇 1980×860：[$525](https://www.bunnings.co.nz/hume-doors-1980-x-860-x-40mm-nexus-15-unglazed-entrance-door_p0213418)
+- Mondella Concerto 单盆水槽：[$198](https://www.bunnings.co.nz/mondella-concerto-single-bowl-sink-and-drainer-with-overflow-kit_p0315490)
+- Bellini 60cm 烤箱+电灶包：[$549](https://www.bunnings.co.nz/bellini-60cm-5-function-electric-oven-and-cooktop_p0013228)
+- Mondella Resonance 厨房龙头：[$146](https://www.bunnings.co.nz/mondella-resonance-25mm-chrome-side-lever-dual-function-sink-mixer-wels-5-star-6l-min_p0717306)
 - 新铝窗 1800×1200 双层中空：[$999](https://diysupply.nz/product/new-ironsand-double-glazed-1800w-x-1200h/)
 - 新铝窗 1200×1200 双层中空：[$819](https://diysupply.nz/product/new-1200w-x-1200h-ironsand-window-double-glazed/)
-- 移动脚手架 3m / 5m 周租：[$140 / $230](https://www.metroscaff.co.nz/store/p/mobile-scaffolding-weekly-hire)（最低 1 周，送装 $255）
 
-人工与设计（公开区间，不是签约报价）：
+人工与设计（公开区间或公司指引，不是签约报价）：
 
 - 框架安装 [$25–$58/m² 不含 GST](https://tradietools.nz/articles/carpenter-pricing-guide-nz-2026.html)，价库取中位并加 GST
 - 设计师费 [3%–5% 造价](https://ecoworkshop.co.nz/architectural-design-fees-nz-guide/)，价库取 5%
+- 水管预埋/安装：[每个给排水点 $1,000；主进出水另 $1,000；马桶/淋浴/面盆 fit-off $400 / $450 / $400，含 GST](https://chambersplumbing.co.nz/blogs/news/how-much-does-a-plumbing-renovation-cost)
+- 外围脚手架：[搭拆运 $18/m² + 周租 $1/m²/周，另加 GST，最低 1 周](https://skscaffold.co.nz/pages/faqs)
 
 法定费用：
 

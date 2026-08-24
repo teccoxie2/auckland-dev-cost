@@ -226,7 +226,7 @@
       "source_name": "Bunnings New Zealand 零售标价",
       "source_url": "https://www.bunnings.co.nz/kaboodle-600mm-base-cabinet_p0303959",
       "retrieved_at": "2026-08-24",
-      "notes": "每套厨房按 5 个 600mm 地柜（3.0m 柜台）计。安装、水槽、电器未含。"
+      "notes": "每套厨房按 5 个 600mm 地柜（3.0m 柜台）计。安装未含；水槽与灶具另按 SKU。"
     },
     {
       "id": "kaboodle_wall_600",
@@ -466,14 +466,174 @@
       "source_name": "Metroscaff Auckland 官网",
       "source_url": "https://www.metroscaff.co.nz/store/p/mobile-scaffolding-weekly-hire",
       "retrieved_at": "2026-08-24",
-      "notes": "官网写明送装收回一口价。自提 Snells Beach 不收此费；核算按需送装计 1 次。"
+      "notes": "官网写明送装收回一口价。自提 Snells Beach 不收此费。核算改用外围脚手架后不再自动套用本条。"
+    },
+    {
+      "id": "sink_mondella_concerto",
+      "category": "materials",
+      "trade": "joinery",
+      "name_zh": "厨房水槽（Mondella Concerto 单盆）",
+      "name_en": "Mondella Concerto single bowl sink and drainer",
+      "unit": "each",
+      "unit_price": 198.0,
+      "gst_included": true,
+      "sku": "0315490",
+      "pack": "单盆带沥水板及溢水套件，零售 $198",
+      "source_name": "Bunnings New Zealand 零售标价",
+      "source_url": "https://www.bunnings.co.nz/mondella-concerto-single-bowl-sink-and-drainer-with-overflow-kit_p0315490",
+      "retrieved_at": "2026-08-24",
+      "notes": "每套厨房 1 个。台面开孔与安装未含。"
+    },
+    {
+      "id": "oven_bellini_60_pack",
+      "category": "materials",
+      "trade": "joinery",
+      "name_zh": "厨房灶具包（Bellini 60cm 烤箱+电灶）",
+      "name_en": "Bellini 60cm 5-function electric oven and cooktop pack",
+      "unit": "each",
+      "unit_price": 549.0,
+      "gst_included": true,
+      "sku": "0013228",
+      "pack": "烤箱+电灶 builders pack，零售 $549",
+      "source_name": "Bunnings New Zealand 零售标价",
+      "source_url": "https://www.bunnings.co.nz/bellini-60cm-5-function-electric-oven-and-cooktop_p0013228",
+      "retrieved_at": "2026-08-24",
+      "notes": "每套厨房 1 套。灶具需 30A 硬接线，电工未含。冰箱、洗碗机、烟机未含。"
+    },
+    {
+      "id": "tap_mondella_resonance_kitchen",
+      "category": "materials",
+      "trade": "joinery",
+      "name_zh": "厨房龙头（Mondella Resonance 双出水）",
+      "name_en": "Mondella Resonance 25mm chrome dual-function sink mixer",
+      "unit": "each",
+      "unit_price": 146.0,
+      "gst_included": true,
+      "sku": "0717306",
+      "pack": "WELS 5 星 6L/min，零售 $146",
+      "source_name": "Bunnings New Zealand 零售标价",
+      "source_url": "https://www.bunnings.co.nz/mondella-resonance-25mm-chrome-side-lever-dual-function-sink-mixer-wels-5-star-6l-min_p0717306",
+      "retrieved_at": "2026-08-24",
+      "notes": "每套厨房 1 套。安装未含。"
+    },
+    {
+      "id": "plumber_prepipe_fixture",
+      "category": "labour",
+      "trade": "plumbing",
+      "name_zh": "给排水预埋（每个卫生洁具点）",
+      "name_en": "Plumbing pre-pipe per plumbed item",
+      "unit": "each",
+      "unit_price": 1000.0,
+      "gst_included": true,
+      "sku": null,
+      "pack": "每个给排水点 $1,000 含 GST",
+      "source_name": "Chambers Plumbing 装修水管费用公开指引（含 GST）",
+      "source_url": "https://chambersplumbing.co.nz/blogs/news/how-much-does-a-plumbing-renovation-cost",
+      "retrieved_at": "2026-08-24",
+      "notes": "官网写明是 guideline，正式报价另出。卫生间按马桶+淋浴+面盆 3 点，厨房按水槽 1 点。"
+    },
+    {
+      "id": "plumber_prepipe_mains",
+      "category": "labour",
+      "trade": "plumbing",
+      "name_zh": "整栋主进出水预埋",
+      "name_en": "Main water and waste line pre-pipe",
+      "unit": "each",
+      "unit_price": 1000.0,
+      "gst_included": true,
+      "sku": null,
+      "pack": "典型住宅主进出水另 $1,000 含 GST",
+      "source_name": "Chambers Plumbing 装修水管费用公开指引（含 GST）",
+      "source_url": "https://chambersplumbing.co.nz/blogs/news/how-much-does-a-plumbing-renovation-cost",
+      "retrieved_at": "2026-08-24",
+      "notes": "按住宅单元计一次，不按卫生间套数重复。guideline，不是签约报价。"
+    },
+    {
+      "id": "plumber_fitoff_toilet",
+      "category": "labour",
+      "trade": "plumbing",
+      "name_zh": "马桶安装工时（fit-off）",
+      "name_en": "Toilet fit-off labour and extra parts",
+      "unit": "each",
+      "unit_price": 400.0,
+      "gst_included": true,
+      "sku": null,
+      "pack": "Additional parts & Installation $400 含 GST",
+      "source_name": "Chambers Plumbing 装修水管费用公开指引（含 GST）",
+      "source_url": "https://chambersplumbing.co.nz/blogs/news/how-much-does-a-plumbing-renovation-cost",
+      "retrieved_at": "2026-08-24",
+      "notes": "不含马桶本身。guideline。"
+    },
+    {
+      "id": "plumber_fitoff_shower",
+      "category": "labour",
+      "trade": "plumbing",
+      "name_zh": "淋浴安装工时（fit-off）",
+      "name_en": "Shower fit-off labour and extra parts",
+      "unit": "each",
+      "unit_price": 450.0,
+      "gst_included": true,
+      "sku": null,
+      "pack": "Additional parts & installations $450 含 GST",
+      "source_name": "Chambers Plumbing 装修水管费用公开指引（含 GST）",
+      "source_url": "https://chambersplumbing.co.nz/blogs/news/how-much-does-a-plumbing-renovation-cost",
+      "retrieved_at": "2026-08-24",
+      "notes": "不含淋浴房和混水阀本身。guideline。"
+    },
+    {
+      "id": "plumber_fitoff_basin",
+      "category": "labour",
+      "trade": "plumbing",
+      "name_zh": "面盆与龙头安装工时（fit-off）",
+      "name_en": "Vanity basin and mixer fit-off labour and extra parts",
+      "unit": "each",
+      "unit_price": 400.0,
+      "gst_included": true,
+      "sku": null,
+      "pack": "Additional parts & installations $400 含 GST",
+      "source_name": "Chambers Plumbing 装修水管费用公开指引（含 GST）",
+      "source_url": "https://chambersplumbing.co.nz/blogs/news/how-much-does-a-plumbing-renovation-cost",
+      "retrieved_at": "2026-08-24",
+      "notes": "官网 vanity 示例的安装附加费。面盆柜本身无公开整套 SKU。"
+    },
+    {
+      "id": "scaffolding_perimeter_erect",
+      "category": "labour",
+      "trade": "preliminaries",
+      "name_zh": "整栋外围脚手架搭拆运",
+      "name_en": "Perimeter scaffold erect, transport and dismantle",
+      "unit": "m2",
+      "unit_price": 18.0,
+      "gst_included": false,
+      "sku": null,
+      "pack": "$18/m² 脚手架立面，一次性，另加 GST",
+      "source_name": "SK Scaffold FAQ 公开单价（服务奥克兰/Northland）",
+      "source_url": "https://skscaffold.co.nz/pages/faqs",
+      "retrieved_at": "2026-08-24",
+      "notes": "官网例题 60m²×4 周：搭拆 $1,080 + 周租 $240 = $1,320+GST。网页价为 indicative，现场书面报价另出。"
+    },
+    {
+      "id": "scaffolding_perimeter_hire_week",
+      "category": "labour",
+      "trade": "preliminaries",
+      "name_zh": "整栋外围脚手架周租（最低 1 周）",
+      "name_en": "Perimeter scaffold weekly hire, 1 week minimum",
+      "unit": "m2",
+      "unit_price": 1.0,
+      "gst_included": false,
+      "sku": null,
+      "pack": "$1/m²/周，最低租期 1 周，另加 GST",
+      "source_name": "SK Scaffold FAQ 公开单价（服务奥克兰/Northland）",
+      "source_url": "https://skscaffold.co.nz/pages/faqs",
+      "retrieved_at": "2026-08-24",
+      "notes": "工期未定价，只计入官网最低 1 周。周检 $75/次未计入。"
     }
   ],
   "missing_on_purpose": [
     {
-      "id": "kitchen_appliances_install",
-      "name_zh": "厨房电器、水槽与安装",
-      "reason": "已计入 Kaboodle 柜体/门板/台面 SKU；灶具、烤箱、水槽和安装无稳定公开总价。"
+      "id": "kitchen_install_other_trades",
+      "name_zh": "厨房水槽安装与电器接线",
+      "reason": "水槽、Bellini 灶具包、厨房龙头已按 Bunnings SKU 计价。Chambers 写明台面与水槽常由其他工种安装；灶具 30A 硬接线无公开电工工时。"
     },
     {
       "id": "window_joinery_unmatched",
@@ -486,9 +646,9 @@
       "reason": "检索当日 Bunnings 无公开 UB 过梁标价，需钢材商按结构师选型报价。"
     },
     {
-      "id": "scaffolding_perimeter",
-      "name_zh": "整栋外围脚手架",
-      "reason": "Hirepool 页面价格需选门店才显示；已用 Metroscaff 移动塔最低一周，不能代替满堂脚手架。"
+      "id": "scaffolding_weekly_safety_check",
+      "name_zh": "外围脚手架周检",
+      "reason": "SK Scaffold 另收 $75/次周检，核算只计入官网最低 1 周租期，不编造检查次数。"
     },
     {
       "id": "retaining_engineer_wall",
@@ -501,9 +661,9 @@
       "reason": "奥克兰骨料按料场报价，Bunnings 无全国统一吨价。"
     },
     {
-      "id": "bathroom_plumber_labour",
-      "name_zh": "卫生间水管安装工时",
-      "reason": "持牌水管工按工时报价；公开的是小时费率区间，没有可核对的本项目工时。"
+      "id": "plumber_laundry_hws",
+      "name_zh": "洗衣房、热水器与室外龙头水管",
+      "reason": "Chambers 对洗衣槽 fit-off、热水器安装有示例价，但户型表没有洗衣房和热水器数量，不套用。"
     }
   ]
 }

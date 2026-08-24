@@ -108,6 +108,7 @@ def cost_option(
             )
     kitchens = int(qty.get("kitchens") or 1)
     bathrooms = int(qty.get("bathrooms") or 1)
+    dwellings = int(template.get("dwellings") or 1)
     lines.append(
         line(
             "kaboodle_base_600",
@@ -137,10 +138,40 @@ def cost_option(
         )
     )
     lines.append(
+        line(
+            "sink_mondella_concerto",
+            kitchens,
+            formula="每套厨房 1 个 Mondella Concerto 单盆水槽零售价",
+        )
+    )
+    lines.append(
+        line(
+            "oven_bellini_60_pack",
+            kitchens,
+            formula="每套厨房 1 套 Bellini 60cm 烤箱+电灶包零售价",
+        )
+    )
+    lines.append(
+        line(
+            "tap_mondella_resonance_kitchen",
+            kitchens,
+            formula="每套厨房 1 套 Mondella Resonance 厨房龙头零售价",
+        )
+    )
+    lines.append(
+        line(
+            "plumber_prepipe_fixture",
+            kitchens,
+            formula="每套厨房 1 个给排水点 × Chambers 预埋 $1,000 含 GST",
+            extra_notes="只计厨房水槽给排水预埋，不含台面开孔。",
+            line_id="plumber_prepipe_kitchen",
+        )
+    )
+    lines.append(
         missing_line(
-            "kitchen_appliances_install",
-            "厨房电器、水槽与安装",
-            "柜体/门板/台面已按 Kaboodle SKU 计价；电器和水槽安装无公开总价。",
+            "kitchen_install_other_trades",
+            "厨房水槽安装与电器接线",
+            "水槽、灶具包、龙头已按 Bunnings SKU 计价。Chambers 写明台面与水槽常由其他工种安装；Bellini 灶具需 30A 硬接线，无公开电工工时。冰箱、洗碗机、烟机未列入本 SKU。",
             quantity=kitchens,
             unit="套",
         )
@@ -150,7 +181,7 @@ def cost_option(
             "toilet_stein_ero",
             bathrooms,
             formula="卫生间数量 × 公开马桶套装零售价",
-            extra_notes="安装未含。",
+            extra_notes="马桶套装材料价；安装见水管工 fit-off 行。",
         )
     )
     lines.append(
@@ -183,12 +214,43 @@ def cost_option(
         )
     )
     lines.append(
-        missing_line(
-            "bathroom_plumber_labour",
-            "卫生间水管安装工时",
-            "龙头和防水材料已按 SKU 计价；持牌水管工工时无本项目可核对数量。",
-            quantity=bathrooms,
-            unit="间",
+        line(
+            "plumber_prepipe_fixture",
+            bathrooms * 3,
+            formula="每间卫生间马桶+淋浴+面盆 3 个给排水点 × Chambers 预埋 $1,000 含 GST",
+            extra_notes="洗衣房、热水器、室外龙头未计入，户型表没有这些数量。",
+            line_id="plumber_prepipe_bathroom",
+        )
+    )
+    lines.append(
+        line(
+            "plumber_prepipe_mains",
+            dwellings,
+            formula="Chambers：整栋主进出水另 $1,000 含 GST × 住宅单元数，不按卫生间重复",
+        )
+    )
+    lines.append(
+        line(
+            "plumber_fitoff_toilet",
+            bathrooms,
+            formula="卫生间数量 × 马桶 fit-off $400 含 GST",
+            extra_notes="官网示例为配件与安装；马桶套装已按 Stein SKU 另计。",
+        )
+    )
+    lines.append(
+        line(
+            "plumber_fitoff_shower",
+            bathrooms,
+            formula="卫生间数量 × 淋浴 fit-off $450 含 GST",
+            extra_notes="淋浴房和混水阀已按 SKU 另计。",
+        )
+    )
+    lines.append(
+        line(
+            "plumber_fitoff_basin",
+            bathrooms,
+            formula="卫生间数量 × 面盆/龙头 fit-off $400 含 GST",
+            extra_notes="面盆龙头已按 Caroma RRP 另计；面盆柜无公开整套 SKU。",
         )
     )
     retaining = qty.get("retaining")
@@ -240,26 +302,21 @@ def cost_option(
             formula="占地长宽按 1.2m 网格取整格子数（1.1m 垫块 + 0.1m 肋）",
         )
     )
-    scaffold_item = "scaffolding_mobile_3m_week" if int(template["storeys"]) <= 1 else "scaffolding_mobile_5m_week"
+    wall_m2 = float(qty["external_wall_m2"])
     lines.append(
         line(
-            scaffold_item,
-            1,
-            formula="Metroscaff 官网最低租期 1 周",
+            "scaffolding_perimeter_erect",
+            wall_m2,
+            formula="外墙立面面积 × SK Scaffold 搭拆运 $18/m²（不含 GST）",
+            extra_notes="立面=周长×层高×层数。人行道占道许可未计价。",
         )
     )
     lines.append(
         line(
-            "scaffolding_delivery",
-            1,
-            formula="官网送装收回一口价 × 1 次",
-        )
-    )
-    lines.append(
-        missing_line(
-            "scaffolding_perimeter",
-            "整栋外围脚手架",
-            "已计入移动塔最低一周，不能代替满堂脚手架。",
+            "scaffolding_perimeter_hire_week",
+            wall_m2,
+            formula="外墙立面面积 × $1/m²/周 × 官网最低 1 周（不含 GST）",
+            extra_notes="工期未定价，只计入官网最低租期。周检 $75 未计入。",
         )
     )
 
@@ -276,7 +333,7 @@ def cost_option(
             "amount_incl_gst": prelim,
             "source_name": "项目经理第一期规则：已确认施工费的 10%",
             "source_url": None,
-            "notes": "不是供应商报价。脚手架等缺项未包含在基数中。",
+            "notes": "不是供应商报价。缺项未包含在基数中。",
             "formula": "已确认材料+人工 × 10%",
         }
     )

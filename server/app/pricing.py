@@ -20,11 +20,13 @@ def line(
     *,
     formula: str,
     extra_notes: str = "",
+    line_id: str | None = None,
 ) -> dict[str, Any]:
+    row_id = line_id or item_id
     item = get_item(item_id)
     if item is None or quantity <= 0:
         return {
-            "id": item_id,
+            "id": row_id,
             "status": "missing" if item is None else "zero",
             "quantity": round(quantity, 3),
             "amount_incl_gst": 0.0,
@@ -34,7 +36,7 @@ def line(
     if not item.get("gst_included", True) and item["unit"] != "percent":
         amount = round(amount * (1 + GST), 2)
     return {
-        "id": item_id,
+        "id": row_id,
         "status": "priced",
         "category": item["category"],
         "trade": item["trade"],
