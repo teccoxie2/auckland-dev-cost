@@ -1,0 +1,145 @@
+{
+  "templates": [
+    {
+      "id": "compact_3bed2bath",
+      "name_zh": "小型独栋 · 3房2卫",
+      "name_en": "Compact standalone 3 bed 2 bath",
+      "kind": "standalone",
+      "dwellings": 1,
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "storeys": 1,
+      "gfa_m2": 110,
+      "aspect": 1.35,
+      "eaves_mm": 600,
+      "wall_height_m": 2.55,
+      "roof_pitch_deg": 25,
+      "stud_spacing_mm": 600,
+      "stud_section": "timber_sg8_90x45_h12",
+      "windows": [
+        { "code": "W1", "w_mm": 1800, "h_mm": 1200, "count": 4 },
+        { "code": "W2", "w_mm": 1200, "h_mm": 1200, "count": 4 },
+        { "code": "D1", "w_mm": 2100, "h_mm": 2100, "count": 1 },
+        { "code": "ED", "w_mm": 860, "h_mm": 2040, "count": 2 }
+      ]
+    },
+    {
+      "id": "family_3bed3bath",
+      "name_zh": "家庭独栋 · 3房3卫",
+      "name_en": "Family standalone 3 bed 3 bath",
+      "kind": "standalone",
+      "dwellings": 1,
+      "bedrooms": 3,
+      "bathrooms": 3,
+      "storeys": 2,
+      "gfa_m2": 165,
+      "aspect": 1.4,
+      "eaves_mm": 450,
+      "wall_height_m": 2.7,
+      "roof_pitch_deg": 25,
+      "stud_spacing_mm": 600,
+      "stud_section": "timber_sg8_90x45_h12",
+      "windows": [
+        { "code": "W1", "w_mm": 1800, "h_mm": 1200, "count": 6 },
+        { "code": "W2", "w_mm": 1200, "h_mm": 1200, "count": 5 },
+        { "code": "D1", "w_mm": 2400, "h_mm": 2200, "count": 1 },
+        { "code": "ED", "w_mm": 860, "h_mm": 2040, "count": 2 }
+      ]
+    },
+    {
+      "id": "family_4bed4bath",
+      "name_zh": "大宅独栋 · 4房4卫",
+      "name_en": "Large standalone 4 bed 4 bath",
+      "kind": "standalone",
+      "dwellings": 1,
+      "bedrooms": 4,
+      "bathrooms": 4,
+      "storeys": 2,
+      "gfa_m2": 220,
+      "aspect": 1.45,
+      "eaves_mm": 450,
+      "wall_height_m": 2.72,
+      "roof_pitch_deg": 30,
+      "stud_spacing_mm": 600,
+      "stud_section": "timber_sg8_90x45_h12",
+      "windows": [
+        { "code": "W1", "w_mm": 2100, "h_mm": 1200, "count": 6 },
+        { "code": "W2", "w_mm": 1500, "h_mm": 1200, "count": 6 },
+        { "code": "D1", "w_mm": 3000, "h_mm": 2200, "count": 1 },
+        { "code": "ED", "w_mm": 860, "h_mm": 2040, "count": 3 }
+      ]
+    },
+    {
+      "id": "duplex_two_units",
+      "name_zh": "双拼 · 两套3房",
+      "name_en": "Duplex two 3-bed units",
+      "kind": "duplex",
+      "dwellings": 2,
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "storeys": 2,
+      "gfa_m2": 260,
+      "gfa_per_unit_m2": 130,
+      "aspect": 2.1,
+      "eaves_mm": 450,
+      "wall_height_m": 2.7,
+      "roof_pitch_deg": 25,
+      "stud_spacing_mm": 600,
+      "stud_section": "timber_sg8_90x45_h12",
+      "windows": [
+        { "code": "W1", "w_mm": 1800, "h_mm": 1200, "count": 10 },
+        { "code": "W2", "w_mm": 1200, "h_mm": 1200, "count": 8 },
+        { "code": "D1", "w_mm": 2100, "h_mm": 2100, "count": 2 },
+        { "code": "ED", "w_mm": 860, "h_mm": 2040, "count": 4 }
+      ]
+    },
+    {
+      "id": "terrace_three",
+      "name_zh": "三联排别墅",
+      "name_en": "Three terrace houses",
+      "kind": "terrace",
+      "dwellings": 3,
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "storeys": 2,
+      "gfa_m2": 330,
+      "gfa_per_unit_m2": 110,
+      "aspect": 3.2,
+      "eaves_mm": 300,
+      "wall_height_m": 2.7,
+      "roof_pitch_deg": 22,
+      "stud_spacing_mm": 600,
+      "stud_section": "timber_sg8_90x45_h12",
+      "windows": [
+        { "code": "W1", "w_mm": 1800, "h_mm": 1200, "count": 12 },
+        { "code": "W2", "w_mm": 1200, "h_mm": 1200, "count": 9 },
+        { "code": "D1", "w_mm": 1800, "h_mm": 2100, "count": 3 },
+        { "code": "ED", "w_mm": 860, "h_mm": 2040, "count": 6 }
+      ]
+    },
+    {
+      "id": "main_plus_minor",
+      "name_zh": "主屋 + 小型独立住宅",
+      "name_en": "Principal dwelling + minor dwelling",
+      "kind": "minor_dwelling",
+      "dwellings": 2,
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "storeys": 2,
+      "gfa_m2": 210,
+      "minor_gfa_m2": 60,
+      "aspect": 1.5,
+      "eaves_mm": 450,
+      "wall_height_m": 2.55,
+      "roof_pitch_deg": 25,
+      "stud_spacing_mm": 600,
+      "stud_section": "timber_sg8_90x45_h12",
+      "windows": [
+        { "code": "W1", "w_mm": 1800, "h_mm": 1200, "count": 7 },
+        { "code": "W2", "w_mm": 1200, "h_mm": 1200, "count": 6 },
+        { "code": "D1", "w_mm": 2100, "h_mm": 2100, "count": 2 },
+        { "code": "ED", "w_mm": 860, "h_mm": 2040, "count": 3 }
+      ]
+    }
+  ]
+}

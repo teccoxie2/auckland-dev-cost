@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3eee4;
+  --foreground: #1c2416;
+  --panel: #fffaf3;
+  --ink: #1c2416;
+  --muted: #5c6754;
+  --line: #d9d0c0;
+  --green: #2f4a32;
+  --green-2: #3f6b45;
+  --copper: #b4532a;
+  --ok: #2f6b4f;
+  --warn: #9a6b12;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-noto);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-noto), "Noto Sans SC", sans-serif;
+}
+
+a {
+  color: inherit;
+}

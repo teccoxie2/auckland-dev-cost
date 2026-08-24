@@ -1,0 +1,92 @@
+{
+  "source": "Auckland Unitary Plan Chapter H + MDRS (RMA Enabling Housing). 区划多边形来自 Council Open Data；条文没有官方 JSON，此表为第一期规则引擎映射。",
+  "sources": [
+    "https://environment.govt.nz/what-government-is-doing/areas-of-work/urban-and-infrastructure/housing-intensification-enabled-by-rma-amendment-act/",
+    "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Unitary_Plan_Base_Zone/FeatureServer/0"
+  ],
+  "zones": {
+    "19": {
+      "name": "Residential - Single House Zone",
+      "permitted_dwellings": 1,
+      "height_m": 8,
+      "coverage": 0.35,
+      "landscaped": 0.4,
+      "storeys": 2,
+      "terrace_ok": false
+    },
+    "18": {
+      "name": "Residential - Mixed Housing Suburban Zone",
+      "permitted_dwellings": 2,
+      "height_m": 8,
+      "coverage": 0.4,
+      "landscaped": 0.4,
+      "storeys": 2,
+      "terrace_ok": true,
+      "notes": "部分地块受 MDRS/qualifying matter 影响，可能到 3 套；叠加层存在时按需 RC。"
+    },
+    "60": {
+      "name": "Residential - Mixed Housing Urban Zone",
+      "permitted_dwellings": 3,
+      "height_m": 12,
+      "coverage": 0.5,
+      "landscaped": 0.2,
+      "storeys": 3,
+      "terrace_ok": true,
+      "notes": "MDRS：最多 3 套、约 11m+坡屋顶为许可活动（须满足标准）。4 套及以上需 RC。"
+    },
+    "8": {
+      "name": "Residential - Terrace Housing and Apartment Building Zone",
+      "permitted_dwellings": 3,
+      "height_m": 16,
+      "coverage": 0.5,
+      "landscaped": 0.2,
+      "storeys": 5,
+      "terrace_ok": true,
+      "notes": "高强度住区，联排与低层公寓更匹配。具体高度以 Height Variation Control 为准。"
+    },
+    "72": {
+      "name": "Residential - Low Density Residential Zone",
+      "permitted_dwellings": 1,
+      "height_m": 8,
+      "coverage": 0.35,
+      "landscaped": 0.4,
+      "storeys": 2,
+      "terrace_ok": false
+    },
+    "23": {
+      "name": "Residential - Large Lot Zone",
+      "permitted_dwellings": 1,
+      "height_m": 8,
+      "coverage": 0.2,
+      "landscaped": 0.5,
+      "storeys": 2,
+      "terrace_ok": false
+    },
+    "71": {
+      "name": "Two-Storey Medium Density Residential Area",
+      "permitted_dwellings": 3,
+      "height_m": 8,
+      "coverage": 0.5,
+      "landscaped": 0.2,
+      "storeys": 2,
+      "terrace_ok": true
+    },
+    "70": {
+      "name": "Two-Storey Single Dwelling Residential Area",
+      "permitted_dwellings": 1,
+      "height_m": 8,
+      "coverage": 0.35,
+      "landscaped": 0.4,
+      "storeys": 2,
+      "terrace_ok": false
+    }
+  },
+  "default_non_residential": {
+    "permitted_dwellings": 0,
+    "height_m": 0,
+    "coverage": 0,
+    "landscaped": 0,
+    "storeys": 0,
+    "terrace_ok": false
+  }
+}

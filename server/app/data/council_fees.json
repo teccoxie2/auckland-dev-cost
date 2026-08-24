@@ -1,0 +1,59 @@
+{
+  "version": "2025-2026 plus 2026-07 uplifts where published",
+  "gst_included": true,
+  "building_consent_deposits": [
+    { "max_value": 4999, "total": 1270 },
+    { "max_value": 19999, "total": 1980 },
+    { "max_value": 99999, "total": 2975 },
+    { "max_value": 499999, "total": 5398 },
+    { "max_value": 999999, "total": 7664 },
+    { "max_value": null, "total": 10530 }
+  ],
+  "levies": {
+    "branz_rate": 0.001,
+    "branz_threshold": 20000,
+    "mbie_per_1000": 1.75,
+    "mbie_threshold": 64999,
+    "accreditation_per_1000": 0.56
+  },
+  "hourly": {
+    "building_residential_1": 195,
+    "building_residential_2": 222,
+    "planning_level_1": 198,
+    "planning_level_2": 228,
+    "planning_level_3": 240
+  },
+  "source_name": "Auckland Council Building consent fees and charges（2025-2026）",
+  "source_url": "https://www.aucklandcouncil.govt.nz/en/building-and-consents/building-consents/building-control-fees.html",
+  "retrieved_at": "2026-08-24",
+  "igc": {
+    "metro_combined_incl_gst": 29348.46,
+    "metro_combined_ex_gst": 25520.4,
+    "small_dwelling_factor": 0.6667,
+    "small_dwelling_gfa_m2": 65,
+    "source_name": "Watercare IGC 2026/27 metropolitan combined water+wastewater（自 2026-07-01）",
+    "source_url": "https://www.watercare.co.nz/builders-and-developers/tools-fees-and-resources/infrastructure-growth-charge",
+    "secondary_source_url": "https://sonderarchitecture.co.nz/watercare-connection-cost-auckland/",
+    "retrieved_at": "2026-08-24",
+    "notes": "Papakura 为 Veolia 非 Watercare。区域水网费率更高，MVP 默认都市区并标注。"
+  },
+  "development_contributions": {
+    "policy": "Development Contributions Policy 2025",
+    "increase_from": "2026-07-01",
+    "annual_increase": 0.02,
+    "source_name": "OurAuckland: New Development Contributions Policy approved",
+    "source_url": "https://ourauckland.aucklandcouncil.govt.nz/media-centre/2025/may/new-development-contributions-policy-approved/",
+    "increase_notice_url": "https://new.aucklandcouncil.govt.nz/en/building-and-consents/development-contributions.html",
+    "retrieved_at": "2026-08-24",
+    "areas_fy2025_26_per_hue": {
+      "inner_northwest": 72000,
+      "tamaki_with_stormwater": 71000,
+      "tamaki_without_stormwater": 51000,
+      "drury": 64000,
+      "mt_roskill": 33000,
+      "mangere": 27000,
+      "rest_of_auckland": 20000
+    },
+    "notes": "表内为 2025/26 财年平均每 HUE。2026-07-01 起发票加 2%。MVP 默认 Rest of Auckland，未做资金片区 GIS 匹配时明确写假设。"
+  }
+}
