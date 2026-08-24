@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .data_loader import council_fees, pricebook
-from .graph import configure_option, run_address
+from .graph import configure_option, hydrate_legacy_result, run_address
 from .store import create_project, get_project, list_projects, update_project
 
 app = FastAPI(title="Auckland Development Cost MVP", version="0.2.0")
@@ -83,6 +83,11 @@ def get_one_project(project_id: str) -> dict[str, Any]:
     record = get_project(project_id)
     if not record:
         raise HTTPException(status_code=404, detail="项目不存在")
+    hydrated = hydrate_legacy_result(record.get("address") or "", record.get("result") or {})
+    if hydrated:
+        updated = update_project(project_id, hydrated, record.get("status") or "ready")
+        if updated:
+            return updated
     return record
 
 

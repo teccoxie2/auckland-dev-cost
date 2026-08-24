@@ -89,35 +89,43 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
         <Fact label="地籍" value={parcel?.legal_description || parcel?.formatted_address || "—"} />
       </section>
 
-      <section className="mt-8">
-        <h2 className="text-lg font-semibold">这块地需要考虑的事</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {(result.advice || []).map((item) => (
-            <AdviceCard key={item.id} item={item} />
-          ))}
-        </div>
-      </section>
+      {(result.advice || []).length ? (
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold">这块地需要考虑的事</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {result.advice.map((item) => (
+              <AdviceCard key={item.id} item={item} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="mt-8">
         <h2 className="text-lg font-semibold">因地制宜初版方案</h2>
-        <p className="mt-1 text-sm text-[#5c6754]">点选一张作为起点，再在下方改厨卫和户型。</p>
+        <p className="mt-1 text-sm text-[#5c6754]">点选一张方案，下方会打开这一版的分项总账；再改厨卫和户型后重新核算。</p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {(result.options || []).map((item) => (
             <OptionCard
               key={item.id}
               option={item}
               selected={item.id === selected}
-              onSelect={() => item.verdict.status !== "infeasible" && setSelected(item.id)}
+              onSelect={() => {
+                if (item.verdict.status === "infeasible") return;
+                setSelected(item.id);
+                requestAnimationFrame(() =>
+                  document.getElementById("cost-ledger")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                );
+              }}
             />
           ))}
         </div>
       </section>
 
+      {option && option.verdict.status !== "infeasible" ? <CostPanel option={option} /> : null}
+
       <div className="mt-8">
         <SchemeConfig projectId={project.id} option={option} />
       </div>
-
-      {option && option.verdict.status !== "infeasible" ? <CostPanel option={option} /> : null}
 
       <section className="mt-10 rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5">
         <h2 className="text-lg font-semibold">LangGraph 运行轨迹</h2>
@@ -208,7 +216,7 @@ function OptionCard({
       </div>
       <p className="mt-2 text-sm text-[#5c6754]">
         {option.template.dwellings} 套 · {option.template.bedrooms} 房 {option.template.bathrooms} 卫 ·{" "}
-        {option.template.kitchens || 1} 厨 · {option.template.storeys} 层 · {option.template.gfa_m2} m²
+        {option.template.kitchens ?? option.template.dwellings} 厨 · {option.template.storeys} 层 · {option.template.gfa_m2} m²
       </p>
       {option.why?.length ? (
         <ul className="mt-2 space-y-1 text-xs leading-5 text-[#5c6754]">
@@ -242,7 +250,7 @@ function CostPanel({ option }: { option: SchemeOption }) {
   const joinery = (option.lines || []).filter((line) => line.id.startsWith("joinery_"));
   const rest = (option.lines || []).filter((line) => !line.id.startsWith("joinery_"));
   return (
-    <section className="mt-8 rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 sm:p-6">
+    <section id="cost-ledger" className="mt-8 scroll-mt-4 rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">{option.template.name_zh} · 分项总账</h2>

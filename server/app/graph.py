@@ -195,3 +195,39 @@ def configure_option(site: dict[str, Any], rules: dict[str, Any], spec: dict[str
         "坡度、挡土墙和覆盖率仍用这块地已读到的公开数据，不重新编数。",
     ]
     return costed_option(template, rules, site, why=why, recommended=True, origin="custom")
+
+
+def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any] | None:
+    if result.get("error"):
+        return None
+    site = dict(result.get("site") or {})
+    geo = site.get("geo") or {}
+    if geo.get("lat") is None or geo.get("lon") is None:
+        return None
+    parcel = site.get("parcel") or {}
+    terrain = site.get("terrain") or {}
+    needs_parcel = not parcel.get("found")
+    needs_terrain = terrain.get("slope_deg") is None
+    if not needs_parcel and not needs_terrain and result.get("advice"):
+        return None
+    changed = False
+    if needs_parcel:
+        try:
+            site["parcel"] = lookup_parcel(float(geo["lat"]), float(geo["lon"]), address)
+            changed = True
+        except Exception:  # noqa: BLE001
+            site["parcel"] = {"found": False, "note": "地籍补读失败"}
+    if needs_terrain:
+        try:
+            site["terrain"] = lookup_terrain(float(geo["lat"]), float(geo["lon"]), site.get("parcel"))
+            changed = True
+        except Exception:  # noqa: BLE001
+            site["terrain"] = {"note": "DEM 补读失败"}
+            changed = True
+    if not changed and result.get("advice"):
+        return None
+    result = dict(result)
+    result["site"] = site
+    if result.get("rules"):
+        result["advice"] = build_advice(site, result["rules"])
+    return result
