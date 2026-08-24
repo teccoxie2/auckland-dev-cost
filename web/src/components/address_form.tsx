@@ -6,7 +6,7 @@ import { createProjectAction } from "@/app/actions";
 
 const EXAMPLES = [
   "115 Bruce Road, Glenfield, Auckland",
-  "1 Queen Street, Auckland CBD",
+  "115D Bruce Road, Glenfield, Auckland",
   "24 Hurstmere Road, Takapuna, Auckland",
 ];
 
@@ -18,7 +18,7 @@ function SubmitButton() {
       disabled={pending}
       className="h-12 rounded-xl bg-[#2f4a32] px-6 text-sm font-medium text-white transition hover:bg-[#3f6b45] disabled:cursor-not-allowed disabled:opacity-60"
     >
-      {pending ? "正在读地并核算…" : "生成开发方案"}
+      {pending ? "正在读地并出初版方案…" : "读取地块并出初版方案"}
     </button>
   );
 }
@@ -67,8 +67,8 @@ export default function AddressForm() {
         </p>
       ) : null}
       <p className="mt-4 text-xs leading-5 text-[#7b8474]">
-        第一期金额禁止由模型口算。材料以 Bunnings 公开 SKU 为主，法定费用以 Auckland Council / Watercare
-        官方表为准；厨房、铝窗整樘等无公开总价的科目会标成缺项，不会填假数。提交后请等待约数秒。
+            先读地块再给初版方案。材料以 Bunnings 公开 SKU 为主，法定费用以 Auckland Council / Watercare
+            官方表为准；厨房定制、铝窗整樘等无公开总价的科目会标成缺项。提交后请等待约数秒。
       </p>
     </form>
   );

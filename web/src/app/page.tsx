@@ -20,7 +20,7 @@ export default async function HomePage() {
           <p className="text-sm tracking-[0.18em] text-[#7a5a2b]">AUCKLAND · MVP</p>
           <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">奥克兰住宅开发核算台</h1>
           <p className="mt-3 max-w-2xl text-[15px] leading-7 text-[#5c6754]">
-            输入一个地址。系统读取公开地块与 Unitary Plan 区划，生成 3 房、4 房、联排等方案，并用可核对的奥克兰/新西兰公开报价核算材料、人工、Council 与 Watercare 费用。
+            输入地址后，系统读取地块面积、Unitary Plan 区划和 DEM 坡度，给出适合这块地的初版方案。你再选户型大小、厨房和卫生间数量；挡土墙、覆盖率和叠加层会写进建议和核算。
           </p>
         </div>
       </header>

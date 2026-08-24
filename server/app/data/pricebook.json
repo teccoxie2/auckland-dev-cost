@@ -163,6 +163,54 @@
       "source_url": "https://rotoruaconcreteservices.co.nz/concrete-price-per-m3-nz/",
       "retrieved_at": "2026-08-24",
       "notes": "Firth/Allied 不公开全国统一价。本行是区间中位，置信度低于 Bunnings SKU，需供应商书面报价替换。GST 是否含在综述中未写明，按含 GST 处理并标注。"
+    },
+    {
+      "id": "retaining_sleeper_h4_200x50",
+      "category": "materials",
+      "trade": "retaining",
+      "name_zh": "H4 200×50mm 挡土枕木（材料）",
+      "name_en": "H4 200x50 treated radiata retaining timber",
+      "unit": "lm",
+      "unit_price": 10.6,
+      "gst_included": true,
+      "sku": "0608743",
+      "pack": "2.4m 长度零售 $25.44",
+      "source_name": "Bunnings New Zealand 零售标价",
+      "source_url": "https://www.bunnings.co.nz/200-x-50mm-rad-h4-treated-retaining-timber-2-4m_p0608743",
+      "retrieved_at": "2026-08-24",
+      "notes": "只计枕木材料。立柱、泄水、回填、人工未含。墙高>1.2m 或支撑建筑/车道时不用此 SKU 代替工程师设计。"
+    },
+    {
+      "id": "toilet_stein_ero",
+      "category": "materials",
+      "trade": "joinery",
+      "name_zh": "马桶套装（Stein Ero 背墙式）",
+      "name_en": "Stein Ero back-to-wall toilet suite",
+      "unit": "each",
+      "unit_price": 742.0,
+      "gst_included": true,
+      "sku": "0251660",
+      "pack": "Special Order 零售 $742",
+      "source_name": "Bunnings New Zealand 零售标价",
+      "source_url": "https://www.bunnings.co.nz/stein-wels-4-star-4-5-3l-min-ero-back-to-wall-toilet-suite_p0251660",
+      "retrieved_at": "2026-08-24",
+      "notes": "按卫生间数量计套数。安装与排污管未含。"
+    },
+    {
+      "id": "shower_stein_georgia_750",
+      "category": "materials",
+      "trade": "joinery",
+      "name_zh": "整体淋浴房 750mm（Stein Georgia 含盘/墙板/门）",
+      "name_en": "Stein Georgia 750x2000 shower package",
+      "unit": "each",
+      "unit_price": 645.0,
+      "gst_included": true,
+      "sku": "0380960",
+      "pack": "Special Order 零售 $645",
+      "source_name": "Bunnings New Zealand 零售标价",
+      "source_url": "https://www.bunnings.co.nz/stein-750-x-2000mm-white-georgia-3s-square-flat-wall-package_p0380960",
+      "retrieved_at": "2026-08-24",
+      "notes": "紧凑型整体房，不是贴砖淋浴。龙头花洒未含。客户增加卫生间时按套数增加。"
     }
   ],
   "missing_on_purpose": [
@@ -190,6 +238,16 @@
       "id": "scaffolding_hire",
       "name_zh": "脚手架租赁",
       "reason": "按工期报价，无稳定公开价。"
+    },
+    {
+      "id": "retaining_engineer_wall",
+      "name_zh": "工程师设计挡土墙（混凝土/木桩墙）",
+      "reason": "墙高超过零售枕木适用口径，或支撑建筑/车道（surcharge）时必须专项设计，无公开整墙总价。"
+    },
+    {
+      "id": "bathroom_tapware_install",
+      "name_zh": "卫生间龙头、防水与安装",
+      "reason": "龙头型号价差大；持牌水管工按工时报价，不编造工时。"
     }
   ]
 }

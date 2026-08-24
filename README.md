@@ -1,14 +1,16 @@
 # 奥克兰住宅开发核算台（第一期 MVP）
 
-输入奥克兰地址后，系统读取公开地块与 Unitary Plan 区划，生成多种开发方案（3 房 2 卫、3 房 3 卫、4 房 4 卫、双拼、三联排、主屋+minor dwelling），并用**可核对的公开报价源**核算成本。金额不由大模型生成。
+输入奥克兰地址后，系统读取公开地块面积、Unitary Plan 区划和 DEM 坡度，给出**适合这块地的初版方案**。你再选户型大小、厨房和卫生间数量。挡土墙、覆盖率和叠加层会写进建议；金额不由大模型生成。
 
 ## 能做什么
 
 - 多项目屋主工作台
-- 地址 → 区划 / 叠加层 → 方案过滤（许可 / 需 Resource Consent / 不可行）
-- 户型模板工程量（尺寸进入木材、空腔、屋面、石膏板等数量）
+- 地址 → 地块面积 / 区划 / 叠加层 / 坡度 → 初版方案（许可 / 需 Resource Consent / 这块地放不下）
+- 客户选装：套数、层数、卧室、卫生间、厨房、建筑面积，按已读地块重新套价
+- 坡地建议：分台、挡土墙、E12 土方门槛（500m² / 250m³）；支撑建筑平台的墙按 surcharge 提示建筑许可
+- 户型模板工程量（尺寸进入木材、空腔、屋面、石膏板、卫生间洁具数量）
 - 分项总账带报价源链接、SKU、取价日期
-- 厨房、铝窗整樘、EPS 垫块、脚手架等无公开总价的科目标为缺项，不填假数
+- 厨房定制、铝窗整樘、EPS 垫块、脚手架等无公开总价的科目标为缺项
 
 ## 报价源（2026-08-24 检索）
 
@@ -20,6 +22,9 @@
 - GIB 10mm 2400×1200：[$37.42/张](https://www.bunnings.co.nz/gib-10x2400x1200mm-standard-plasterboard-2400mm_p0299316)
 - Pink Batts Classic R2.2 13.4m²：[$151.48/包](https://www.bunnings.co.nz/pink-batts-13-4m-classic-r2-2-glasswool-wall-insulation_p0054834)
 - Armorsteel 彩色波纹屋面：[$30.35/延米](https://www.bunnings.co.nz/armorsteel-845-x-0-4mm-grey-friars-corrugated-roofing-steel-l-m_p0065119)
+- H4 200×50 挡土枕木 2.4m：[$10.60/m](https://www.bunnings.co.nz/200-x-50mm-rad-h4-treated-retaining-timber-2-4m_p0608743)（只用于墙高≤1.2m 的材料；支撑房屋时仍须许可）
+- Stein Ero 马桶套装：[$742](https://www.bunnings.co.nz/stein-wels-4-star-4-5-3l-min-ero-back-to-wall-toilet-suite_p0251660)
+- Stein Georgia 750mm 淋浴房：[$645](https://www.bunnings.co.nz/stein-750-x-2000mm-white-georgia-3s-square-flat-wall-package_p0380960)
 
 人工与设计（公开区间，不是签约报价）：
 
@@ -36,7 +41,10 @@
 
 - 地址：[OpenStreetMap Nominatim](https://nominatim.openstreetmap.org/)
 - 区划：[Unitary Plan Base Zone Open Data](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Unitary_Plan_Base_Zone/FeatureServer/0)
+- 地块：[Auckland Council AC_Property](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/AC_Property_Query/FeatureServer/0)
+- 坡度：[LINZ NZ 8m DEM / OpenTopodata](https://www.opentopodata.org/datasets/nzdem/)
 - 叠加层：Auckland Council UnitaryPlanManagementLayers
+- 挡土墙许可：[MBIE Schedule 1 exemption 20](https://www.building.govt.nz/projects-and-consents/planning-a-successful-build/scope-and-design/check-if-you-need-consents/building-work-that-doesnt-need-a-building-consent/technical-requirements-for-exempt-building-work/13-support-structures/13-2-retaining-walls-up-to-1-5-metres-depth-of-ground)、[Auckland Council AC2231](https://www.aucklandcouncil.govt.nz/content/dam/ac/docs/building-and-consents/ac2231-retaining-walls.pdf)
 
 替换价表：编辑 `server/app/data/pricebook.json` 与 `server/app/data/council_fees.json`。后续可把 `pricing.get_item` 换成供应商 API。
 
@@ -60,8 +68,8 @@ pnpm install
 pnpm dev
 ```
 
-浏览器打开 `http://127.0.0.1:43124`，先试 `115 Bruce Road, Glenfield, Auckland`（Mixed Housing Urban）。
+浏览器打开 `http://127.0.0.1:43124`。先试 `115 Bruce Road, Glenfield, Auckland`（整宗地、Mixed Housing Urban），再对比 `115D Bruce Road`（细分后的小地块，加密方案会被标成放不下）。
 
 ## 架构要点
 
-LangGraph 节点：`geocode → planning → rules → options → explain → pm_gate`。`pm_gate` 第一期自动通过，预留以后 `interrupt()` 给项目经理。核算在 `costing.py`，模型只写中文说明。
+LangGraph 节点：`geocode → planning → parcel → terrain → rules → advise → options → explain → pm_gate`。选装走 `POST /projects/{id}/configure`，不再重新查 GIS。`pm_gate` 第一期自动通过。核算在 `costing.py`，模型只写中文说明。

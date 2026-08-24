@@ -1,4 +1,4 @@
-import type { ProjectRecord, ProjectSummary } from "./api";
+import type { ConfigureSpec, ProjectRecord, ProjectSummary } from "./api";
 
 const ENGINE_URL = process.env.ENGINE_URL || "http://127.0.0.1:8764";
 
@@ -25,6 +25,20 @@ export async function postProject(address: string): Promise<ProjectRecord> {
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data?.detail?.error?.message || data?.error?.message || "核算失败");
+  }
+  return data;
+}
+
+export async function configureProject(projectId: string, spec: ConfigureSpec): Promise<ProjectRecord> {
+  const response = await fetch(`${ENGINE_URL}/projects/${projectId}/configure`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(spec),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const detail = typeof data?.detail === "string" ? data.detail : data?.detail?.error?.message;
+    throw new Error(detail || "选装核算失败");
   }
   return data;
 }

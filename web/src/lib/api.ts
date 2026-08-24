@@ -24,6 +24,9 @@ export interface CostLine {
 
 export interface SchemeOption {
   id: string;
+  origin?: string;
+  recommended?: boolean;
+  why?: string[];
   template: {
     id: string;
     name_zh: string;
@@ -31,6 +34,7 @@ export interface SchemeOption {
     dwellings: number;
     bedrooms: number;
     bathrooms: number;
+    kitchens?: number;
     storeys: number;
     gfa_m2: number;
   };
@@ -43,6 +47,14 @@ export interface SchemeOption {
     footprint_m2: number;
     timber_90_lm: number;
     cavity_required: boolean;
+    bathrooms?: number;
+    kitchens?: number;
+    retaining?: {
+      height_m: number;
+      length_m: number;
+      sleeper_ok: boolean;
+      note?: string;
+    } | null;
     e2: { score: number; note: string };
     window_schedule: Array<{ code: string; w_mm: number; h_mm: number; count: number }>;
   };
@@ -62,6 +74,15 @@ export interface SchemeOption {
   intensity_note?: string;
 }
 
+export interface AdviceItem {
+  id: string;
+  severity: "info" | "watch" | "constraint";
+  title_zh: string;
+  body_zh: string;
+  source_name?: string | null;
+  source_url?: string | null;
+}
+
 export interface ProjectRecord {
   id: string;
   address: string;
@@ -69,10 +90,28 @@ export interface ProjectRecord {
   status: string;
   result: {
     error?: { code: string; message: string };
+    selected_id?: string;
     site?: {
       geo: { display_name: string; lat: number; lon: number; source_url: string };
       zone?: { zone_name: string; zone_code: number; source_url: string };
       overlays?: Array<{ key: string; present: boolean }>;
+      parcel?: {
+        found?: boolean;
+        formatted_address?: string;
+        area_m2?: number;
+        frontage_m?: number;
+        depth_m?: number;
+        legal_description?: string;
+        source_url?: string;
+        note?: string;
+      };
+      terrain?: {
+        slope_deg?: number;
+        slope_percent?: number;
+        height_range_m?: number;
+        source_url?: string;
+        note?: string;
+      };
     };
     rules?: {
       permitted_dwellings: number;
@@ -82,6 +121,7 @@ export interface ProjectRecord {
       qualifying_matters: string[];
       consent_note: string;
     };
+    advice?: AdviceItem[];
     explanation?: string;
     pm_review?: { status: string; note: string };
     options?: SchemeOption[];
@@ -89,28 +129,12 @@ export interface ProjectRecord {
   };
 }
 
-export async function fetchProjects(): Promise<ProjectSummary[]> {
-  const response = await fetch("/engine/projects", { cache: "no-store" });
-  if (!response.ok) throw new Error("无法读取项目列表");
-  const data = await response.json();
-  return data.projects;
-}
-
-export async function createProject(address: string): Promise<ProjectRecord> {
-  const response = await fetch("/engine/projects", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address }),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.detail?.error?.message || data?.error?.message || "核算失败");
-  }
-  return data;
-}
-
-export async function fetchProject(id: string): Promise<ProjectRecord> {
-  const response = await fetch(`/engine/projects/${id}`, { cache: "no-store" });
-  if (!response.ok) throw new Error("项目不存在");
-  return response.json();
+export interface ConfigureSpec {
+  kind: string;
+  dwellings: number;
+  storeys: number;
+  bedrooms: number;
+  bathrooms: number;
+  kitchens: number;
+  gfa_m2: number;
 }

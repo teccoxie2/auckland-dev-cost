@@ -62,3 +62,18 @@ def get_project(project_id: str) -> dict[str, Any] | None:
     if not row:
         return None
     return json.loads(row["payload"])
+
+
+def update_project(project_id: str, payload: dict[str, Any], status: str) -> dict[str, Any] | None:
+    record = get_project(project_id)
+    if not record:
+        return None
+    record["result"] = payload
+    record["status"] = status
+    with _connect() as connection:
+        connection.execute(
+            "UPDATE projects SET status = ?, payload = ? WHERE id = ?",
+            (status, json.dumps(record, ensure_ascii=False), project_id),
+        )
+        connection.commit()
+    return record

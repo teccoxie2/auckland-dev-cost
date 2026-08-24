@@ -1,0 +1,56 @@
+{
+  "note": "初版设计规则，用于按地块生成第一版方案和客户选装默认值。不是实测户型，也不是 Council 法定标准。",
+  "gfa_m2": {
+    "1": { "2": 85, "3": 110, "4": 150, "5": 180 },
+    "2": { "2": 110, "3": 165, "4": 220, "5": 260 },
+    "3": { "2": 130, "3": 180, "4": 240, "5": 280 }
+  },
+  "gfa_note": "与第一期固定模板对齐：单层三房 110m²、二层三房 165m²、二层四房 220m²。客户可改。",
+  "bathrooms_by_bedrooms": { "1": 1, "2": 1, "3": 2, "4": 3, "5": 4 },
+  "kitchens_per_dwelling": 1,
+  "wet_area_gib_m2": { "bathroom": 16, "kitchen": 10 },
+  "min_footprint_per_dwelling_m2": 40,
+  "min_footprint_note": "初版筛查：单套占地过小则加密方案标为塞不下。不是区划最小地块。",
+  "slope": {
+    "gentle_deg": 5,
+    "e11_steep_deg": 10,
+    "retaining_trigger_m": 0.5,
+    "sleeper_max_height_m": 1.2,
+    "e12_permitted_area_m2": 500,
+    "e12_permitted_volume_m3": 250
+  },
+  "sources": [
+    {
+      "id": "e12",
+      "name": "Auckland Unitary Plan E12 Land disturbance – District Table E12.4.1",
+      "url": "https://unitaryplan.aucklandcouncil.govt.nz/",
+      "notes": "住宅区一般土方：面积≤500m²、体积≤250m³ 为许可活动（仍须满足标准）。"
+    },
+    {
+      "id": "e11",
+      "name": "Auckland Unitary Plan E11 Land disturbance – Regional",
+      "url": "https://unitaryplan.aucklandcouncil.govt.nz/Images/Auckland%20Unitary%20Plan%20Operative/Chapter%20E%20Auckland-wide/1.%20Natural%20Resources/E11%20Land%20disturbance%20-%20Regional.pdf",
+      "notes": "坡度≥10° 时区域土方门槛与缓坡不同。"
+    },
+    {
+      "id": "mbie_retaining",
+      "name": "MBIE Schedule 1 exemption 20：挡土墙留土≤1.5m 且无附加荷载",
+      "url": "https://www.building.govt.nz/projects-and-consents/planning-a-successful-build/scope-and-design/check-if-you-need-consents/building-work-that-doesnt-need-a-building-consent/technical-requirements-for-exempt-building-work/13-support-structures/13-2-retaining-walls-up-to-1-5-metres-depth-of-ground"
+    },
+    {
+      "id": "ac2231",
+      "name": "Auckland Council AC2231 Retaining walls",
+      "url": "https://www.aucklandcouncil.govt.nz/content/dam/ac/docs/building-and-consents/ac2231-retaining-walls.pdf"
+    },
+    {
+      "id": "branz_retaining",
+      "name": "BRANZ：建议 1m 以上挡土墙咨询特许工程师",
+      "url": "https://www.branz.co.nz/design-build/articles/low-retaining-walls"
+    },
+    {
+      "id": "nzdem",
+      "name": "LINZ NZ 8m DEM via OpenTopodata（由 Topo50 20m 等高线插值，标称高程精度约 ±10m，只作初版坡度）",
+      "url": "https://www.opentopodata.org/datasets/nzdem/"
+    }
+  ]
+}

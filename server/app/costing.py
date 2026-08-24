@@ -14,8 +14,9 @@ def cost_option(
     template: dict[str, Any],
     filter_result: dict[str, Any],
     existing_dwellings: int = 1,
+    site: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    qty = takeoff(template)
+    qty = takeoff(template, site)
     lines: list[dict[str, Any]] = []
 
     lines.append(
@@ -76,7 +77,70 @@ def cost_option(
                 unit="樘",
             )
         )
-    lines.append(missing_line("kitchen_package", "厨房定制", "参考 QS 有档位，无公开 SKU 总价。"))
+    kitchens = int(qty.get("kitchens") or 1)
+    bathrooms = int(qty.get("bathrooms") or 1)
+    lines.append(
+        missing_line(
+            "kitchen_package",
+            "厨房定制",
+            "参考 QS 有档位，无公开 SKU 总价。按客户选择的厨房套数列出。",
+            quantity=kitchens,
+            unit="套",
+        )
+    )
+    lines.append(
+        line(
+            "toilet_stein_ero",
+            bathrooms,
+            formula="卫生间数量 × 公开马桶套装零售价",
+            extra_notes="安装未含。",
+        )
+    )
+    lines.append(
+        line(
+            "shower_stein_georgia_750",
+            bathrooms,
+            formula="卫生间数量 × 750mm 整体淋浴房零售价",
+            extra_notes="龙头花洒未含；贴砖淋浴不套用此 SKU。",
+        )
+    )
+    lines.append(
+        missing_line(
+            "bathroom_tapware_install",
+            "卫生间龙头、防水与安装",
+            "龙头型号价差大；持牌水管工按工时报价，不编造工时。",
+            quantity=bathrooms,
+            unit="间",
+        )
+    )
+    retaining = qty.get("retaining")
+    if retaining:
+        if retaining.get("sleeper_ok"):
+            lines.append(
+                line(
+                    "retaining_sleeper_h4_200x50",
+                    retaining["timber_lm"],
+                    formula=retaining["formula"],
+                    extra_notes=retaining["note"],
+                )
+            )
+        else:
+            lines.append(
+                missing_line(
+                    "retaining_engineer_wall",
+                    f"工程师挡土墙约 {retaining['height_m']} m × {retaining['length_m']} m",
+                    retaining["note"],
+                    quantity=retaining["length_m"],
+                    unit="m",
+                )
+            )
+        lines.append(
+            missing_line(
+                "retaining_posts_drainage_labour",
+                "挡土墙立柱、泄水层与安装",
+                "无稳定公开整墙工时价。支撑建筑平台时按 MBIE 需建筑许可。",
+            )
+        )
     lines.append(missing_line("ribraft_eps_pods", "Rib-raft EPS 垫块", "制造商无全国零售价。"))
     lines.append(missing_line("scaffolding_hire", "脚手架租赁", "按工期询价。"))
 

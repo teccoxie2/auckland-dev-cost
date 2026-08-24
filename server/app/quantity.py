@@ -16,7 +16,7 @@ WASTAGE = {
 ROOF_COVER_M = 0.762
 
 
-def takeoff(template: dict[str, Any]) -> dict[str, Any]:
+def takeoff(template: dict[str, Any], site: dict[str, Any] | None = None) -> dict[str, Any]:
     gfa = float(template["gfa_m2"])
     storeys = int(template["storeys"])
     footprint = gfa / storeys
@@ -26,6 +26,10 @@ def takeoff(template: dict[str, Any]) -> dict[str, Any]:
     external_wall_m2 = perimeter * wall_height * storeys
     openings = _opening_area(template.get("windows") or [])
     lining_m2 = max(external_wall_m2 * 1.65 - openings, external_wall_m2 * 0.8)
+    bathrooms = int(template.get("bathrooms") or 1)
+    kitchens = int(template.get("kitchens") or template.get("dwellings") or 1)
+    extra_wet = max(bathrooms - 1, 0) * 16 + max(kitchens - 1, 0) * 10
+    lining_m2 += extra_wet
     pitch = math.radians(float(template.get("roof_pitch_deg") or 25))
     roof_m2 = footprint / max(math.cos(pitch), 0.5)
     spacing = float(template.get("stud_spacing_mm") or 600) / 1000.0
@@ -42,6 +46,7 @@ def takeoff(template: dict[str, Any]) -> dict[str, Any]:
         timber_140_lm = 8.0
     else:
         timber_140_lm = 2.4
+    retaining = retaining_takeoff(template, site or {}, length)
 
     return {
         "gfa_m2": round(gfa, 2),
@@ -66,6 +71,9 @@ def takeoff(template: dict[str, Any]) -> dict[str, Any]:
         "wide_slider": wide_slider,
         "window_schedule": template.get("windows") or [],
         "wastage": WASTAGE,
+        "bathrooms": bathrooms,
+        "kitchens": kitchens,
+        "retaining": retaining,
     }
 
 
@@ -107,3 +115,28 @@ def _opening_area(windows: list[dict[str, Any]]) -> float:
     for item in windows:
         total += (item["w_mm"] / 1000.0) * (item["h_mm"] / 1000.0) * int(item["count"])
     return total
+
+
+def retaining_takeoff(template: dict[str, Any], site: dict[str, Any], building_length_m: float) -> dict[str, Any] | None:
+    terrain = site.get("terrain") or {}
+    parcel = site.get("parcel") or {}
+    rise = float(terrain.get("height_range_m") or 0)
+    slope_deg = float(terrain.get("slope_deg") or 0)
+    if rise < 2.0 and slope_deg < 5:
+        return None
+    height = min(max(rise * 0.5, 0.5), 3.0)
+    length = float(parcel.get("frontage_m") or terrain.get("run_m") or building_length_m)
+    length = max(min(length, 40.0), 6.0)
+    courses = max(math.ceil(height / 0.20), 1)
+    timber_lm = courses * length * (1 + WASTAGE["timber"])
+    return {
+        "needed": True,
+        "height_m": round(height, 2),
+        "length_m": round(length, 1),
+        "courses": courses,
+        "timber_lm": round(timber_lm, 2),
+        "surcharge_likely": True,
+        "sleeper_ok": height <= 1.2,
+        "formula": "墙高≈DEM高差×0.5（平台取中位）；延米=层数×临街面宽；层数=墙高/0.20m 枕木",
+        "note": "支撑建筑平台视为 surcharge。墙高>1.2m 不定零售枕木价。",
+    }
