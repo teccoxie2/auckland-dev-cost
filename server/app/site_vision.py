@@ -55,8 +55,9 @@ def _analyze_site(site: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]
     model_result = _call_vision_model(imagery, site, rules) if imagery else None
     if model_result:
         extra_hints = [item for item in model_result.get("scheme_hints") or [] if item in ALLOWED_HINTS]
+        extra_findings = [item for item in (model_result.get("findings") or []) if isinstance(item, str)]
         vision["scheme_hints"] = list(dict.fromkeys([*hints, *extra_hints]))
-        vision["findings"] = [*vision["findings"], *model_result.get("findings") or []]
+        vision["findings"] = [*vision["findings"], *extra_findings]
         vision["status"] = "model"
         vision["model"] = model_result.get("model")
         vision["note"] = (
