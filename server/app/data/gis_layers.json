@@ -52,6 +52,45 @@
       "url": "https://services.arcgis.com/xdsHIIxuCWByZiCB/arcgis/rest/services/LINZ_NZ_Building_Outlines/FeatureServer/0",
       "used_for": "site_vision",
       "note": "约 200 m 范围查询后再按本户地块外包矩形过滤。很小的外包矩形直接查询会超时；失败则空结果，不把地块当成空地。"
+    },
+    {
+      "id": "healthy_waters_flood_plains",
+      "name": "Healthy Waters Flood Plains",
+      "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Flood_Plains/FeatureServer/0",
+      "used_for": "lim",
+      "note": "地块外包矩形与多边形相交。公开核对不是正式 LIM。"
+    },
+    {
+      "id": "healthy_waters_flood_prone",
+      "name": "Healthy Waters Flood Prone Areas",
+      "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Flood_Prone_Areas/FeatureServer/0",
+      "used_for": "lim"
+    },
+    {
+      "id": "healthy_waters_flood_sensitive",
+      "name": "Healthy Waters Flood Sensitive Areas",
+      "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Flood_Sensitive_Areas/FeatureServer/0",
+      "used_for": "lim"
+    },
+    {
+      "id": "coastal_inundation_1aep_1m",
+      "name": "Coastal Inundation 1% AEP 1m sea level rise",
+      "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Coastal_Inundation_1_AEP_1m_sea_level_rise/FeatureServer/0",
+      "used_for": "lim"
+    },
+    {
+      "id": "landfill_sites",
+      "name": "Landfill Sites (wm_Contaminant_Sources_Public / 12)",
+      "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/wm_Contaminant_Sources_Public/FeatureServer/12",
+      "used_for": "lim",
+      "note": "点图层，用地块外包矩形外扩查询。第 9 层 catchment 多边形不当成本户 HAIL。"
+    },
+    {
+      "id": "large_scale_landslide",
+      "name": "Large Scale Landslide Susceptibility",
+      "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Large_Scale_Landslide_Susceptibility/FeatureServer/0",
+      "used_for": "lim",
+      "note": "全区都有分区；只有 Moderate/High 才当约束。outFields=* 易超时。"
     }
   ],
   "zone_rule_table": "server/app/data/zone_rules.json"

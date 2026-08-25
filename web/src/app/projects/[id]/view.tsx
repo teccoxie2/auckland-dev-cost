@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import CostTree from "@/components/cost_tree";
 import DrawingUpload from "@/components/drawing_upload";
+import LimReport from "@/components/lim_report";
 import SchemeCompare from "@/components/scheme_compare";
 import SchemeConfig from "@/components/scheme_config";
 import SiteAnalysis from "@/components/site_analysis";
@@ -60,6 +61,10 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
 
       <section className="mt-6">
         <SiteSnapshot project={project} />
+      </section>
+
+      <section className="mt-6">
+        <LimReport project={project} />
       </section>
 
       <section className="mt-6">

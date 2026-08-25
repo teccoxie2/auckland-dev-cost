@@ -4,7 +4,16 @@ from typing import Any
 
 from .data_loader import pricebook
 from .price_provider import official_fee_meta, pricebook_meta
-from .pricing import GST, building_consent_deposit, dc_amount, igc_amount, line, missing_line, resource_consent_deposit
+from .pricing import (
+    GST,
+    building_consent_deposit,
+    dc_amount,
+    igc_amount,
+    line,
+    lim_report_fee,
+    missing_line,
+    resource_consent_deposit,
+)
 from .quantity import takeoff
 
 PRELIM_PCT = 0.10
@@ -473,9 +482,14 @@ def cost_option(
             "formula": "2025/26 $20,000 × 1.02 × 净增 HUE",
         }
     )
+    lim_lines = lim_statutory_lines(site)
+    lines.extend(lim_lines)
+    lim_priced = sum(
+        item.get("amount_incl_gst") or 0 for item in lim_lines if item.get("status") in {"priced", "zero"}
+    )
 
     construction_plus = construction + prelim
-    statutory_before_bc = igc["amount_incl_gst"] + dc["amount_incl_gst"]
+    statutory_before_bc = igc["amount_incl_gst"] + dc["amount_incl_gst"] + lim_priced
     project_value_for_bc = construction_plus + design_incl
     bc = building_consent_deposit(project_value_for_bc)
     lines.append(
@@ -567,6 +581,82 @@ def cost_option(
         "intensity_note": intensity_note,
         "project_value_for_bc": round(project_value_for_bc, 2),
     }
+
+
+def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
+    fee = lim_report_fee()
+    lines: list[dict[str, Any]] = [
+        {
+            "id": "lim_report_fee",
+            "status": "priced",
+            "category": "statutory",
+            "name_zh": "奥克兰议会 LIM 报告（Standard）",
+            "quantity": 1,
+            "unit": "report",
+            "unit_price": fee["amount"],
+            "amount_incl_gst": fee["amount"],
+            "source_name": fee["source_name"],
+            "source_url": fee["source_url"],
+            "retrieved_at": fee["retrieved_at"],
+            "notes": fee["notes"],
+            "formula": "开发尽职调查按议会 Standard LIM 页面标价计入；加急与卡费未计入",
+        }
+    ]
+    constraints = ((site or {}).get("lim") or {}).get("constraints") or {}
+    if constraints.get("flood") or constraints.get("coastal_inundation"):
+        lines.append(
+            missing_line(
+                "flood_hazard_assessment",
+                "洪水评估 / 抬高 FFL / 场地排水",
+                "公开洪水或沿海淹没图层命中本户。注册工程师评估与抬高建筑标高没有公开零售单价，故不计金额。",
+            )
+        )
+    if constraints.get("landfill"):
+        lines.append(
+            missing_line(
+                "nes_cs_psi",
+                "NES-CS 初步场地调查（PSI）",
+                "公开填埋点图层在本户附近命中。HAIL/污染调查没有公开零售单价，故不计金额。流域尺度污染点计数不能当成这一结果。",
+            )
+        )
+    landslide = constraints.get("landslide")
+    if landslide in {"Moderate", "High"}:
+        lines.append(
+            missing_line(
+                "geotech_landslide",
+                "滑坡/边坡岩土报告",
+                f"公开大尺度滑坡易发性为 {landslide}。岩土报告没有公开零售单价，故不计金额。Low 分区不按约束计价。",
+            )
+        )
+    return lines
+
+
+def ensure_lim_cost_on_options(options: list[dict[str, Any]], site: dict[str, Any] | None) -> tuple[list[dict[str, Any]], bool]:
+    extra = lim_statutory_lines(site)
+    changed = False
+    updated: list[dict[str, Any]] = []
+    for option in options:
+        lines = list(option.get("lines") or [])
+        if not lines:
+            updated.append(option)
+            continue
+        existing_ids = {item.get("id") for item in lines}
+        add = [item for item in extra if item["id"] not in existing_ids]
+        if not add:
+            updated.append(option)
+            continue
+        lines = [*lines, *add]
+        totals = dict(option.get("totals") or {})
+        priced_add = sum(
+            item.get("amount_incl_gst") or 0 for item in add if item.get("status") in {"priced", "rule", "zero"}
+        )
+        missing_add = sum(1 for item in add if item.get("status") == "missing")
+        totals["statutory_incl_gst"] = round((totals.get("statutory_incl_gst") or 0) + priced_add, 2)
+        totals["confirmed_total_incl_gst"] = round((totals.get("confirmed_total_incl_gst") or 0) + priced_add, 2)
+        totals["missing_count"] = int(totals.get("missing_count") or 0) + missing_add
+        updated.append({**option, "lines": lines, "totals": totals})
+        changed = True
+    return updated, changed
 
 
 def _sum_priced(lines: list[dict[str, Any]], categories: set[str]) -> float:

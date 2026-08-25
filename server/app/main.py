@@ -20,7 +20,9 @@ from .gis import (
     search_addresses,
     split_estate_note,
 )
-from .graph import configure_option, hydrate_legacy_result, hydrate_site_analysis, run_address
+from .graph import configure_option, hydrate_legacy_result, hydrate_lim, hydrate_site_analysis, merge_advice, run_address
+from .lim import lim_advice
+from .site_vision import vision_advice
 from .store import create_project, get_project, list_projects, update_project
 
 DRAWINGS_DIR = Path(__file__).resolve().parent.parent / "data" / "drawings"
@@ -122,13 +124,16 @@ def get_one_project(project_id: str) -> dict[str, Any]:
     if not record:
         raise HTTPException(status_code=404, detail="项目不存在")
     result = record.get("result") or {}
+    limed = hydrate_lim(result)
+    if limed:
+        result = limed
     hydrated = hydrate_legacy_result(record.get("address") or "", result)
     if hydrated:
         result = hydrated
     visioned = hydrate_site_analysis(result)
     if visioned:
         result = visioned
-    if hydrated or visioned:
+    if limed or hydrated or visioned:
         updated = update_project(project_id, result, record.get("status") or "ready")
         if updated:
             return updated
@@ -230,7 +235,7 @@ async def post_drawings(
     site = attach_subdivision(dict(result["site"]), record.get("address") or "")
     result["site"] = site
     if result.get("rules"):
-        result["advice"] = build_advice(site, result["rules"])
+        result["advice"] = merge_advice(build_advice(site, result["rules"]), vision_advice(site), lim_advice(site))
     uploads = [item for item in files if item.filename]
     if not uploads:
         raise HTTPException(status_code=400, detail="请至少上传一份 PDF")

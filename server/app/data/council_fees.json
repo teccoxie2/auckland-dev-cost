@@ -62,5 +62,18 @@
       "rest_of_auckland": 20000
     },
     "notes": "表内为 2025/26 财年平均每 HUE。2026-07-01 起发票加 2%。MVP 默认 Rest of Auckland，未做资金片区 GIS 匹配时明确写假设。"
+  },
+  "lim_report": {
+    "standard_fee": 387,
+    "standard_cancellation_fee": 193.5,
+    "urgent_fee": 522,
+    "card_surcharge_percent": 1.75,
+    "standard_working_days": 10,
+    "urgent_working_days": 3,
+    "source_name": "Auckland Council: How to order a Land Information Memorandum (LIM)",
+    "source_url": "https://www.aucklandcouncil.govt.nz/en/buying-property/order-property-report/order-lim.html",
+    "about_url": "https://www.aucklandcouncil.govt.nz/en/buying-property/order-property-report/about-property-files-and-lim-reports.html",
+    "retrieved_at": "2026-08-25",
+    "notes": "页面标价 Standard $387、Urgent $522。信用卡/借记卡另加 1.75%，未计入造价。标准最多 10 个工作日，加急最多 3 个工作日。公开图层核对不是已购买的正式 LIM PDF。"
   }
 }

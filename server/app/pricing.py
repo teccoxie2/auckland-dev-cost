@@ -129,6 +129,23 @@ def resource_consent_deposit() -> dict[str, Any]:
     }
 
 
+def lim_report_fee() -> dict[str, Any]:
+    table = council_fees()["lim_report"]
+    return {
+        "amount": table["standard_fee"],
+        "standard_fee": table["standard_fee"],
+        "urgent_fee": table["urgent_fee"],
+        "card_surcharge_percent": table["card_surcharge_percent"],
+        "standard_working_days": table["standard_working_days"],
+        "urgent_working_days": table["urgent_working_days"],
+        "source_name": table["source_name"],
+        "source_url": table["source_url"],
+        "about_url": table.get("about_url"),
+        "retrieved_at": table["retrieved_at"],
+        "notes": table["notes"],
+    }
+
+
 def dc_amount(new_units: int) -> dict[str, Any]:
     table = council_fees()["development_contributions"]
     base = table["areas_fy2025_26_per_hue"]["rest_of_auckland"]

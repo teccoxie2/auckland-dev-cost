@@ -320,6 +320,12 @@ def _nearest_typology(spec: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _scheme_hints(site: dict[str, Any]) -> list[str]:
+    vision = ((site.get("vision") or {}).get("scheme_hints") or [])
+    lim = ((site.get("lim") or {}).get("scheme_hints") or [])
+    return list(dict.fromkeys([*vision, *lim]))
+
+
 def _why(template: dict[str, Any], rules: dict[str, Any], site: dict[str, Any]) -> list[str]:
     reasons: list[str] = []
     parcel = site.get("parcel") or {}
@@ -342,7 +348,7 @@ def _why(template: dict[str, Any], rules: dict[str, Any], site: dict[str, Any]) 
         reasons.append("单层大占地在坡地上切填更多，初版不优先。")
     if template["kind"] == "terrace" and rules.get("terrace_ok"):
         reasons.append("本区划允许联排形态。")
-    hints = ((site.get("vision") or {}).get("scheme_hints") or [])
+    hints = _scheme_hints(site)
     if "existing_rebuild" in hints and template["kind"] == "standalone" and int(template["dwellings"]) == 1:
         reasons.append("航拍/屋顶轮廓显示已有房屋，初版按本户独栋重建来排。")
     if "vacant_infill" in hints and template["kind"] in {"duplex", "terrace"}:
@@ -351,11 +357,16 @@ def _why(template: dict[str, Any], rules: dict[str, Any], site: dict[str, Any]) 
         reasons.append("坡地或场地判读倾向二层，减少占地切填。")
     if "prefer_compact" in hints and float(template["gfa_m2"]) <= 165:
         reasons.append("场地偏紧，初版优先较小建筑面积。")
+    constraints = ((site.get("lim") or {}).get("constraints") or {})
+    if (constraints.get("flood") or constraints.get("coastal_inundation")) and int(template["storeys"]) >= 2:
+        reasons.append("公开洪水或沿海淹没图层命中本户，初版倾向二层以缩小占地。这不是禁建。")
+    if constraints.get("landfill") and float(template["gfa_m2"]) <= 165:
+        reasons.append("本户附近公开填埋点命中，初版优先紧凑方案；NES-CS 调查仍缺价。")
     return reasons
 
 
 def _vision_penalty(option: dict[str, Any], site: dict[str, Any]) -> int:
-    hints = ((site.get("vision") or {}).get("scheme_hints") or [])
+    hints = _scheme_hints(site)
     if not hints:
         return 0
     kind = str(option["template"]["kind"])

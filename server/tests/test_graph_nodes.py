@@ -8,6 +8,7 @@ def test_workflow_has_planned_nodes():
         "land",
         "rules",
         "site_vision",
+        "lim",
         "typology",
         "quantity",
         "building_rules",

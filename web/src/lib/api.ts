@@ -193,6 +193,56 @@ export interface ProjectRecord {
         terrain_source?: string;
         imagery_source?: string;
         buildings_source?: string;
+        lim_source?: string;
+        lim_order_url?: string;
+      };
+      lim?: {
+        status?: string;
+        is_official_lim?: boolean;
+        disclaimer_zh?: string;
+        order_url?: string;
+        about_url?: string;
+        queried_at?: string;
+        note?: string;
+        findings?: string[];
+        scheme_hints?: string[];
+        constraints?: {
+          flood?: boolean;
+          coastal_inundation?: boolean;
+          landfill?: boolean;
+          landslide?: string | null;
+        };
+        fee?: {
+          standard_fee?: number;
+          urgent_fee?: number;
+          standard_cancellation_fee?: number;
+          card_surcharge_percent?: number;
+          standard_working_days?: number;
+          urgent_working_days?: number;
+          source_name?: string;
+          source_url?: string;
+          about_url?: string;
+          retrieved_at?: string;
+          notes?: string;
+        };
+        layers?: Array<{
+          id: string;
+          label_zh: string;
+          group?: string;
+          present?: boolean;
+          count?: number;
+          error?: string | null;
+          sample?: Record<string, string | number | boolean> | null;
+          note?: string;
+          source_name?: string;
+          source_url?: string;
+        }>;
+        not_queried?: Array<{
+          id: string;
+          label_zh: string;
+          reason?: string;
+          source_url?: string;
+        }>;
       };
       imagery?: Array<{
         id: string;
