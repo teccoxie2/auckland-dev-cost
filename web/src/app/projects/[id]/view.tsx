@@ -85,13 +85,14 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
       <section className="mt-8">
         <h2 className="text-lg font-semibold">因地制宜初版方案</h2>
         <p className="mt-1 text-sm text-[#5c6754]">
-          {result.scheme_filter?.note || "先看并排对比，再点选一张方案打开分项总账。"}
+          {result.scheme_filter?.note || "先看并排对比或方案卡片，改户型打开「按需求选装」。"}
         </p>
         <div className="mt-4">
           <Tabs
             tabs={[
               { id: "compare", label: "方案对比" },
               { id: "cards", label: "方案卡片" },
+              { id: "config", label: "按需求选装" },
             ]}
             value={schemeTab}
             onChange={setSchemeTab}
@@ -101,24 +102,30 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
           <div className="mt-4">
             <SchemeCompare options={result.options || []} />
           </div>
-        ) : (
+        ) : null}
+        {schemeTab === "cards" ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {(result.options || []).map((item) => (
-            <OptionCard
-              key={item.id}
-              option={item}
-              selected={item.id === selected}
-              onSelect={() => {
-                if (item.verdict.status === "infeasible" && item.origin !== "drawings") return;
-                setSelected(item.id);
-                requestAnimationFrame(() =>
-                  document.getElementById("cost-ledger")?.scrollIntoView({ behavior: "smooth", block: "start" }),
-                );
-              }}
-            />
-          ))}
-        </div>
-        )}
+            {(result.options || []).map((item) => (
+              <OptionCard
+                key={item.id}
+                option={item}
+                selected={item.id === selected}
+                onSelect={() => {
+                  if (item.verdict.status === "infeasible" && item.origin !== "drawings") return;
+                  setSelected(item.id);
+                  requestAnimationFrame(() =>
+                    document.getElementById("cost-ledger")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                  );
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
+        {schemeTab === "config" ? (
+          <div className="mt-4">
+            <SchemeConfig projectId={project.id} option={option} />
+          </div>
+        ) : null}
       </section>
 
       {option && (option.verdict.status !== "infeasible" || option.origin === "drawings") ? (
@@ -127,10 +134,6 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
 
       <div className="mt-8">
         <DrawingUpload projectId={project.id} />
-      </div>
-
-      <div className="mt-8">
-        <SchemeConfig projectId={project.id} option={option} />
       </div>
 
       <section className="mt-10 rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5">

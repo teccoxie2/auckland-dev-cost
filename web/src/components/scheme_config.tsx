@@ -60,9 +60,12 @@ export default function SchemeConfig({
 
   return (
     <form action={formAction} className="rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 sm:p-6">
-      <h2 className="text-lg font-semibold">按你的需求选装</h2>
+      <h3 className="text-base font-semibold">按你的需求选装</h3>
       <p className="mt-1 text-sm leading-6 text-[#5c6754]">
-        先点上方一张初版方案作起点，再改户型大小、厨房和卫生间。核算仍用这块地已经读到的区划、面积和坡度。图纸方案改选装后会走户型模板，不再沿用图纸文字层。
+        {option?.template.name_zh
+          ? `以当前选中的「${option.template.name_zh}」为起点，改套数、层数、户型、厨房和卫生间。`
+          : "改套数、层数、户型、厨房和卫生间。"}
+        核算仍用这块地已经读到的区划、面积和坡度。图纸方案改选装后会走户型模板，不再沿用图纸文字层。可先到「方案卡片」点选起点。
       </p>
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="形态">
