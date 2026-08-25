@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import RememberRecentProject from "@/components/remember_recent_project";
 import ProjectView from "./view";
 import { getProject } from "@/lib/engine";
 
@@ -10,9 +11,19 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const project = await getProject(id);
   if (!project) notFound();
 
+  const remembered = (
+    <RememberRecentProject
+      id={project.id}
+      address={project.address}
+      created_at={project.created_at}
+      status={project.status}
+    />
+  );
+
   if (project.result.error) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-12">
+        {remembered}
         <Link href="/" className="text-sm text-[#2f4a32]">
           ← 返回工作台
         </Link>
@@ -24,5 +35,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  return <ProjectView project={project} />;
+  return (
+    <>
+      {remembered}
+      <ProjectView project={project} />
+    </>
+  );
 }

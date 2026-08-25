@@ -4,7 +4,7 @@
 
 ## 能做什么
 
-- 多项目屋主工作台
+- 多项目屋主工作台（首页不公开列出全库查询；本机浏览器可看自己最近查过的地址）
 - 地址 → 地块面积 / 区划 / 叠加层 / 坡度 → 客户上传正式 LIM PDF（文字层） → 公开航拍与屋顶轮廓核对 → 初版方案（许可 / 需 Resource Consent / 这块地放不下）
 - 客户选装：套数、层数、卧室、卫生间、厨房、建筑面积，按已读地块重新套价
 - 坡地建议：分台、挡土墙、E12 土方门槛（500m² / 250m³）；支撑建筑平台的墙按 surcharge 提示建筑许可
@@ -95,7 +95,7 @@ pnpm dev
 
 可选环境变量：
 
-- `DATABASE_URL`：默认 SQLite `server/data/projects.sqlite`（关系表：项目、地块快照、方案、成本版本、图纸集、价表版本）。生产可改为 `postgresql+psycopg://…`；LangGraph checkpoint 在 Postgres 时需另装 `langgraph-checkpoint-postgres` 与 `psycopg`。
+- `DATABASE_URL`：默认 SQLite `server/data/projects.sqlite`（关系表：项目、地块快照、方案、成本版本、图纸集、价表版本）。生产可改为 `postgresql+psycopg://…`；LangGraph checkpoint 在 Postgres 时需另装 `langgraph-checkpoint-postgres` 与 `psycopg`。共享给别人用时，先停 API 再运行 `./scripts/purge-query-data.sh`，避免上一轮查询的地址、LIM 和图纸留在磁盘上。`GET /projects` 不返回全库列表。
 - `PM_HITL=1`：`pm_gate` 调用 `interrupt()`，把最终定价权留给项目经理（第一期屋主界面不画审核面板）。
 - `PRICE_API_URL`：价源第二实现；未设置时只用价表。
 - `ENGINE_URL`：前端服务端请求核算 API，默认 `http://127.0.0.1:8764`。

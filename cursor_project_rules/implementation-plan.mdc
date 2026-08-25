@@ -105,3 +105,9 @@ Done
 Done
 
 项目页加顶栏、章节锚点和方案 tab 的 URL 状态；核算轨迹默认折叠。补 Dockerfile 与生产启动脚本，便于公网部署。
+
+## 清空查询记录，首页不再公开列出全库
+
+Done
+
+停服务后删除本机 SQLite、LIM、图纸和 LangGraph checkpoint。`GET /projects` 固定返回空列表；首页「本机最近查询」只读当前浏览器 localStorage，别人打开同一站点看不到你查过的地址。

@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from starlette.responses import Response
 
 from .advise import build_advice
 from .data_loader import council_fees, pricebook
@@ -32,7 +33,7 @@ from .graph import (
 from .lim import lim_advice
 from .lim_parse import parse_lim_pdf
 from .site_vision import vision_advice
-from .store import create_project, get_project, list_projects, update_project
+from .store import create_project, get_project, update_project
 
 DRAWINGS_DIR = Path(__file__).resolve().parent.parent / "data" / "drawings"
 LIM_DIR = Path(__file__).resolve().parent.parent / "data" / "lim"
@@ -44,6 +45,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def no_store_responses(request: Request, call_next) -> Response:
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "private, no-store, max-age=0"
+    return response
 
 
 class CreateProjectBody(BaseModel):
@@ -130,7 +138,8 @@ def get_pricebook() -> dict[str, Any]:
 
 @app.get("/projects")
 def get_projects() -> dict[str, Any]:
-    return {"projects": list_projects()}
+    # Shared instances must not broadcast every address that has been queried.
+    return {"projects": []}
 
 
 @app.get("/projects/{project_id}")

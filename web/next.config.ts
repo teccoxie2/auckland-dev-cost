@@ -17,6 +17,14 @@ const nextConfig: NextConfig = {
     "*.cursorusercontent.com",
     "*.trycloudflare.com",
   ],
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate" }],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

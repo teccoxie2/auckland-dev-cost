@@ -1,21 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ProjectSummary } from "@/lib/api";
 import { cn } from "@/lib/cn";
-
-function latestByAddress(projects: ProjectSummary[]): ProjectSummary[] {
-  const unique: ProjectSummary[] = [];
-  const seen = new Set<string>();
-  for (const project of projects) {
-    const key = project.address.trim().toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    unique.push(project);
-  }
-  return unique;
-}
+import { clearRecentProjects, readRecentProjects } from "@/lib/recent_projects";
 
 function statusLabel(status: string) {
   if (status === "ready") return "已出方案";
@@ -23,16 +12,16 @@ function statusLabel(status: string) {
   return "未完成";
 }
 
-export default function RecentQueries({
-  projects,
-  error,
-}: {
-  projects: ProjectSummary[];
-  error?: string;
-}) {
-  const items = useMemo(() => latestByAddress(projects), [projects]);
+export default function RecentQueries() {
+  const [items, setItems] = useState<ProjectSummary[]>([]);
   const [open, setOpen] = useState(false);
+  const [ready, setReady] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setItems(readRecentProjects());
+    setReady(true);
+  }, []);
 
   useEffect(() => {
     const handlePointer = (event: MouseEvent) => {
@@ -42,22 +31,25 @@ export default function RecentQueries({
     return () => document.removeEventListener("mousedown", handlePointer);
   }, []);
 
-  if (error) {
-    return <p className="mt-4 text-xs leading-5 text-[#9a6b12]">{error}</p>;
-  }
-  if (!items.length) return null;
+  if (!ready || !items.length) return null;
 
   const latest = items[0];
+
+  const handleClear = () => {
+    clearRecentProjects();
+    setItems([]);
+    setOpen(false);
+  };
 
   return (
     <div ref={boxRef} className="relative mt-5 border-t border-[#eee6d8] pt-4">
       <div className="flex items-center gap-3">
-        <p className="shrink-0 text-xs text-[#7b8474]">已查询的项目</p>
+        <p className="shrink-0 text-xs text-[#7b8474]">本机最近查询</p>
         <button
           type="button"
           aria-expanded={open}
           aria-haspopup="listbox"
-          aria-label="打开已查询的项目"
+          aria-label="打开本机最近查询"
           onClick={() => setOpen((value) => !value)}
           className={cn(
             "flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg border bg-white px-3 py-2 text-left text-sm transition",
@@ -65,15 +57,13 @@ export default function RecentQueries({
           )}
         >
           <span className="min-w-0 truncate">{latest.address}</span>
-          <span className="shrink-0 text-xs text-[#7b8474]">
-            {items.length} 处 ▾
-          </span>
+          <span className="shrink-0 text-xs text-[#7b8474]">{items.length} 处 ▾</span>
         </button>
       </div>
       {open ? (
         <ul
           role="listbox"
-          aria-label="已查询的项目"
+          aria-label="本机最近查询"
           className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-xl border border-[#d9d0c0] bg-white py-1 shadow-[0_12px_40px_rgba(40,32,18,0.12)]"
         >
           {items.map((project) => (
@@ -90,6 +80,15 @@ export default function RecentQueries({
               </Link>
             </li>
           ))}
+          <li className="border-t border-[#eee6d8] px-3 py-2">
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-xs text-[#7b8474] hover:text-[#8a3b1d]"
+            >
+              清除本机记录
+            </button>
+          </li>
         </ul>
       ) : null}
     </div>

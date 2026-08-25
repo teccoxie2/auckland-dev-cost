@@ -1,18 +1,9 @@
 import AddressForm from "@/components/address_form";
 import RecentQueries from "@/components/recent_queries";
-import { listProjects } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
-  let projects: Awaited<ReturnType<typeof listProjects>> = [];
-  let listError = "";
-  try {
-    projects = await listProjects();
-  } catch {
-    listError = "暂时读不到已查询的项目，仍可直接检索议会地址。";
-  }
-
+export default function HomePage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-10 sm:px-6">
       <header className="mb-8">
@@ -25,7 +16,7 @@ export default async function HomePage() {
 
       <div className="rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 shadow-[0_12px_40px_rgba(40,32,18,0.06)] sm:p-7">
         <AddressForm embedded>
-          <RecentQueries projects={projects} error={listError} />
+          <RecentQueries />
         </AddressForm>
       </div>
     </div>

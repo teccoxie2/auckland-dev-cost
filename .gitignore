@@ -6,6 +6,7 @@ web/CLAUDE.md
 __pycache__
 *.pyc
 server/data/*.sqlite
+server/data/*.sqlite-*
 server/data/drawings/
 server/data/lim/
 .DS_Store
