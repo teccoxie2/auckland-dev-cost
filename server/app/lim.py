@@ -19,8 +19,18 @@ LIM_ABOUT_URL = (
 HEALTHY_WATERS = "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services"
 
 LAYER_TIMEOUT_S = 8.0
+OLFP_TIMEOUT_S = 12.0
 LANDFILL_BBOX_PAD_DEG = 0.0004
 LANDFILL_POINT_PAD_DEG = 0.0008
+OLFP_POINT_PAD_DEG = 0.0005
+
+CATCHMENT_AREA_GROUPS = {
+    1: "2000m²–4000m²",
+    2: "4000m²–1ha",
+    3: "1ha–3ha",
+    4: "3ha–100ha",
+    5: "100ha 及以上",
+}
 
 LAYERS: list[dict[str, Any]] = [
     {
@@ -52,6 +62,18 @@ LAYERS: list[dict[str, Any]] = [
         "source_name": "Auckland Council Healthy Waters Flood Sensitive Areas（Open Data）",
         "out_fields": "Hazard,RAINFALL_EVENT,YEAR_PRODUCED",
         "sample_keys": ("Hazard", "RAINFALL_EVENT", "YEAR_PRODUCED"),
+    },
+    {
+        "id": "overland_flow_paths",
+        "label_zh": "地面径流 Overland Flow Paths",
+        "group": "flood",
+        "geometry": "polyline",
+        "url": f"{HEALTHY_WATERS}/Overland_Flow_Paths/FeatureServer/0/query",
+        "source_name": "Auckland Council Overland Flow Paths（GeoMaps 简化图层，CC-BY 4.0）",
+        "out_fields": "CatchmentAreaGroup,Shape__Length",
+        "sample_keys": ("CatchmentAreaGroup", "Shape__Length"),
+        "timeout_s": OLFP_TIMEOUT_S,
+        "use_envelope": True,
     },
     {
         "id": "coastal_inundation",
@@ -95,31 +117,46 @@ LAYERS: list[dict[str, Any]] = [
 
 NOT_QUERIED: list[dict[str, str]] = [
     {
-        "id": "overland_flow_paths",
-        "label_zh": "地面径流 Overland Flow Paths",
-        "reason": "该折线图层点查和小范围查询经常超时。公开核对失败开放，不编造路径。正式 LIM 仍可能含此图。",
-        "source_url": f"{HEALTHY_WATERS}/Overland_Flow_Paths/FeatureServer/0",
-    },
-    {
         "id": "shallow_landslide",
         "label_zh": "浅层滑坡易发性",
-        "reason": "该图层点查容易超时。公开核对失败开放，不编造易发性。正式 LIM 仍可能含斜坡与滑移信息。",
+        "reason": "该图层点查容易超时。正式 LIM 的土壤问题栏才是议会监管记录；全区大尺度滑坡 Low 分区不按约束列出。",
         "source_url": f"{HEALTHY_WATERS}/Shallow_Landslide_Susceptibility/FeatureServer/0",
     },
     {
         "id": "contaminated_sites_catchment",
         "label_zh": "流域尺度污染源（不作为本户 HAIL）",
         "reason": (
-            "wm_Contaminant_Sources_Public 第 9 层名义为 Contaminated Sites，"
-            "实际是整个 catchment 多边形，不能当成这一户的 HAIL 污染地。"
+            "正式 LIM 的 Site Contamination 来自议会监管记录。"
+            "公开第 9 层是整个 catchment 多边形，不能当成这一户 HAIL。"
         ),
         "source_url": f"{HEALTHY_WATERS}/wm_Contaminant_Sources_Public/FeatureServer/9",
+    },
+    {
+        "id": "wind_zone",
+        "label_zh": "NZS 3604 风区",
+        "reason": "正式 LIM 的 Wind Zones 来自议会记录（例如 Low 32 m/s）。没有稳定的公开风区 FeatureServer，不编造风区，也不改 E2 计分。",
+        "source_url": LIM_ABOUT_URL,
+    },
+    {
+        "id": "drainage_lir",
+        "label_zh": "雨污管网与开发限制通知",
+        "reason": (
+            "正式 LIM 的 s44A(2)(b) 才有私有/公共雨污管和 LIR。"
+            "可能写明在有足够雨水管之前不得继续开发。公开 GIS 读不到这条通知。"
+        ),
+        "source_url": LIM_ABOUT_URL,
+    },
+    {
+        "id": "consents_and_notices",
+        "label_zh": "建工/资源许可与通知",
+        "reason": "正式 LIM 才列出建工许可、资源许可、车辆出入口和 weathertight 通知。公开区划叠加层不能代替这份清单。",
+        "source_url": LIM_ABOUT_URL,
     },
 ]
 
 DISCLAIMER_ZH = (
-    "这不是已购买的正式 LIM PDF。公开洪水/填埋/滑坡图层只能做开发尽职调查的交叉核对，"
-    "不能代替奥克兰议会 LIM 里的管网、许可、通知、费率与完整灾害图。"
+    "这不是已购买的正式 LIM PDF。公开洪水图、地面径流和填埋点只能做开发尽职调查交叉核对，"
+    "不能代替议会 LIM 里的管网 LIR、许可、风区、污染监管记录与费率。"
 )
 
 
@@ -152,6 +189,7 @@ def unavailable_lim(note: str) -> dict[str, Any]:
         "not_queried": list(NOT_QUERIED),
         "constraints": {
             "flood": False,
+            "overland_flow": False,
             "coastal_inundation": False,
             "landfill": False,
             "landslide": None,
@@ -226,6 +264,22 @@ def lim_advice(site: dict[str, Any]) -> list[dict[str, Any]]:
         }
     ]
     constraints = lim.get("constraints") or {}
+    if constraints.get("overland_flow"):
+        items.append(
+            {
+                "id": "lim_olfp",
+                "severity": "constraint",
+                "title_zh": "公开地面径流与本户相交",
+                "body_zh": (
+                    "正式 LIM 的洪水附图使用同一套 Overland Flow Path。"
+                    "路径可能随降雨淹没；Unitary Plan 对路径内或邻近工程有规则；开发可能需要洪水评估。"
+                    "这不是禁建。门牌点查询会漏掉路径，必须用地块外包矩形。"
+                    + _layer_evidence(lim, {"overland_flow_paths"})
+                ),
+                "source_name": "Auckland Council Overland Flow Paths",
+                "source_url": f"{HEALTHY_WATERS}/Overland_Flow_Paths/FeatureServer/0",
+            }
+        )
     if constraints.get("flood") or constraints.get("coastal_inundation"):
         items.append(
             {
@@ -273,20 +327,6 @@ def lim_advice(site: dict[str, Any]) -> list[dict[str, Any]]:
                 "source_url": f"{HEALTHY_WATERS}/Large_Scale_Landslide_Susceptibility/FeatureServer/0",
             }
         )
-    elif landslide == "Low":
-        items.append(
-            {
-                "id": "lim_landslide",
-                "severity": "info",
-                "title_zh": "大尺度滑坡易发性为 Low",
-                "body_zh": (
-                    "该公开图层对奥克兰大部分地块都有分区。Low 不按约束改方案，也不编造岩土费。"
-                    + _layer_evidence(lim, {"landslide"})
-                ),
-                "source_name": "Auckland Council Large Scale Landslide Susceptibility",
-                "source_url": f"{HEALTHY_WATERS}/Large_Scale_Landslide_Susceptibility/FeatureServer/0",
-            }
-        )
     gaps = _gap_note(lim)
     if gaps:
         items.append(
@@ -315,12 +355,16 @@ def _query_layer(
         "outFields": spec["out_fields"],
         "returnGeometry": "false",
         "f": "json",
-        "resultRecordCount": 5,
+        "resultRecordCount": 8,
     }
     if spec["id"] == "landfill":
         params["geometry"] = json.dumps(_landfill_envelope(site, lat, lon))
         params["geometryType"] = "esriGeometryEnvelope"
         note = "用地块外包矩形外扩后查填埋点，不是流域多边形。"
+    elif spec.get("use_envelope") or spec.get("geometry") == "polyline":
+        params["geometry"] = json.dumps(_flow_envelope(site, lat, lon))
+        params["geometryType"] = "esriGeometryEnvelope"
+        note = "用地块外包矩形与折线相交。门牌点会漏掉地面径流，正式 LIM 也是按地块相交。"
     elif spec.get("use_point") or not _parcel_envelope(site):
         params["geometry"] = f"{lon},{lat}"
         params["geometryType"] = "esriGeometryPoint"
@@ -329,8 +373,9 @@ def _query_layer(
         params["geometry"] = json.dumps(_parcel_envelope(site))
         params["geometryType"] = "esriGeometryEnvelope"
         note = "用地块外包矩形与多边形相交，比只查门牌点更接近地块级 LIM。"
+    timeout = float(spec.get("timeout_s") or LAYER_TIMEOUT_S)
     try:
-        response = client.get(spec["url"], params=params)
+        response = client.get(spec["url"], params=params, timeout=timeout)
         response.raise_for_status()
         payload = response.json()
     except httpx.TimeoutException:
@@ -341,6 +386,8 @@ def _query_layer(
         return _layer_result(spec, present=False, error="request_failed", note=note + " 图层返回错误，失败开放。")
     features = payload.get("features") or []
     sample = _sample(features[0].get("attributes") or {}, spec.get("sample_keys") or ()) if features else None
+    if spec["id"] == "overland_flow_paths" and features:
+        sample = _olfp_sample(features)
     return _layer_result(
         spec,
         present=bool(features),
@@ -386,6 +433,20 @@ def _parcel_envelope(site: dict[str, Any], pad: float = 0.0) -> dict[str, Any] |
     }
 
 
+def _flow_envelope(site: dict[str, Any], lat: float, lon: float) -> dict[str, Any]:
+    parcel = _parcel_envelope(site)
+    if parcel:
+        return parcel
+    pad = OLFP_POINT_PAD_DEG
+    return {
+        "xmin": lon - pad,
+        "ymin": lat - pad,
+        "xmax": lon + pad,
+        "ymax": lat + pad,
+        "spatialReference": {"wkid": 4326},
+    }
+
+
 def _landfill_envelope(site: dict[str, Any], lat: float, lon: float) -> dict[str, Any]:
     parcel = _parcel_envelope(site, LANDFILL_BBOX_PAD_DEG)
     if parcel:
@@ -397,6 +458,28 @@ def _landfill_envelope(site: dict[str, Any], lat: float, lon: float) -> dict[str
         "xmax": lon + pad,
         "ymax": lat + pad,
         "spatialReference": {"wkid": 4326},
+    }
+
+
+def _olfp_sample(features: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: list[int] = []
+    length_m = 0.0
+    for feature in features:
+        attrs = feature.get("attributes") or {}
+        group = attrs.get("CatchmentAreaGroup")
+        if isinstance(group, (int, float)):
+            groups.append(int(group))
+        raw_length = attrs.get("Shape__Length")
+        if isinstance(raw_length, (int, float)):
+            length_m += float(raw_length)
+    unique = sorted(set(groups))
+    top = max(unique) if unique else None
+    return {
+        "CatchmentAreaGroup": top,
+        "CatchmentAreaGroup_label": CATCHMENT_AREA_GROUPS.get(top or -1, ""),
+        "groups": "、".join(CATCHMENT_AREA_GROUPS.get(item, str(item)) for item in unique),
+        "path_count": len(features),
+        "length_m": round(length_m, 1),
     }
 
 
@@ -419,12 +502,14 @@ def _constraints(layers: list[dict[str, Any]]) -> dict[str, Any]:
         (by_id.get(key) or {}).get("present") for key in ("flood_plains", "flood_prone", "flood_sensitive")
     )
     coastal = bool((by_id.get("coastal_inundation") or {}).get("present"))
+    overland = bool((by_id.get("overland_flow_paths") or {}).get("present"))
     landfill = bool((by_id.get("landfill") or {}).get("present"))
     sample = ((by_id.get("landslide") or {}).get("sample") or {})
     raw = sample.get("SusceptibilityValue")
     landslide = str(raw) if raw in {"Low", "Moderate", "High"} else None
     return {
         "flood": flood,
+        "overland_flow": overland,
         "coastal_inundation": coastal,
         "landfill": landfill,
         "landslide": landslide,
@@ -435,6 +520,8 @@ def _hints(constraints: dict[str, Any]) -> list[str]:
     hints: list[str] = []
     if constraints.get("flood") or constraints.get("coastal_inundation"):
         hints.extend(["prefer_two_storey", "prefer_compact"])
+    if constraints.get("overland_flow"):
+        hints.append("prefer_compact")
     if constraints.get("landfill"):
         hints.append("prefer_compact")
     if constraints.get("landslide") in {"Moderate", "High"}:
@@ -466,18 +553,23 @@ def _findings(layers: list[dict[str, Any]], constraints: dict[str, Any]) -> list
             findings.append("公开易涝区与本户相交。抬高 FFL 费用未计价。")
     if (by_id.get("flood_sensitive") or {}).get("present"):
         findings.append("公开洪水敏感区与本户相交。")
+    if (by_id.get("overland_flow_paths") or {}).get("present"):
+        sample = (by_id.get("overland_flow_paths") or {}).get("sample") or {}
+        groups = sample.get("groups") or sample.get("CatchmentAreaGroup_label")
+        extra = f"（汇水 {groups}）" if groups else ""
+        findings.append(
+            f"公开地面径流与本户相交{extra}。正式 LIM 写明路径可能淹没，开发可能需要洪水评估。不是禁建。"
+        )
     if constraints.get("coastal_inundation"):
         findings.append("公开沿海淹没（1% AEP +1m 海平面）与本户相交。")
     if constraints.get("landfill"):
         findings.append("本户附近公开填埋点命中。NES-CS 调查未计价。")
     landslide = constraints.get("landslide")
-    if landslide:
+    if landslide in {"Moderate", "High"}:
         zone = ((by_id.get("landslide") or {}).get("sample") or {}).get("Zone")
         zone_bit = f"，分区 {zone}" if zone else ""
         if landslide in {"Moderate", "High"}:
             findings.append(f"大尺度滑坡易发性为 {landslide}{zone_bit}。岩土报告未计价。")
-        else:
-            findings.append(f"大尺度滑坡易发性为 {landslide}{zone_bit}，不按约束改方案。")
     misses = [
         item["label_zh"]
         for item in layers
@@ -485,8 +577,13 @@ def _findings(layers: list[dict[str, Any]], constraints: dict[str, Any]) -> list
         and not item.get("present")
         and not item.get("error")
     ]
-    if misses and not (constraints.get("flood") or constraints.get("coastal_inundation") or constraints.get("landfill")):
-        findings.append("抽查的公开洪水、沿海淹没与填埋点未与本户相交。正式 LIM 仍可能有其他灾害或管网记录。")
+    if misses and not (
+        constraints.get("flood")
+        or constraints.get("overland_flow")
+        or constraints.get("coastal_inundation")
+        or constraints.get("landfill")
+    ):
+        findings.append("抽查的公开洪水、沿海淹没与填埋点未与本户相交。正式 LIM 仍可能有地面径流、管网 LIR 或其他记录。")
     return findings
 
 
@@ -509,9 +606,9 @@ def _gap_note(lim: dict[str, Any]) -> str:
     skipped = [item["label_zh"] for item in lim.get("not_queried") or []]
     if skipped:
         parts.append(
-            "未查询："
+            "正式 LIM 才有、公开图层读不到："
             + "、".join(skipped)
-            + "。地面径流与浅层滑坡因公开接口超时而未读；流域污染层不能当成这一户 HAIL。"
+            + "。雨污管 LIR、风区和许可清单会影响能否继续开发，但没有公开单价。"
         )
     if lim.get("status") == "unavailable":
         parts.append(lim.get("note") or "公开图层未读到。")

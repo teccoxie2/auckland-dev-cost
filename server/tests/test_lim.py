@@ -21,6 +21,8 @@ def test_every_scheme_includes_standard_lim_fee():
     assert lines["lim_report_fee"]["amount_incl_gst"] == 387
     assert "flood_hazard_assessment" not in lines
     assert "nes_cs_psi" not in lines
+    assert lines["official_lim_drainage_notices"]["status"] == "missing"
+    assert lines["official_lim_drainage_notices"]["amount_incl_gst"] == 0
 
 
 def test_flood_hit_adds_missing_assessment_not_a_made_up_price():
@@ -59,6 +61,24 @@ def test_landfill_and_high_landslide_are_missing_specialist_work():
     assert ids["nes_cs_psi"]["amount_incl_gst"] == 0
 
 
+def test_olfp_hit_adds_flood_assessment_not_a_price():
+    site = {
+        "lim": {
+            "constraints": {
+                "flood": False,
+                "overland_flow": True,
+                "coastal_inundation": False,
+                "landfill": False,
+                "landslide": "Low",
+            }
+        }
+    }
+    lines = {item["id"]: item for item in lim_statutory_lines(site)}
+    assert lines["flood_hazard_assessment"]["status"] == "missing"
+    assert lines["flood_hazard_assessment"]["amount_incl_gst"] == 0
+    assert "geotech_landslide" not in lines
+
+
 def test_lim_advice_from_explicit_hits_is_not_an_official_pdf():
     site = {
         "lim": {
@@ -67,6 +87,7 @@ def test_lim_advice_from_explicit_hits_is_not_an_official_pdf():
             "disclaimer_zh": "这不是已购买的正式 LIM PDF。",
             "constraints": {
                 "flood": True,
+                "overland_flow": True,
                 "coastal_inundation": False,
                 "landfill": False,
                 "landslide": "Low",
@@ -77,7 +98,13 @@ def test_lim_advice_from_explicit_hits_is_not_an_official_pdf():
                     "label_zh": "洪水平原 Flood Plains",
                     "present": True,
                     "sample": {"Hazard": "Flood Plain", "RAINFALL_EVENT": 100, "YEAR_PRODUCED": "2023"},
-                }
+                },
+                {
+                    "id": "overland_flow_paths",
+                    "label_zh": "地面径流 Overland Flow Paths",
+                    "present": True,
+                    "sample": {"CatchmentAreaGroup": 2, "CatchmentAreaGroup_label": "4000m²–1ha"},
+                },
             ],
             "not_queried": list(NOT_QUERIED),
             "fee": {
@@ -95,13 +122,17 @@ def test_lim_advice_from_explicit_hits_is_not_an_official_pdf():
     assert items["lim_official"]["severity"] == "info"
     assert "正式 LIM" in items["lim_official"]["title_zh"] or "尚未购买" in items["lim_official"]["title_zh"]
     assert items["lim_flood"]["severity"] == "constraint"
-    assert items["lim_landslide"]["severity"] == "info"
+    assert items["lim_olfp"]["severity"] == "constraint"
+    assert "lim_landslide" not in items
     assert "lim_landfill" not in items
 
 
 def test_catchment_contaminant_layer_is_not_queried_as_hail():
     assert all("FeatureServer/9" not in layer["url"] for layer in LAYERS)
+    assert any(item["id"] == "overland_flow_paths" for item in LAYERS)
+    assert all(item["id"] != "overland_flow_paths" for item in NOT_QUERIED)
     assert any(item["id"] == "contaminated_sites_catchment" for item in NOT_QUERIED)
+    assert any(item["id"] == "drainage_lir" for item in NOT_QUERIED)
     assert all(layer["id"] != "contaminated_sites_catchment" for layer in LAYERS)
 
 
@@ -158,7 +189,7 @@ def test_hydrate_lim_skip_paths():
             "geo": {"lat": -36.8, "lon": 174.7},
             "lim": {
                 "status": "checked",
-                "layers": [{"id": "flood_plains", "present": False}],
+                "layers": [{"id": "flood_plains", "present": False}, {"id": "overland_flow_paths", "present": False}],
                 "constraints": {"flood": False, "coastal_inundation": False, "landfill": False, "landslide": "Low"},
                 "findings": [],
                 "fee": lim_report_fee(),
@@ -242,11 +273,18 @@ def test_live_howick_nelson_is_not_a_flood_or_hail_site():
         if layer.get("error"):
             continue
         assert layer["present"] is False
+    olfp = by_id["overland_flow_paths"]
+    if olfp.get("error"):
+        pytest.skip(f"Overland Flow Paths 公开图层不可用：{olfp.get('error')}")
+    assert olfp["present"] is True
+    assert report["constraints"]["overland_flow"] is True
+    sample = olfp.get("sample") or {}
+    assert sample.get("CatchmentAreaGroup") in {1, 2, 3, 4, 5}
+    assert "prefer_compact" in report["scheme_hints"]
     landslide = by_id["landslide"]
     if not landslide.get("error"):
         assert (landslide.get("sample") or {}).get("SusceptibilityValue") == "Low"
         assert report["constraints"]["landslide"] == "Low"
-        assert "prefer_compact" not in report["scheme_hints"]
     assert report["constraints"]["flood"] is False
     assert report["constraints"]["landfill"] is False
     assert report["is_official_lim"] is False

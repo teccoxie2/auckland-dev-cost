@@ -512,6 +512,9 @@ def _needs_lim(site: dict[str, Any]) -> bool:
         return True
     if not (lim.get("layers") or []):
         return True
+    layer_ids = {item.get("id") for item in lim.get("layers") or []}
+    if "overland_flow_paths" not in layer_ids:
+        return True
     return False
 
 

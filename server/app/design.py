@@ -360,6 +360,8 @@ def _why(template: dict[str, Any], rules: dict[str, Any], site: dict[str, Any]) 
     constraints = ((site.get("lim") or {}).get("constraints") or {})
     if (constraints.get("flood") or constraints.get("coastal_inundation")) and int(template["storeys"]) >= 2:
         reasons.append("公开洪水或沿海淹没图层命中本户，初版倾向二层以缩小占地。这不是禁建。")
+    if constraints.get("overland_flow") and float(template["gfa_m2"]) <= 165:
+        reasons.append("公开地面径流与本户相交，初版优先紧凑方案，给径流留出空间。这不是禁建。")
     if constraints.get("landfill") and float(template["gfa_m2"]) <= 165:
         reasons.append("本户附近公开填埋点命中，初版优先紧凑方案；NES-CS 调查仍缺价。")
     return reasons

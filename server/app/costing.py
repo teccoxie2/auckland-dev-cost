@@ -603,14 +603,21 @@ def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
         }
     ]
     constraints = ((site or {}).get("lim") or {}).get("constraints") or {}
-    if constraints.get("flood") or constraints.get("coastal_inundation"):
+    if constraints.get("flood") or constraints.get("coastal_inundation") or constraints.get("overland_flow"):
         lines.append(
             missing_line(
                 "flood_hazard_assessment",
                 "洪水评估 / 抬高 FFL / 场地排水",
-                "公开洪水或沿海淹没图层命中本户。注册工程师评估与抬高建筑标高没有公开零售单价，故不计金额。",
+                "公开洪水量或地面径流与本户相交。正式 LIM 写明开发可能需要洪水评估；注册工程师评估没有公开零售单价，故不计金额。",
             )
         )
+    lines.append(
+        missing_line(
+            "official_lim_drainage_notices",
+            "正式 LIM 中的雨污管网与开发限制通知",
+            "公开 GIS 读不到议会 LIR。正式 LIM 可能写明在雨水管容量足够之前不得继续开发，以及私有排水接到公共管的责任。故不计金额。",
+        )
+    )
     if constraints.get("landfill"):
         lines.append(
             missing_line(

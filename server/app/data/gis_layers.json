@@ -54,6 +54,13 @@
       "note": "约 200 m 范围查询后再按本户地块外包矩形过滤。很小的外包矩形直接查询会超时；失败则空结果，不把地块当成空地。"
     },
     {
+      "id": "overland_flow_paths",
+      "name": "Overland Flow Paths",
+      "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Overland_Flow_Paths/FeatureServer/0",
+      "used_for": "lim",
+      "note": "GeoMaps 简化折线。必须用地块外包矩形相交；门牌点会漏。CatchmentAreaGroup 对应正式 LIM 洪水图例。"
+    },
+    {
       "id": "healthy_waters_flood_plains",
       "name": "Healthy Waters Flood Plains",
       "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Flood_Plains/FeatureServer/0",

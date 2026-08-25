@@ -19,7 +19,7 @@ export default function LimReport({ project }: { project: ProjectRecord }) {
         </CardHeader>
         <CardContent>
           <p className="text-sm leading-6 text-[#9a6b12]" role="status">
-            还没有读到公开洪水、填埋和滑坡图层。打开项目时会补读 Healthy Waters 公开图。这不是已购买的正式 LIM PDF。
+            还没有读到公开洪水、地面径流和填埋图层。打开项目时会补读 Healthy Waters 公开图。这不是已购买的正式 LIM PDF。
           </p>
           <OrderLink />
         </CardContent>
@@ -74,20 +74,20 @@ export default function LimReport({ project }: { project: ProjectRecord }) {
             value={floodLabel(lim)}
           />
           <Fact
+            label="地面径流"
+            value={
+              lim.constraints?.overland_flow
+                ? "公开 Overland Flow Path 与本户相交"
+                : "抽查范围内未命中"
+            }
+          />
+          <Fact
             label="填埋点"
             value={lim.constraints?.landfill ? "本户附近公开填埋点命中" : "抽查范围内未命中"}
           />
           <Fact
             label="大尺度滑坡"
-            value={
-              lim.constraints?.landslide
-                ? lim.constraints.landslide === "Low"
-                  ? "Low（全区都有分区，不按约束改方案）"
-                  : lim.constraints.landslide
-                : timedOut.some((item) => item.id === "landslide")
-                  ? "查询超时，失败开放"
-                  : "未读到"
-            }
+            value={landslideLabel(lim, timedOut)}
           />
         </dl>
 
@@ -178,10 +178,22 @@ export default function LimReport({ project }: { project: ProjectRecord }) {
 }
 
 function floodLabel(lim: NonNullable<NonNullable<ProjectRecord["result"]["site"]>["lim"]>) {
-  if (lim.constraints?.flood && lim.constraints?.coastal_inundation) return "洪水图层命中，且沿海淹没命中";
-  if (lim.constraints?.flood) return "公开洪水图层命中本户";
-  if (lim.constraints?.coastal_inundation) return "沿海淹没图层命中本户";
-  return "抽查范围内未命中";
+  const bits: string[] = [];
+  if (lim.constraints?.flood) bits.push("洪水图层命中");
+  if (lim.constraints?.coastal_inundation) bits.push("沿海淹没命中");
+  if (lim.constraints?.overland_flow) bits.push("地面径流命中");
+  return bits.length ? bits.join("，") : "洪水平原/易涝区未命中";
+}
+
+function landslideLabel(
+  lim: NonNullable<NonNullable<ProjectRecord["result"]["site"]>["lim"]>,
+  timedOut: Array<{ id: string }>,
+) {
+  if (timedOut.some((item) => item.id === "landslide")) return "查询超时，失败开放";
+  if (lim.constraints?.landslide === "Moderate" || lim.constraints?.landslide === "High") {
+    return lim.constraints.landslide;
+  }
+  return "正式 LIM 土壤栏另计；全区 Low 不按约束列出";
 }
 
 function layerStatus(layer: { present?: boolean; error?: string | null; count?: number }) {

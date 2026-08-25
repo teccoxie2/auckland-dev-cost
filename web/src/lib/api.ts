@@ -208,6 +208,7 @@ export interface ProjectRecord {
         scheme_hints?: string[];
         constraints?: {
           flood?: boolean;
+          overland_flow?: boolean;
           coastal_inundation?: boolean;
           landfill?: boolean;
           landslide?: string | null;
