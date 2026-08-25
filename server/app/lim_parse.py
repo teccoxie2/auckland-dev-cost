@@ -75,6 +75,18 @@ WEATHERTIGHT_NONE = re.compile(
     r"has not been notified of any information under Section 124 of the Weathertight",
     re.IGNORECASE,
 )
+SUB_CONSENT = re.compile(
+    r"(?P<id>\d{4,8})\s+Subdivision Consent\b.{0,160}?(?:Freehold.{0,40})?(?P<lots>\d+)\s+Lot.{0,80}?"
+    r"Granted\s+(?P<date>\d{2}/\d{2}/\d{4})",
+    re.IGNORECASE | re.DOTALL,
+)
+SUB_224C = re.compile(
+    r"(?P<id>\d{4,8})\s+Subdivision completion cert.{0,160}?224C.{0,80}?"
+    r"(Approved|Granted)\s+(?P<date>\d{2}/\d{2}/\d{4})",
+    re.IGNORECASE | re.DOTALL,
+)
+NO_ENGINEERING = re.compile(r"there are no engineering approvals recorded", re.IGNORECASE)
+EXPOSURE_UNASSESSED = re.compile(r"unknown|unassessed", re.IGNORECASE)
 
 
 def parse_lim_pdf(path: Path, *, filename: str) -> dict[str, Any]:
@@ -141,9 +153,10 @@ def parse_lim_text(text: str, *, filename: str) -> dict[str, Any]:
 
     wind_match = WIND.search(wind_text or compact)
     exposure_match = EXPOSURE.search(exposure_text or compact)
-    drainage = _drainage_notices(drain_text or compact)
-    building = _nearby_ids(compact, BCO)
-    crossings = _nearby_ids(compact, VXG)
+    drainage = [decorate_notice(item) for item in _drainage_notices(drain_text or compact)]
+    building = [decorate_consent(item) for item in _nearby_ids(compact, BCO)]
+    crossings = [decorate_crossing(item) for item in _nearby_ids(compact, VXG)]
+    subdivision = _subdivision_consents(compact)
 
     olfp_intersects = bool(OLFP_HIT.search(olfp_text or compact))
     olfp_absent = bool(OLFP_MISS.search(olfp_text or compact))
@@ -154,21 +167,7 @@ def parse_lim_text(text: str, *, filename: str) -> dict[str, Any]:
     legal = _first(LEGAL_GLUED.search(compact), LEGAL.search(compact))
     issued_raw = _first(ISSUED_GLUED.search(compact), ISSUED.search(compact))
     app_raw = _first(APP_NO_GLUED.search(compact), APP_NO.search(compact))
-
-    findings: list[str] = []
-    if olfp_intersects:
-        findings.append("正式 LIM 写明本户地块与一条或多条 Overland Flow Path 空间相交。")
-    elif olfp_text and not olfp_absent:
-        findings.append("正式 LIM 有 Overland Flow Path 栏，但正文未读到空间相交句。附图未做图像识别。")
-    if drainage:
-        first = drainage[0]
-        findings.append(f"正式 LIM 管网通知 {first['lir_id']}：{first['description'][:160]}")
-    if wind_match:
-        findings.append(f"正式 LIM 风区 {wind_match.group(1)} {wind_match.group(2)} m/s。")
-    if no_contam:
-        findings.append("正式 LIM 写明议会监管记录没有场地污染数据。")
-    if no_soil:
-        findings.append("正式 LIM 写明议会不知本户有土壤问题。")
+    exposure_label = _clean(exposure_match.group(1) if exposure_match else None)
 
     return {
         "ok": True,
@@ -203,7 +202,8 @@ def parse_lim_text(text: str, *, filename: str) -> dict[str, Any]:
             "evidence": _clip(olfp_text or "", 500),
         },
         "exposure_zone": {
-            "label": _clean(exposure_match.group(1) if exposure_match else None),
+            "label": exposure_label,
+            "unassessed": bool(exposure_label and EXPOSURE_UNASSESSED.search(exposure_label)),
             "evidence": _clip(exposure_text or "", 280),
         },
         "coastal_erosion": {
@@ -213,10 +213,101 @@ def parse_lim_text(text: str, *, filename: str) -> dict[str, Any]:
         "drainage_notices": drainage,
         "building_consents": building,
         "vehicle_crossings": crossings,
+        "subdivision_consents": subdivision,
+        "engineering_approvals_recorded": False if NO_ENGINEERING.search(compact) else None,
         "weathertight_notified": False if WEATHERTIGHT_NONE.search(compact) else None,
-        "findings": findings,
+        "findings": [],
         "warnings": [],
     }
+
+
+def decorate_parsed(parsed: dict[str, Any]) -> dict[str, Any]:
+    if not parsed:
+        return parsed
+    decorated = dict(parsed)
+    decorated["drainage_notices"] = [decorate_notice(item) for item in decorated.get("drainage_notices") or []]
+    decorated["building_consents"] = [decorate_consent(item) for item in decorated.get("building_consents") or []]
+    decorated["vehicle_crossings"] = [decorate_crossing(item) for item in decorated.get("vehicle_crossings") or []]
+    decorated.setdefault("subdivision_consents", [])
+    decorated.setdefault("engineering_approvals_recorded", None)
+    exposure = dict(decorated.get("exposure_zone") or {})
+    label = exposure.get("label")
+    if label and "unassessed" not in exposure:
+        exposure["unassessed"] = bool(EXPOSURE_UNASSESSED.search(str(label)))
+        decorated["exposure_zone"] = exposure
+    return decorated
+
+
+def decorate_notice(item: dict[str, Any]) -> dict[str, Any]:
+    text = str(item.get("description") or "").lower()
+    blocks = "no further development" in text
+    return {
+        **item,
+        "blocks_further_development": blocks,
+        "stormwater_capacity": "stormwater" in text and (blocks or "adequate" in text or "connection" in text),
+        "refer_development_engineer": "development engineer" in text,
+    }
+
+
+def decorate_consent(item: dict[str, Any]) -> dict[str, Any]:
+    text = str(item.get("evidence") or "").lower()
+    bridging = "bridging" in text and ("drain" in text or "ss" in text or "sw" in text)
+    return {
+        **item,
+        "retaining_wall": "retaining" in text,
+        "timber_pole_retaining": "timber pole" in text or "pole retaining" in text,
+        "bridging_public_drains": bridging,
+        "over_public_drainage": bridging or ("public" in text and ("drain" in text or "ss" in text or "sw" in text)),
+        "private_drainage_redirection": "private drainage" in text,
+        "adjacent_driveway": "driveway" in text,
+        "completion_issued": "ccc" in text or "completion certificate" in text,
+    }
+
+
+def decorate_crossing(item: dict[str, Any]) -> dict[str, Any]:
+    text = str(item.get("evidence") or "").lower()
+    return {
+        **item,
+        "completion_issued": "completion certificate" in text or "ccc" in text,
+    }
+
+
+def _subdivision_consents(text: str) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for match in SUB_CONSENT.finditer(text or ""):
+        ident = match.group("id")
+        if ident in seen:
+            continue
+        seen.add(ident)
+        items.append(
+            {
+                "id": ident,
+                "lot_count": int(match.group("lots")),
+                "tenure": "freehold" if "freehold" in match.group(0).lower() else None,
+                "granted_date": match.group("date"),
+                "s224c": False,
+                "s224c_date": None,
+            }
+        )
+    for match in SUB_224C.finditer(text or ""):
+        ident = match.group("id")
+        found = next((item for item in items if item["id"] == ident), None)
+        if found:
+            found["s224c"] = True
+            found["s224c_date"] = match.group("date")
+            continue
+        items.append(
+            {
+                "id": ident,
+                "lot_count": None,
+                "tenure": None,
+                "granted_date": None,
+                "s224c": True,
+                "s224c_date": match.group("date"),
+            }
+        )
+    return items
 
 
 def address_matches_project(lim_address: str | None, project_address: str) -> tuple[bool, str]:
@@ -249,6 +340,8 @@ def _fail(filename: str, message: str) -> dict[str, Any]:
         "drainage_notices": [],
         "building_consents": [],
         "vehicle_crossings": [],
+        "subdivision_consents": [],
+        "engineering_approvals_recorded": None,
     }
 
 

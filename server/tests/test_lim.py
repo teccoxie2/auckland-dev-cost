@@ -37,8 +37,12 @@ This explanation appears on all LIMs, not just sites that may be susceptible to 
 s44A(2)(b) Information on private and public stormwater and sewerage drains
 29/09/1995 Wastewater - outer drainage LIR_00014017 Description: No further development until such time there is an adequate stormwater system for connection. Refer development engineer, land development control.
 s44A(2)(ba) Information notified to Council by a drinking water supplier
-BCO10251617 DBC - Low block retaining wall adjacent to driveway, bridging public SS and SW drains
+BCO10251617 DBC - Low block retaining wall adjacent to driveway, bridging public SS and SW drains, timber pole retaining wall at rear, private drainage re-direction 12/09/2017 CCC Issued
 VXG21409322 Vehicle crossing application Completion Certificate Issued
+50006 Subdivision Consent Subdivision - Freehold - 3 Lot Subdivision Granted 22/06/2016
+50006 Subdivision survey plan ((s)223) 223 Survey Plan - 3 Lot Subdivision Granted 02/05/2019
+50006 Subdivision completion cert ((s)224C) 224 Certificate - 3 Lot Subdivision Approved 28/11/2019
+Engineering Approvals There are NO Engineering approvals recorded.
 s44A(2)(ea) Information notified under Section 124 of the Weathertight Homes Resolution Services Act 2006
 The Council has not been notified of any information under Section 124 of the Weathertight Homes Resolution Services Act 2006 relating to this property.
 """
@@ -59,7 +63,15 @@ def test_parse_howick_lim_text_does_not_invent_fields():
     assert parsed["overland_flow"]["intersects"] is True
     assert parsed["drainage_notices"][0]["lir_id"] == "LIR_00014017"
     assert "No further development" in parsed["drainage_notices"][0]["description"]
+    assert parsed["drainage_notices"][0]["blocks_further_development"] is True
+    assert parsed["drainage_notices"][0]["stormwater_capacity"] is True
     assert any(item["id"] == "BCO10251617" for item in parsed["building_consents"])
+    assert parsed["building_consents"][0]["bridging_public_drains"] is True
+    assert parsed["subdivision_consents"][0]["id"] == "50006"
+    assert parsed["subdivision_consents"][0]["lot_count"] == 3
+    assert parsed["subdivision_consents"][0]["s224c"] is True
+    assert parsed["engineering_approvals_recorded"] is False
+    assert parsed["findings"] == []
 
 
 def test_reject_non_lim_pdf_text():
@@ -108,6 +120,50 @@ def test_parsed_report_drives_constraints_from_text():
     items = {item["id"]: item for item in lim_advice({"lim": report})}
     assert items["lim_olfp"]["severity"] == "constraint"
     assert items["lim_drainage"]["severity"] == "constraint"
+    assert "继续开发" in items["lim_drainage"]["body_zh"]
+    assert "禁建" in items["lim_drainage"]["body_zh"]
+    assert "No further development" not in items["lim_drainage"]["body_zh"]
+
+
+VERBATIM_LIM_ENGLISH = (
+    "原文：",
+    "No further development",
+    "Wind Zone(s) for this property",
+    "spatially intersects",
+    "No land contamination data",
+    "This statement entitled",
+    "The Auckland Council is not aware",
+    "Refer development engineer",
+    "bridging public SS",
+)
+
+
+def test_lim_analysis_is_not_verbatim_english():
+    parsed = parse_lim_text(HOWITK_TEXT, filename="895269-LIM.pdf")
+    report = report_from_parsed(parsed)
+    blob = " ".join(item["body_zh"] for item in report["sections"]) + " " + " ".join(report["findings"])
+    for item in lim_advice({"lim": report}):
+        blob += " " + item["title_zh"] + " " + item["body_zh"]
+    for line in lim_statutory_lines({"lim": report}):
+        blob += " " + (line.get("notes") or "") + " " + (line.get("name_zh") or "")
+    for phrase in VERBATIM_LIM_ENGLISH:
+        assert phrase not in blob
+    drainage = next(item for item in report["sections"] if item["id"] == "drainage")
+    wind = next(item for item in report["sections"] if item["id"] == "wind_zones")
+    consents = next(item for item in report["sections"] if item["id"] == "consents")
+    contamination = next(item for item in report["sections"] if item["id"] == "site_contamination")
+    olfp = next(item for item in report["sections"] if item["id"] == "overland_flow")
+    assert "继续" in drainage["body_zh"]
+    assert "禁建" in drainage["body_zh"]
+    assert "LIR_00014017" in drainage["body_zh"]
+    assert "低风区" in wind["body_zh"]
+    assert "32 m/s" in wind["body_zh"]
+    assert "公共雨污管" in consents["body_zh"]
+    assert "3 户" in consents["body_zh"]
+    assert "已清洁" in contamination["body_zh"]
+    assert "不是禁建" in olfp["body_zh"]
+    assert any("继续开发" in item for item in report["findings"])
+    assert any("地面径流" in item for item in report["findings"])
 
 
 def test_missing_upload_is_not_an_order_fee():
@@ -127,6 +183,9 @@ def test_parsed_olfp_adds_flood_assessment_not_a_price():
     assert lines["flood_hazard_assessment"]["status"] == "missing"
     assert lines["official_lim_drainage_notices"]["status"] == "missing"
     assert "LIR_00014017" in lines["official_lim_drainage_notices"]["name_zh"]
+    assert "No further development" not in lines["official_lim_drainage_notices"]["notes"]
+    assert "继续开发" in lines["official_lim_drainage_notices"]["notes"]
+    assert lines["public_drain_clash"]["status"] == "missing"
     assert lines["flood_hazard_assessment"]["amount_incl_gst"] == 0
     assert "geotech_landslide" not in lines
     assert "nes_cs_psi" not in lines
@@ -254,3 +313,4 @@ def test_live_howick_pdf_text_layer():
     assert parsed["wind_zone"]["label"] == "Low"
     assert parsed["drainage_notices"][0]["lir_id"] == "LIR_00014017"
     assert parsed["site_contamination"]["has_regulatory_data"] is False
+    assert parsed["subdivision_consents"][0]["lot_count"] == 3

@@ -546,13 +546,26 @@ def hydrate_lim(result: dict[str, Any]) -> dict[str, Any] | None:
         site = _apply_lim(site, awaiting_lim())
         changed = True
     elif lim.get("status") == "parsed":
+        from pathlib import Path
+
         from .lim import report_from_parsed
+        from .lim_parse import parse_lim_pdf
 
         parsed = lim.get("parsed")
+        stored = (result.get("lim_document") or {}).get("stored_path")
+        needs_extract = not isinstance(parsed, dict) or "subdivision_consents" not in parsed
+        if needs_extract and stored and Path(stored).is_file():
+            fresh = parse_lim_pdf(Path(stored), filename=(parsed or {}).get("filename") or Path(stored).name)
+            if fresh.get("ok"):
+                parsed = fresh
         if parsed:
             refreshed = report_from_parsed(parsed)
             refreshed["queried_at"] = lim.get("queried_at") or refreshed["queried_at"]
-            if refreshed.get("sections") != lim.get("sections") or refreshed.get("findings") != lim.get("findings"):
+            if (
+                refreshed.get("sections") != lim.get("sections")
+                or refreshed.get("findings") != lim.get("findings")
+                or refreshed.get("disclaimer_zh") != lim.get("disclaimer_zh")
+            ):
                 site = _apply_lim(site, refreshed)
                 changed = True
     if not site.get("lim"):

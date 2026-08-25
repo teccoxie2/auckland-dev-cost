@@ -33,6 +33,23 @@ export default function LimReport({ project }: { project: ProjectRecord }) {
         ) : null}
 
         {parsed ? (
+          <p className="mt-4 text-sm leading-6 text-[#5c6754]" role="status">
+            下面按栏目写对开发的影响，不是 LIM 英文摘录。
+          </p>
+        ) : null}
+
+        {parsed && lim?.findings?.length ? (
+          <section className="mt-4 rounded-xl bg-[#eef3ea] px-3 py-3" aria-label="开发影响">
+            <h3 className="text-sm font-medium">开发影响</h3>
+            <ul className="mt-2 space-y-2 text-sm leading-6 text-[#5c6754]">
+              {lim.findings.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {parsed ? (
           <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
             <Fact label="应用号" value={lim?.application_number || "文字层未读到"} />
             <Fact label="签发" value={lim?.issued_at || "文字层未读到"} />
@@ -84,14 +101,6 @@ export default function LimReport({ project }: { project: ProjectRecord }) {
               </li>
             ))}
           </ol>
-        ) : null}
-
-        {parsed && lim?.findings?.length ? (
-          <ul className="mt-4 space-y-2 text-sm leading-6 text-[#5c6754]">
-            {lim.findings.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
         ) : null}
 
         <a
@@ -152,8 +161,8 @@ function SubmitButton() {
 }
 
 function sectionStateLabel(state?: string) {
-  if (state === "recorded") return "已从正文读到";
-  if (state === "not_stated") return "正文未写明";
+  if (state === "recorded") return "已分析开发影响";
+  if (state === "not_stated") return "正文未写明，无法分析";
   if (state === "awaiting") return "等待上传";
   if (state === "public_hit") return "公开图层命中";
   if (state === "public_clear") return "公开图层未命中";

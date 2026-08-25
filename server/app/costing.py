@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .data_loader import pricebook
+from .lim_parse import decorate_parsed
 from .price_provider import official_fee_meta, pricebook_meta
 from .pricing import (
     GST,
@@ -594,7 +595,7 @@ def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
         ]
     lines: list[dict[str, Any]] = []
     constraints = lim.get("constraints") or {}
-    parsed = lim.get("parsed") or {}
+    parsed = decorate_parsed(lim.get("parsed") or {})
     if constraints.get("flood") or constraints.get("coastal_inundation") or constraints.get("overland_flow"):
         lines.append(
             missing_line(
@@ -606,11 +607,32 @@ def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
     notices = parsed.get("drainage_notices") or []
     if notices:
         first = notices[0]
+        lir = first.get("lir_id") or ""
+        if first.get("blocks_further_development") and first.get("stormwater_capacity"):
+            reason = (
+                f"管网通知 {lir} 显示公共雨水管容量可能限制继续开发。"
+                "升级或新接驳没有公开工程单价，故不计金额。"
+            )
+        elif first.get("blocks_further_development"):
+            reason = f"管网通知 {lir} 限制继续开发。相关工程没有公开单价，故不计金额。"
+        else:
+            reason = f"读到管网通知 {lir}。相关工程没有公开单价，故不计金额。"
         lines.append(
             missing_line(
                 "official_lim_drainage_notices",
-                f"正式 LIM 管网通知 {first.get('lir_id') or ''}".strip(),
-                f"{first.get('description') or '读到 LIR。'} 没有公开工程单价，故不计金额。",
+                f"正式 LIM 管网通知 {lir}".strip(),
+                reason,
+            )
+        )
+    if any(
+        item.get("bridging_public_drains") or item.get("over_public_drainage")
+        for item in (parsed.get("building_consents") or [])
+    ):
+        lines.append(
+            missing_line(
+                "public_drain_clash",
+                "公共雨污管避让 / 改线",
+                "LIM 显示已有工程跨越公共雨污管。改线或核管没有公开单价，故不计金额。",
             )
         )
     if constraints.get("contamination_data"):
@@ -637,6 +659,7 @@ LIM_COST_IDS = {
     "official_lim_pdf",
     "flood_hazard_assessment",
     "official_lim_drainage_notices",
+    "public_drain_clash",
     "nes_cs_psi",
     "geotech_landslide",
 }
