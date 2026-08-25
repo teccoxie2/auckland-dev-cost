@@ -66,7 +66,7 @@
 - 叠加层：Auckland Council UnitaryPlanManagementLayers
 - 挡土墙许可：[MBIE Schedule 1 exemption 20](https://www.building.govt.nz/projects-and-consents/planning-a-successful-build/scope-and-design/check-if-you-need-consents/building-work-that-doesnt-need-a-building-consent/technical-requirements-for-exempt-building-work/13-support-structures/13-2-retaining-walls-up-to-1-5-metres-depth-of-ground)、[Auckland Council AC2231](https://www.aucklandcouncil.govt.nz/content/dam/ac/docs/building-and-consents/ac2231-retaining-walls.pdf)
 
-替换价表：编辑 `server/app/data/pricebook.json` 与 `server/app/data/council_fees.json`。后续可把 `pricing.get_item` 换成供应商 API。
+替换价表：编辑 `server/app/data/pricebook.json` 与 `server/app/data/council_fees.json`，改完后重启 API（`pricebook()` 有缓存）。运行时只通过 `PriceProvider.get_rate(sku, qty, context)` 取单价：第一期是本地价表，设置 `PRICE_API_URL` 后会再问供应商 HTTP；接口失败或缺 SKU 一律标缺项，不编价。官方 Council / IGC / DC 走 `council_fees.json` 的版本化费率。
 
 ## 本地运行
 
@@ -88,13 +88,20 @@ pnpm install
 pnpm dev
 ```
 
+可选环境变量：
+
+- `DATABASE_URL`：默认 SQLite `server/data/projects.sqlite`（关系表：项目、地块快照、方案、成本版本、图纸集、价表版本）。生产可改为 `postgresql+psycopg://…`；LangGraph checkpoint 在 Postgres 时需另装 `langgraph-checkpoint-postgres` 与 `psycopg`。
+- `PM_HITL=1`：`pm_gate` 调用 `interrupt()`，把最终定价权留给项目经理（第一期屋主界面不画审核面板）。
+- `PRICE_API_URL`：价源第二实现；未设置时只用价表。
+- `ENGINE_URL`：前端服务端请求核算 API，默认 `http://127.0.0.1:8764`。
+
 浏览器打开 `http://127.0.0.1:43124`。输入 `55 Nelson Street` 会列出 Howick 与 Auckland Central 等多条议会地址，必须点选一条。输入 `115 Bruce Road Glenfield` 时议会已无整宗 115，只会列出拆分后的 115A–F；点选其中一户后，页面只显示该户的议会地籍，并筛掉需要整宗地的方案。
 
 第二阶段在项目页上传 RC/BC PDF。仓库不附带某块地的批准图；没有文字层的扫描件无法量尺寸。门窗表对得上公开尺寸（例如 1800×1200、1200×1200 新铝窗，或 Hume 860 门扇）才计价，其余樘标缺项。
 
 ## 架构要点
 
-LangGraph 地址流：`geocode → planning → parcel → terrain → rules → advise → options → explain → pm_gate`。选装走 `POST /projects/{id}/configure`，不再重新查 GIS。图纸流：`parse_drawings → drawing_template → drawing_cost → drawing_explain`，入口为 `POST /projects/{id}/drawings`。`pm_gate` 第一期自动通过。核算在 `costing.py`，模型只写中文说明。
+LangGraph 地址流：`geocode → land → rules → typology → quantity → building_rules → cost → explain → pm_gate`。`land` 合并规划区划、地籍与 DEM，并写入 `captured_at` 快照。`typology` 只做户型硬过滤；`cost` 才走 PriceProvider，并行节点不得写总价。选装走 `POST /projects/{id}/configure`，不再重新查 GIS。图纸流：`parse_drawings → drawing_template → drawing_cost → drawing_explain`，入口为 `POST /projects/{id}/drawings`。`pm_gate` 默认自动通过；`PM_HITL=1` 时 `interrupt()`。说明节点只写中文，不改金额。
 
 ## 开发要求
 

@@ -1,11 +1,27 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+import os
+import uuid
+from datetime import datetime, timezone
+from operator import add
+from typing import Annotated, Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import interrupt
 
 from .advise import build_advice
-from .design import CURRENT_TITLE_FILTER_COPY, build_template, costed_option, recommend_schemes, scheme_filter_meta
+from .checkpoint import get_checkpointer
+from .design import (
+    CURRENT_TITLE_FILTER_COPY,
+    apply_building_rules_to_options,
+    attach_costs,
+    attach_quantities,
+    build_template,
+    costed_option,
+    generate_typology_options,
+    recommend_schemes,
+    scheme_filter_meta,
+)
 from .gis import (
     GisError,
     attach_subdivision,
@@ -34,6 +50,7 @@ class ProjectState(TypedDict, total=False):
     explanation: str
     pm_review: dict
     scheme_filter: dict
+    material_elements: Annotated[list, add]
 
 
 def _trace(state: ProjectState, node: str, detail: str) -> list[dict[str, Any]]:
@@ -132,6 +149,80 @@ def rules_node(state: ProjectState) -> dict[str, Any]:
     return {"rules": rules, "trace": _trace(state, "rules", f"permitted_dwellings={rules.get('permitted_dwellings')}")}
 
 
+def land_node(state: ProjectState) -> dict[str, Any]:
+    if state.get("error"):
+        return {}
+    planning = planning_node(state)
+    merged: ProjectState = {**state, **planning}
+    if planning.get("error"):
+        return planning
+    parcel = parcel_node(merged)
+    merged = {**merged, **parcel}
+    terrain = terrain_node(merged)
+    site = dict(terrain.get("site") or parcel.get("site") or planning.get("site") or {})
+    captured = datetime.now(timezone.utc).isoformat()
+    site["captured_at"] = captured
+    site["snapshot"] = {
+        "captured_at": captured,
+        "region": "Auckland",
+        "geo_source": (site.get("geo") or {}).get("source_url"),
+        "zone_source": (site.get("zone") or {}).get("source_url"),
+        "parcel_source": (site.get("parcel") or {}).get("source_url"),
+        "terrain_source": (site.get("terrain") or {}).get("source_url"),
+    }
+    land_state: ProjectState = {**merged, **terrain, "site": site}
+    return {
+        **planning,
+        **parcel,
+        **terrain,
+        "site": site,
+        "trace": _trace(land_state, "land", f"snapshot@{captured}"),
+    }
+
+
+def typology_node(state: ProjectState) -> dict[str, Any]:
+    if state.get("error"):
+        return {}
+    advice = build_advice(state["site"], state["rules"])
+    options, skipped = generate_typology_options(state["rules"], state["site"])
+    meta = scheme_filter_meta(state["site"], skipped)
+    payload: dict[str, Any] = {
+        "advice": advice,
+        "options": options,
+        "trace": _trace(state, "typology", meta["note"] if meta else f"{len(options)} schemes"),
+    }
+    if meta:
+        payload["scheme_filter"] = meta
+    return payload
+
+
+def quantity_node(state: ProjectState) -> dict[str, Any]:
+    if state.get("error"):
+        return {}
+    options = attach_quantities(state.get("options") or [], state.get("site") or {})
+    counted = sum(1 for item in options if item.get("quantities"))
+    return {"options": options, "trace": _trace(state, "quantity", f"{counted} template takeoffs")}
+
+
+def building_rules_node(state: ProjectState) -> dict[str, Any]:
+    if state.get("error"):
+        return {}
+    options = apply_building_rules_to_options(state.get("options") or [])
+    pending = sum(1 for item in options if (item.get("building_rules") or {}).get("pending_detail_drawing"))
+    return {
+        "options": options,
+        "trace": _trace(state, "building_rules", f"E2/NZS3604 on templates; pending_detail={pending}"),
+    }
+
+
+def cost_node(state: ProjectState) -> dict[str, Any]:
+    if state.get("error"):
+        return {}
+    options = attach_costs(state.get("options") or [], state.get("site") or {})
+    priced = sum(1 for item in options if item.get("cost"))
+    return {"options": options, "trace": _trace(state, "cost", f"{priced} PriceProvider estimates")}
+
+
 def advise_node(state: ProjectState) -> dict[str, Any]:
     if state.get("error"):
         return {}
@@ -185,45 +276,69 @@ def explain_node(state: ProjectState) -> dict[str, Any]:
 
 
 def pm_gate_node(state: ProjectState) -> dict[str, Any]:
-    review = {
-        "status": "auto_passed_mvp",
-        "note": "第一期屋主展示自动通过。项目经理面板将使用 LangGraph interrupt() 在此挂起。",
-    }
+    hitl = os.environ.get("PM_HITL", "").strip().lower() in {"1", "true", "yes"}
+    if hitl:
+        decision = interrupt(
+            {
+                "message": "项目经理核定：可处理缺项，不可改写价表单价。",
+                "option_ids": [item.get("id") for item in state.get("options") or []],
+                "missing_counts": {
+                    item["id"]: ((item.get("cost") or {}).get("totals") or {}).get("missing_count")
+                    for item in state.get("options") or []
+                    if item.get("id")
+                },
+            }
+        )
+        review = {
+            "status": "human_resume",
+            "decision": decision,
+            "note": "已从项目经理 interrupt() 恢复。第一期屋主界面不展示审核面板。",
+        }
+    else:
+        review = {
+            "status": "auto_passed_mvp",
+            "note": "第一期屋主展示自动通过。设置 PM_HITL=1 时，此节点会 interrupt() 把最终定价权交给项目经理。",
+        }
     return {"pm_review": review, "trace": _trace(state, "pm_gate", review["status"])}
 
 
 def build_graph():
     graph = StateGraph(ProjectState)
     graph.add_node("geocode", geocode_node)
-    graph.add_node("planning", planning_node)
-    graph.add_node("parcel", parcel_node)
-    graph.add_node("terrain", terrain_node)
+    graph.add_node("land", land_node)
     graph.add_node("rules", rules_node)
-    graph.add_node("advise", advise_node)
-    graph.add_node("options", options_node)
+    graph.add_node("typology", typology_node)
+    graph.add_node("quantity", quantity_node)
+    graph.add_node("building_rules", building_rules_node)
+    graph.add_node("cost", cost_node)
     graph.add_node("explain", explain_node)
     graph.add_node("pm_gate", pm_gate_node)
     graph.add_edge(START, "geocode")
-    graph.add_edge("geocode", "planning")
-    graph.add_edge("planning", "parcel")
-    graph.add_edge("parcel", "terrain")
-    graph.add_edge("terrain", "rules")
-    graph.add_edge("rules", "advise")
-    graph.add_edge("advise", "options")
-    graph.add_edge("options", "explain")
+    graph.add_edge("geocode", "land")
+    graph.add_edge("land", "rules")
+    graph.add_edge("rules", "typology")
+    graph.add_edge("typology", "quantity")
+    graph.add_edge("quantity", "building_rules")
+    graph.add_edge("building_rules", "cost")
+    graph.add_edge("cost", "explain")
     graph.add_edge("explain", "pm_gate")
     graph.add_edge("pm_gate", END)
-    return graph.compile()
+    return graph.compile(checkpointer=get_checkpointer())
 
 
 WORKFLOW = build_graph()
 
 
-def run_address(address: str, selected_address: dict[str, Any] | None = None) -> ProjectState:
+def run_address(
+    address: str,
+    selected_address: dict[str, Any] | None = None,
+    thread_id: str | None = None,
+) -> ProjectState:
     payload: ProjectState = {"address": address, "trace": []}
     if selected_address:
         payload["selected_address"] = selected_address
-    return WORKFLOW.invoke(payload)
+    config = {"configurable": {"thread_id": thread_id or str(uuid.uuid4())}}
+    return WORKFLOW.invoke(payload, config)
 
 
 def configure_option(site: dict[str, Any], rules: dict[str, Any], spec: dict[str, Any]) -> dict[str, Any]:

@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createProjectAction } from "@/app/actions";
+import { Button } from "@/components/ui/button";
 import type { AddressHit } from "@/lib/api";
 
 const EXAMPLES = ["55 Nelson Street", "115 Bruce Road Glenfield", "115A Bruce Road Glenfield"];
@@ -11,13 +12,9 @@ function SubmitButton({ canSubmit }: { canSubmit: boolean }) {
   const { pending } = useFormStatus();
   const disabled = pending || !canSubmit;
   return (
-    <button
-      type="submit"
-      disabled={disabled}
-      className="h-12 rounded-xl bg-[#2f4a32] px-6 text-sm font-medium text-white transition hover:bg-[#3f6b45] disabled:cursor-not-allowed disabled:opacity-60"
-    >
+    <Button type="submit" disabled={disabled} className="h-12 px-6">
       {pending ? "正在读地并出初版方案…" : "读取地块并出初版方案"}
-    </button>
+    </Button>
   );
 }
 

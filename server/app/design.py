@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .building_rules import annotate_option
 from .costing import cost_option
 from .data_loader import design_rules, typologies
 from .quantity import takeoff
@@ -112,7 +113,7 @@ def wrap_typology(template: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def costed_option(
+def draft_option(
     template: dict[str, Any],
     rules: dict[str, Any],
     site: dict[str, Any],
@@ -125,18 +126,62 @@ def costed_option(
     if "kitchens" not in full_template:
         full_template = {**full_template, "kitchens": default_kitchens(int(full_template["dwellings"]))}
     verdict = filter_template(full_template, rules, site)
-    option: dict[str, Any] = {
+    return {
         "id": full_template["id"],
         "template": wrap_typology(full_template),
+        "_full_template": full_template,
         "verdict": verdict,
         "why": why,
         "recommended": recommended and verdict["status"] != "infeasible",
         "origin": origin,
     }
-    if verdict["status"] != "infeasible":
-        option["quantities"] = takeoff(full_template, site)
-        option["cost"] = cost_option(full_template, verdict, existing_dwellings=1, site=site)
-    return option
+
+
+def attach_quantities(options: list[dict[str, Any]], site: dict[str, Any]) -> list[dict[str, Any]]:
+    attached: list[dict[str, Any]] = []
+    for option in options:
+        item = dict(option)
+        full = item.get("_full_template")
+        verdict = item.get("verdict") or {}
+        origin = item.get("origin") or ""
+        skip_qty = verdict.get("status") == "infeasible" and origin not in {"drawings"} and item.get("id") != "drawings"
+        if full and not skip_qty:
+            item["quantities"] = takeoff(full, site)
+        attached.append(item)
+    return attached
+
+
+def apply_building_rules_to_options(options: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [annotate_option(item) for item in options]
+
+
+def attach_costs(options: list[dict[str, Any]], site: dict[str, Any]) -> list[dict[str, Any]]:
+    priced: list[dict[str, Any]] = []
+    for option in options:
+        item = dict(option)
+        full = item.get("_full_template")
+        verdict = item.get("verdict") or {}
+        origin = item.get("origin") or ""
+        should_cost = verdict.get("status") != "infeasible" or origin == "drawings" or item.get("id") == "drawings"
+        if full and should_cost and item.get("quantities"):
+            item["cost"] = cost_option(full, verdict, existing_dwellings=1, site=site)
+        priced.append(item)
+    return priced
+
+
+def costed_option(
+    template: dict[str, Any],
+    rules: dict[str, Any],
+    site: dict[str, Any],
+    *,
+    why: list[str],
+    recommended: bool = False,
+    origin: str = "typology",
+) -> dict[str, Any]:
+    option = draft_option(template, rules, site, why=why, recommended=recommended, origin=origin)
+    option = attach_quantities([option], site)[0]
+    option = apply_building_rules_to_options([option])[0]
+    return attach_costs([option], site)[0]
 
 
 CURRENT_TITLE_FILTER = "current_council_title"
@@ -167,7 +212,7 @@ def scheme_filter_meta(site: dict[str, Any] | None, skipped: int) -> dict[str, A
     }
 
 
-def recommend_schemes(rules: dict[str, Any], site: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+def generate_typology_options(rules: dict[str, Any], site: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
     options = []
     skipped = 0
     for template in typologies()["templates"]:
@@ -175,7 +220,7 @@ def recommend_schemes(rules: dict[str, Any], site: dict[str, Any]) -> tuple[list
             skipped += 1
             continue
         why = _why(template, rules, site)
-        options.append(costed_option(template, rules, site, why=why, origin="typology"))
+        options.append(draft_option(template, rules, site, why=why, origin="typology"))
     fitted = _site_fit_option(rules, site, options)
     if fitted:
         options.insert(0, fitted)
@@ -203,6 +248,14 @@ def recommend_schemes(rules: dict[str, Any], site: dict[str, Any]) -> tuple[list
             item["why"] = ["初版优先推荐：更贴合这块地的区划、面积与坡度。", *item["why"]]
     blocked = [item for item in options if item["verdict"]["status"] == "infeasible"]
     return ranked + blocked, skipped
+
+
+def recommend_schemes(rules: dict[str, Any], site: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+    options, skipped = generate_typology_options(rules, site)
+    options = attach_quantities(options, site)
+    options = apply_building_rules_to_options(options)
+    options = attach_costs(options, site)
+    return options, skipped
 
 
 def _site_fit_option(rules: dict[str, Any], site: dict[str, Any], existing: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -235,7 +288,7 @@ def _site_fit_option(rules: dict[str, Any], site: dict[str, Any], existing: list
     template = build_template(spec)
     template["id"] = "site_fit_compact"
     template["name_zh"] = f"地块适配 · 二层小独栋 · {int(gfa)}m²"
-    return costed_option(
+    return draft_option(
         template,
         rules,
         site,

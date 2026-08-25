@@ -67,6 +67,7 @@ def _public_option(option: dict[str, Any]) -> dict[str, Any]:
         "totals": (cost or {}).get("totals"),
         "lines": (cost or {}).get("lines"),
         "intensity_note": (cost or {}).get("intensity_note"),
+        "building_rules": option.get("building_rules"),
     }
 
 
@@ -169,10 +170,13 @@ def post_project(body: CreateProjectBody) -> dict[str, Any]:
         if len(hits) == 1:
             selected = hits[0]
     label = ((selected or {}).get("full_address") or address).strip()
-    state = run_address(address, selected)
+    record = create_project(label, {"trace": [], "graph_thread_id": None}, "running")
+    state = run_address(address, selected, thread_id=record["id"])
     public = _public_result(state)
+    public["graph_thread_id"] = record["id"]
     status = "error" if public.get("error") else "ready"
-    return create_project(label, public, status)
+    updated = update_project(record["id"], public, status)
+    return updated or {**record, "result": public, "status": status}
 
 
 @app.post("/projects/{project_id}/configure")
@@ -265,7 +269,17 @@ async def post_drawings(
     result["options"] = [public, *others]
     result["selected_id"] = "drawings"
     extracted = drawing_state.get("extracted") or {}
-    result["drawings"] = extracted.get("documents") or []
+    documents = []
+    for index, document in enumerate(extracted.get("documents") or []):
+        extra = saved[index] if index < len(saved) else {}
+        documents.append(
+            {
+                **document,
+                "kind": extra.get("kind") or document.get("kind"),
+                "stored_path": extra.get("path"),
+            }
+        )
+    result["drawings"] = documents
     result["drawing_explanation"] = drawing_state.get("explanation")
     result["drawing_trace"] = drawing_state.get("trace") or []
     updated = update_project(project_id, result, record.get("status") or "ready")

@@ -1,0 +1,37 @@
+{
+  "region": "Auckland",
+  "note": "第一期只读这些公开图层。失败则空结果或报错，不回填上一份缓存或默认地块。",
+  "layers": [
+    {
+      "id": "ac_address",
+      "name": "Auckland Council AC_Address",
+      "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/AC_Address_Query/FeatureServer/0",
+      "used_for": "geocode"
+    },
+    {
+      "id": "unitary_plan_base_zone",
+      "name": "Unitary Plan Base Zone",
+      "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Unitary_Plan_Base_Zone/FeatureServer/0",
+      "used_for": "zoning"
+    },
+    {
+      "id": "ac_property",
+      "name": "Auckland Council AC_Property",
+      "url": "https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/AC_Property_Query/FeatureServer/0",
+      "used_for": "parcel"
+    },
+    {
+      "id": "unitary_plan_management",
+      "name": "UnitaryPlanManagementLayers",
+      "url": "https://mapspublic.aucklandcouncil.govt.nz/arcgis3/rest/services/NonCouncil/UnitaryPlanManagementLayers/MapServer",
+      "used_for": "overlays"
+    },
+    {
+      "id": "nzdem",
+      "name": "LINZ NZ 8m DEM via OpenTopodata",
+      "url": "https://www.opentopodata.org/datasets/nzdem/",
+      "used_for": "terrain"
+    }
+  ],
+  "zone_rule_table": "server/app/data/zone_rules.json"
+}

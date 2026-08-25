@@ -36,3 +36,8 @@ def typologies() -> dict:
 @lru_cache(maxsize=8)
 def design_rules() -> dict:
     return load_json("design_rules.json")
+
+
+@lru_cache(maxsize=8)
+def gis_layers() -> dict:
+    return load_json("gis_layers.json")

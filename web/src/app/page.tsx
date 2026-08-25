@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AddressForm from "@/components/address_form";
+import { Card } from "@/components/ui/card";
 import { listProjects } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
@@ -39,18 +40,21 @@ export default async function HomePage() {
           <ul className="mt-4 grid gap-3">
             {projects.map((project) => (
               <li key={project.id}>
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="flex items-center justify-between rounded-xl border border-[#d9d0c0] bg-[#fffaf3] px-4 py-4 hover:border-[#2f4a32]"
-                >
-                  <span>
-                    <span className="block font-medium">{project.address}</span>
-                    <span className="mt-1 block text-xs text-[#7b8474]">
-                      {new Date(project.created_at).toLocaleString("zh-CN")} · {project.status === "ready" ? "已核算" : "失败"}
-                    </span>
-                  </span>
-                  <span className="text-sm text-[#2f4a32]">查看方案</span>
-                </Link>
+                <Card>
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className="flex items-center justify-between px-4 py-4"
+                  >
+                      <span>
+                        <span className="block font-medium">{project.address}</span>
+                        <span className="mt-1 block text-xs text-[#7b8474]">
+                          {new Date(project.created_at).toLocaleString("zh-CN")} ·{" "}
+                          {project.status === "ready" ? "已核算" : project.status === "running" ? "核算中" : "失败"}
+                        </span>
+                      </span>
+                      <span className="text-sm text-[#2f4a32]">查看方案</span>
+                    </Link>
+                </Card>
               </li>
             ))}
           </ul>

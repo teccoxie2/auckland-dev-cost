@@ -45,3 +45,9 @@ Done
 Done
 
 补 cryptography 以读取 AES 加密图纸；按 `2100H x 860W ED 11` / Proposed Coverage / LOT FFL 抽取；BC 与 RC 地址不一致时不用错地的窗表。解析异常返回可读中文错误，不再只显示「图纸核算失败」。
+
+## 关系模型、PriceProvider 与拆开的 LangGraph
+
+Done
+
+项目持久化为关系表（项目 / 地块快照 / 方案 / 成本版本 / 图纸集 / 价表版本），默认 SQLite，可用 `DATABASE_URL` 切 Postgres。单价只经 PriceProvider（价表优先、API 预留）。图改为 geocode→land→rules→typology→quantity→building_rules→cost→explain→pm_gate，checkpoint 落盘，`interrupt()` 留给后期 PM 面板。屋主页加地块快照、方案对比与成本树。

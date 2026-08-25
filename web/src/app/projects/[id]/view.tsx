@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import CostTree from "@/components/cost_tree";
 import DrawingUpload from "@/components/drawing_upload";
+import SchemeCompare from "@/components/scheme_compare";
 import SchemeConfig from "@/components/scheme_config";
+import SiteSnapshot from "@/components/site_snapshot";
+import { Tabs } from "@/components/ui/tabs";
 import type { AdviceItem, CostLine, ProjectRecord, SchemeOption } from "@/lib/api";
 import { nzd, nzdExact } from "@/lib/money";
 
@@ -16,6 +20,7 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
     result.options?.[0]?.id ||
     "";
   const [selected, setSelected] = useState(firstId);
+  const [schemeTab, setSchemeTab] = useState("compare");
   const option = useMemo(
     () => result.options?.find((item) => item.id === selected),
     [result.options, selected],
@@ -56,6 +61,10 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
         </div>
         <p className="text-xs text-[#7b8474]">{result.pm_review?.note}</p>
       </header>
+
+      <section className="mt-6">
+        <SiteSnapshot project={project} />
+      </section>
 
       <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Fact
@@ -123,9 +132,24 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
       <section className="mt-8">
         <h2 className="text-lg font-semibold">因地制宜初版方案</h2>
         <p className="mt-1 text-sm text-[#5c6754]">
-          {result.scheme_filter?.note || "点选一张方案，下方会打开这一版的分项总账；再改厨卫和户型后重新核算。"}
+          {result.scheme_filter?.note || "先看并排对比，再点选一张方案打开分项总账。"}
         </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="mt-4">
+          <Tabs
+            tabs={[
+              { id: "compare", label: "方案对比" },
+              { id: "cards", label: "方案卡片" },
+            ]}
+            value={schemeTab}
+            onChange={setSchemeTab}
+          />
+        </div>
+        {schemeTab === "compare" ? (
+          <div className="mt-4">
+            <SchemeCompare options={result.options || []} />
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
           {(result.options || []).map((item) => (
             <OptionCard
               key={item.id}
@@ -141,6 +165,7 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
             />
           ))}
         </div>
+        )}
       </section>
 
       {option && (option.verdict.status !== "infeasible" || option.origin === "drawings") ? (
@@ -320,6 +345,22 @@ function CostPanel({ option }: { option: SchemeOption }) {
         <Mini label="法定费用" value={nzd(option.totals?.statutory_incl_gst)} />
         <Mini label="预备费" value={nzd(option.totals?.contingency_incl_gst)} />
       </dl>
+      {option.totals?.pricebook_version ? (
+        <p className="mt-3 text-xs text-[#7b8474]">
+          价表版本 {option.totals.pricebook_version}
+          {option.totals.price_as_of ? `（${option.totals.price_as_of}）` : ""}
+          {option.totals.fee_book_version ? ` · 官方费率 ${option.totals.fee_book_version}` : ""}
+        </p>
+      ) : null}
+      {option.building_rules?.notes?.length ? (
+        <p className="mt-2 text-xs leading-5 text-[#7b8474]">{option.building_rules.notes.join(" ")}</p>
+      ) : null}
+      <div className="mt-5">
+        <h3 className="text-sm font-semibold">成本树</h3>
+        <div className="mt-3">
+          <CostTree lines={option.lines || []} />
+        </div>
+      </div>
       {option.quantities ? (
         <p className="mt-4 text-xs leading-5 text-[#7b8474]">
           占地 {option.quantities.footprint_m2} m² · {option.quantities.kitchens ?? option.template.kitchens ?? 0}{" "}

@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from .data_loader import council_fees, pricebook
+from .data_loader import council_fees
+from .price_provider import get_price_provider
 
 GST = 0.15
 
 
 def get_item(item_id: str) -> dict[str, Any] | None:
-    for item in pricebook()["items"]:
-        if item["id"] == item_id:
-            return item
-    return None
+    quote = get_price_provider().get_rate(item_id, 1, {"lookup": True})
+    if quote is None:
+        return None
+    return quote["item"]
 
 
 def line(
@@ -24,35 +25,37 @@ def line(
     name_zh: str | None = None,
 ) -> dict[str, Any]:
     row_id = line_id or item_id
-    item = get_item(item_id)
-    if item is None or quantity <= 0:
+    quote = get_price_provider().get_rate(item_id, quantity, {"formula": formula})
+    if quote is None or quantity <= 0:
         return {
             "id": row_id,
-            "status": "missing" if item is None else "zero",
+            "status": "missing" if quote is None else "zero",
             "quantity": round(quantity, 3),
             "amount_incl_gst": 0.0,
             "formula": formula,
         }
-    amount = round(float(item["unit_price"]) * quantity, 2)
-    if not item.get("gst_included", True) and item["unit"] != "percent":
+    item = quote["item"]
+    amount = round(float(quote["unit_price"]) * quantity, 2)
+    if not quote.get("gst_included", True) and quote["unit"] != "percent":
         amount = round(amount * (1 + GST), 2)
     return {
         "id": row_id,
         "status": "priced",
-        "category": item["category"],
-        "trade": item["trade"],
-        "name_zh": name_zh or item["name_zh"],
-        "name_en": item["name_en"],
-        "unit": item["unit"],
+        "category": item.get("category"),
+        "trade": item.get("trade"),
+        "name_zh": name_zh or item.get("name_zh") or quote["label"],
+        "name_en": item.get("name_en"),
+        "unit": quote["unit"],
         "quantity": round(quantity, 3),
-        "unit_price": item["unit_price"],
-        "gst_included": item.get("gst_included", True),
+        "unit_price": quote["unit_price"],
+        "gst_included": quote.get("gst_included", True),
         "amount_incl_gst": amount,
-        "sku": item.get("sku"),
+        "sku": item.get("sku") or quote["sku"],
         "pack": item.get("pack"),
-        "source_name": item["source_name"],
-        "source_url": item["source_url"],
-        "retrieved_at": item["retrieved_at"],
+        "source_name": quote["source"],
+        "source_url": quote.get("source_url") or item.get("source_url"),
+        "retrieved_at": quote["as_of"] or item.get("retrieved_at"),
+        "pricebook_version": quote["version"],
         "notes": " ".join(part for part in [item.get("notes"), extra_notes] if part),
         "formula": formula,
     }

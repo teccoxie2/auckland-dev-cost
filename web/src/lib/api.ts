@@ -60,6 +60,16 @@ export interface SchemeOption {
     needs_resource_consent: boolean;
     reasons: string[];
   };
+  building_rules?: {
+    e2_score?: number;
+    cavity_required?: boolean;
+    stud_spacing_mm?: number;
+    lintel_upgrade?: boolean;
+    pending_detail_drawing?: boolean;
+    notes?: string[];
+    source_name?: string;
+    source_url?: string;
+  };
   quantities?: {
     footprint_m2: number;
     timber_90_lm: number;
@@ -86,6 +96,10 @@ export interface SchemeOption {
     rlb_benchmark_high?: number;
     rlb_source_name?: string;
     rlb_source_url?: string;
+    pricebook_version?: string;
+    price_as_of?: string;
+    fee_book_version?: string;
+    fee_as_of?: string;
   };
   lines?: CostLine[];
   intensity_note?: string;
@@ -168,6 +182,15 @@ export interface ProjectRecord {
         height_range_m?: number;
         source_url?: string;
         note?: string;
+      };
+      captured_at?: string;
+      snapshot?: {
+        captured_at?: string;
+        region?: string;
+        geo_source?: string;
+        zone_source?: string;
+        parcel_source?: string;
+        terrain_source?: string;
       };
     };
     rules?: {

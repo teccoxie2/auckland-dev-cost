@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .data_loader import pricebook
+from .price_provider import official_fee_meta, pricebook_meta
 from .pricing import GST, building_consent_deposit, dc_amount, igc_amount, line, missing_line, resource_consent_deposit
 from .quantity import takeoff
 
@@ -537,6 +538,8 @@ def cost_option(
     priced_total = round(sum(item.get("amount_incl_gst") or 0 for item in lines if item.get("status") in {"priced", "rule", "zero"}), 2)
     missing = [item for item in lines if item.get("status") == "missing"]
     gfa = float(template["gfa_m2"])
+    book_meta = pricebook_meta()
+    fee_meta = official_fee_meta()
     return {
         "quantities": qty,
         "lines": lines,
@@ -555,6 +558,10 @@ def cost_option(
             "rlb_benchmark_high": round(gfa * 3800, 0),
             "rlb_source_name": "RLB Riders Digest New Zealand 2025：Auckland custom dwellings $2,500–$3,800/m² GFA（Q4 2024）",
             "rlb_source_url": "https://www.rlb.com/oceania/wp-content/uploads/sites/1/2025/02/2025_New-Zealand_RLB-Rider-Digest.pdf",
+            "pricebook_version": book_meta.get("version"),
+            "price_as_of": book_meta.get("as_of"),
+            "fee_book_version": fee_meta.get("version"),
+            "fee_as_of": fee_meta.get("as_of"),
         },
         "rebuild_new_units": rebuild_new_units,
         "intensity_note": intensity_note,

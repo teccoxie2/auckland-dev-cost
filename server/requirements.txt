@@ -7,3 +7,5 @@ langchain-core==0.3.74
 python-multipart==0.0.20
 pypdf==6.4.0
 cryptography==50.0.0
+sqlalchemy==2.0.43
+langgraph-checkpoint-sqlite==2.0.11
