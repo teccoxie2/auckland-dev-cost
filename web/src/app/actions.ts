@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { configureProject, postProject, uploadDrawings } from "@/lib/engine";
+import { configureProject, postProject, uploadDrawings, uploadLim } from "@/lib/engine";
 
 export async function createProjectAction(_prev: { error: string } | null, formData: FormData) {
   const address = String(formData.get("address") || "").trim();
@@ -75,6 +75,22 @@ export async function uploadDrawingsAction(projectId: string, _prev: { error: st
     await uploadDrawings(projectId, forward);
   } catch (error) {
     const message = error instanceof Error ? error.message : "图纸核算失败";
+    return { error: message };
+  }
+  redirect(`/projects/${projectId}`);
+}
+
+export async function uploadLimAction(projectId: string, _prev: { error: string } | null, formData: FormData) {
+  const file = formData.get("lim");
+  if (!(file instanceof File) || file.size <= 0) {
+    return { error: "请上传客户已购买的正式 LIM PDF。" };
+  }
+  const forward = new FormData();
+  forward.append("file", file);
+  try {
+    await uploadLim(projectId, forward);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "LIM 读取失败";
     return { error: message };
   }
   redirect(`/projects/${projectId}`);

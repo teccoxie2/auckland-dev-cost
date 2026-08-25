@@ -198,12 +198,18 @@ export interface ProjectRecord {
       };
       lim?: {
         status?: string;
+        source?: string;
         is_official_lim?: boolean;
         disclaimer_zh?: string;
         order_url?: string;
         about_url?: string;
         queried_at?: string;
         note?: string;
+        filename?: string;
+        application_number?: string;
+        issued_at?: string;
+        lim_address?: string;
+        legal_description?: string;
         findings?: string[];
         scheme_hints?: string[];
         constraints?: {

@@ -62,6 +62,18 @@ export async function uploadDrawings(projectId: string, formData: FormData): Pro
   return data;
 }
 
+export async function uploadLim(projectId: string, formData: FormData): Promise<ProjectRecord> {
+  const response = await fetch(`${ENGINE_URL}/projects/${projectId}/lim`, {
+    method: "POST",
+    body: formData,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(errorMessage(data, "LIM 读取失败"));
+  }
+  return data;
+}
+
 function errorMessage(data: unknown, fallback: string): string {
   if (!data || typeof data !== "object") return fallback;
   const detail = (data as { detail?: unknown; error?: { message?: string } }).detail;

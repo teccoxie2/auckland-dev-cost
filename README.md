@@ -1,11 +1,11 @@
 # 奥克兰住宅开发核算台
 
-输入奥克兰地址后，系统读取公开地块面积、Unitary Plan 区划和 DEM 坡度，按正式 LIM 的 s44A 栏结构核对本户的 **LIM 相关公开图层**（洪水、地面径流、填埋点、大尺度滑坡），再用**最新公开航拍 / 历史镶嵌**和 LINZ 屋顶轮廓核对场地，给出**适合这块地的初版方案**。你再选户型大小、厨房和卫生间数量，或上传 RC/BC 图纸按文字层套价。公开图层核对**不是**已购买的正式 LIM PDF；风区、腐蚀分区、管网 LIR 和许可清单仍只在正式报告里。挡土墙、覆盖率和叠加层会写进建议；金额不由大模型生成。航拍不是直播，也不能改地籍数字。
+输入奥克兰地址后，系统读取公开地块面积、Unitary Plan 区划和 DEM 坡度，再用**最新公开航拍 / 历史镶嵌**和 LINZ 屋顶轮廓核对场地，给出**适合这块地的初版方案**。正式 **LIM 由客户上传**已购买的议会 PDF，系统只读文字层（污染、风区、土壤、洪水栏、地面径流、管网 LIR、许可编号）；扫描件或附图不做图像识别。你再选户型大小、厨房和卫生间数量，或上传 RC/BC 图纸按文字层套价。挡土墙、覆盖率和叠加层会写进建议；金额不由大模型生成。航拍不是直播，也不能改地籍数字。
 
 ## 能做什么
 
 - 多项目屋主工作台
-- 地址 → 地块面积 / 区划 / 叠加层 / 坡度 → LIM 公开洪水·地面径流·填埋·滑坡核对（按正式 LIM 分栏） → 公开航拍与屋顶轮廓核对 → 初版方案（许可 / 需 Resource Consent / 这块地放不下）
+- 地址 → 地块面积 / 区划 / 叠加层 / 坡度 → 客户上传正式 LIM PDF（文字层） → 公开航拍与屋顶轮廓核对 → 初版方案（许可 / 需 Resource Consent / 这块地放不下）
 - 客户选装：套数、层数、卧室、卫生间、厨房、建筑面积，按已读地块重新套价
 - 坡地建议：分台、挡土墙、E12 土方门槛（500m² / 250m³）；支撑建筑平台的墙按 surcharge 提示建筑许可
 - 户型模板工程量（尺寸进入木材、空腔、屋面、石膏板、卫生间洁具数量）
@@ -56,7 +56,7 @@
 - [Auckland Council 资源许可押金](https://www.aucklandcouncil.govt.nz/en/building-and-consents/resource-consents/resource-consent-fees-deposits.html)：住宅土地使用 $6,500
 - [Watercare IGC 2026/27 都市区 $29,348.46 含 GST/单元](https://www.watercare.co.nz/builders-and-developers/tools-fees-and-resources/infrastructure-growth-charge)
 - [DC Policy 2025](https://ourauckland.aucklandcouncil.govt.nz/media-centre/2025/may/new-development-contributions-policy-approved/)：Rest of Auckland $20,000/HUE，自 2026-07-01 加 2%
-- [Auckland Council LIM](https://www.aucklandcouncil.govt.nz/en/buying-property/order-property-report/order-lim.html)（2026-08-25 页面：Standard $387，Urgent $522；信用卡/借记卡另加 1.75%，未计入。公开图层核对不是正式 LIM PDF）
+- [Auckland Council LIM](https://www.aucklandcouncil.govt.nz/en/buying-property/order-property-report/order-lim.html)（2026-08-25 页面：Standard $387，Urgent $522。客户自行购买后上传 PDF；订购费不计入本页造价）
 
 规划数据：
 
@@ -68,7 +68,7 @@
 - 最新公开航拍：[Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08fda2d9bc)（镶嵌，不是直播）
 - 历史航拍：[Esri World Imagery Wayback](https://livingatlas.arcgis.com/wayback/)
 - 屋顶轮廓：[LINZ NZ Building Outlines](https://data.linz.govt.nz/layer/101290-nz-building-outlines/)（与地块外包矩形相交，可能含邻户）
-- LIM 相关公开图层（非正式 LIM）：[Overland Flow Paths](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Overland_Flow_Paths/FeatureServer/0)、[Flood Plains](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Flood_Plains/FeatureServer/0)、[Flood Prone Areas](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Flood_Prone_Areas/FeatureServer/0)、[Flood Sensitive Areas](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Flood_Sensitive_Areas/FeatureServer/0)、[Coastal Inundation 1% AEP +1m](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Coastal_Inundation_1_AEP_1m_sea_level_rise/FeatureServer/0)、[Landfill Sites](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/wm_Contaminant_Sources_Public/FeatureServer/12)、[Large Scale Landslide Susceptibility](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/Large_Scale_Landslide_Susceptibility/FeatureServer/0)
+- 正式 LIM：客户上传议会 PDF，入口 `POST /projects/{id}/lim`，只读文字层
 - 挡土墙许可：[MBIE Schedule 1 exemption 20](https://www.building.govt.nz/projects-and-consents/planning-a-successful-build/scope-and-design/check-if-you-need-consents/building-work-that-doesnt-need-a-building-consent/technical-requirements-for-exempt-building-work/13-support-structures/13-2-retaining-walls-up-to-1-5-metres-depth-of-ground)、[Auckland Council AC2231](https://www.aucklandcouncil.govt.nz/content/dam/ac/docs/building-and-consents/ac2231-retaining-walls.pdf)
 
 替换价表：编辑 `server/app/data/pricebook.json` 与 `server/app/data/council_fees.json`，改完后重启 API（`pricebook()` 有缓存）。运行时只通过 `PriceProvider.get_rate(sku, qty, context)` 取单价：第一期是本地价表，设置 `PRICE_API_URL` 后会再问供应商 HTTP；接口失败或缺 SKU 一律标缺项，不编价。官方 Council / IGC / DC 走 `council_fees.json` 的版本化费率。
@@ -104,20 +104,20 @@ pnpm dev
 
 浏览器打开 `http://127.0.0.1:43124`。输入 `55 Nelson Street` 会列出 Howick 与 Auckland Central 等多条议会地址，必须点选一条。输入 `115 Bruce Road Glenfield` 时议会已无整宗 115，只会列出拆分后的 115A–F；点选其中一户后，页面只显示该户的议会地籍，并筛掉需要整宗地的方案。
 
-第二阶段在项目页上传 RC/BC PDF。仓库不附带某块地的批准图；没有文字层的扫描件无法量尺寸。门窗表对得上公开尺寸（例如 1800×1200、1200×1200 新铝窗，或 Hume 860 门扇）才计价，其余樘标缺项。
+第二阶段在项目页上传 RC/BC PDF。正式 LIM 也在项目页由客户上传议会 PDF，只读文字层。仓库不附带某块地的批准图或 LIM；没有文字层的扫描件无法量尺寸或核对 LIR。门窗表对得上公开尺寸（例如 1800×1200、1200×1200 新铝窗，或 Hume 860 门扇）才计价，其余樘标缺项。
 
 ## 架构要点
 
-LangGraph 地址流：`geocode → land → rules → lim → site_vision → typology → quantity → building_rules → cost → explain → pm_gate`。`land` 合并规划区划、地籍与 DEM，并写入 `captured_at` 快照。`lim` 读取 Healthy Waters 公开洪水/地面径流/填埋/滑坡图层，并把议会 Standard LIM 订购费计入法定费用；公开命中只驱动缺项专家工作，不编造评估单价，也不把区划可行方案标成 infeasible。地面径流必须用地块外包矩形查询。这不是已购买的正式 LIM PDF；雨污管 LIR、风区和许可清单仍只在正式报告里。`site_vision` 读取公开航拍与 LINZ 屋顶轮廓；失败只记 note，不让整图失败。hints 只影响方案排序与说明。`typology` 只做户型硬过滤；`cost` 才走 PriceProvider，并行节点不得写总价。选装走 `POST /projects/{id}/configure`，不再重新查 GIS。图纸流：`parse_drawings → drawing_template → drawing_cost → drawing_explain`，入口为 `POST /projects/{id}/drawings`。`pm_gate` 默认自动通过；`PM_HITL=1` 时 `interrupt()`。说明节点只写中文，不改金额。
+LangGraph 地址流：`geocode → land → rules → lim → site_vision → typology → quantity → building_rules → cost → explain → pm_gate`。`land` 合并规划区划、地籍与 DEM，并写入 `captured_at` 快照。`lim` 节点只留下「等待客户上传正式 LIM」；不查询公开洪水图层，也不把议会订购费计入造价。客户在项目页上传 PDF 后，`POST /projects/{id}/lim` 读文字层，按 s44A 栏写入污染、风区、土壤、洪水说明、地面径流、LIR 和许可编号。附图不识别。读到的地面径流或 LIR 只驱动缺项专家工作，不编造评估单价，也不把区划可行方案标成 infeasible。LIM 地址必须与当前项目门牌及郊区一致。`site_vision` 读取公开航拍与 LINZ 屋顶轮廓；失败只记 note，不让整图失败。hints 只影响方案排序与说明。`typology` 只做户型硬过滤；`cost` 才走 PriceProvider，并行节点不得写总价。选装走 `POST /projects/{id}/configure`，不再重新查 GIS。图纸流：`parse_drawings → drawing_template → drawing_cost → drawing_explain`，入口为 `POST /projects/{id}/drawings`。`pm_gate` 默认自动通过；`PM_HITL=1` 时 `interrupt()`。说明节点只写中文，不改金额。
 
 ## 开发要求
 
 **不允许使用假数据。** 这是硬性要求，不是可选风格。
 
-- 地址、坐标、地籍、区划、叠加层、DEM、航拍 URL、屋顶轮廓、LIM 相关公开图层必须来自奥克兰议会 / LINZ / Esri 等公开接口；选址必须从 `AC_Address` 下拉点选。公开洪水图 ≠ 已购买的正式 LIM PDF；流域尺度污染多边形不能当成这一户 HAIL。
-- 金额必须来自带链接与取价日期的价表或官方费率表；禁止大模型定价，禁止编造单价或总价。视觉模型不得改写地籍面积、区划或坡度数字。
+- 地址、坐标、地籍、区划、叠加层、DEM、航拍 URL、屋顶轮廓必须来自奥克兰议会 / LINZ / Esri 等公开接口；选址必须从 `AC_Address` 下拉点选。正式 LIM 只认客户上传的议会 PDF 文字层，不能用公开洪水图或流域污染多边形冒充。
+- 金额必须来自带链接与取价日期的价表或官方费率表；禁止大模型定价，禁止编造单价或总价。视觉模型不得改写地籍面积、区划或坡度数字。LIM 订购费由客户在议会支付，不计入本页造价。
 - 没有可核对来源的科目标成缺项（`missing`），不要用估算、经验值、mock、默认地块或缓存值把页面凑完整。
-- 图纸只读 PDF 文字层；读不到面积就不要套户型模板的 110 m²，读不到厨卫就不要套模板洁具。
-- 单测可以给纯函数喂显式数字；不得把假 GIS / 假价源当成议会或供应商返回值。
+- 图纸和 LIM 只读 PDF 文字层；读不到面积就不要套户型模板的 110 m²，读不到厨卫就不要套模板洁具；读不到 LIM 栏就标未写明，不要用附图识别。
+- 单测可以给纯函数喂显式数字或**标明来源的正式 LIM 正文摘录**；不得把假 GIS / 假价源当成议会或供应商返回值。
 
 Agent 实现时遵守 `.cursor/rules/no-fake-data.mdc` 与 `cursor_project_rules/development-requirements.mdc`。

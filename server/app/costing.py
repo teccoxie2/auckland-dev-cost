@@ -10,7 +10,6 @@ from .pricing import (
     dc_amount,
     igc_amount,
     line,
-    lim_report_fee,
     missing_line,
     resource_consent_deposit,
 )
@@ -584,62 +583,68 @@ def cost_option(
 
 
 def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
-    fee = lim_report_fee()
-    lines: list[dict[str, Any]] = [
-        {
-            "id": "lim_report_fee",
-            "status": "priced",
-            "category": "statutory",
-            "name_zh": "奥克兰议会 LIM 报告（Standard）",
-            "quantity": 1,
-            "unit": "report",
-            "unit_price": fee["amount"],
-            "amount_incl_gst": fee["amount"],
-            "source_name": fee["source_name"],
-            "source_url": fee["source_url"],
-            "retrieved_at": fee["retrieved_at"],
-            "notes": fee["notes"],
-            "formula": "开发尽职调查按议会 Standard LIM 页面标价计入；加急与卡费未计入",
-        }
-    ]
-    constraints = ((site or {}).get("lim") or {}).get("constraints") or {}
+    lim = ((site or {}).get("lim") or {})
+    if lim.get("status") != "parsed":
+        return [
+            missing_line(
+                "official_lim_pdf",
+                "客户提供的正式 LIM PDF",
+                "开发核算需要客户上传已购买的议会 LIM。未上传则不读取污染、风区、地面径流和管网 LIR，也不计入订购费。",
+            )
+        ]
+    lines: list[dict[str, Any]] = []
+    constraints = lim.get("constraints") or {}
+    parsed = lim.get("parsed") or {}
     if constraints.get("flood") or constraints.get("coastal_inundation") or constraints.get("overland_flow"):
         lines.append(
             missing_line(
                 "flood_hazard_assessment",
                 "洪水评估 / 抬高 FFL / 场地排水",
-                "公开洪水量或地面径流与本户相交。正式 LIM 写明开发可能需要洪水评估；注册工程师评估没有公开零售单价，故不计金额。",
+                "正式 LIM 写明地面径流或洪水相关约束；注册工程师评估没有公开零售单价，故不计金额。",
             )
         )
-    lines.append(
-        missing_line(
-            "official_lim_drainage_notices",
-            "正式 LIM 中的雨污管网与开发限制通知",
-            "公开 GIS 读不到议会 LIR。正式 LIM 可能写明在雨水管容量足够之前不得继续开发，以及私有排水接到公共管的责任。故不计金额。",
+    notices = parsed.get("drainage_notices") or []
+    if notices:
+        first = notices[0]
+        lines.append(
+            missing_line(
+                "official_lim_drainage_notices",
+                f"正式 LIM 管网通知 {first.get('lir_id') or ''}".strip(),
+                f"{first.get('description') or '读到 LIR。'} 没有公开工程单价，故不计金额。",
+            )
         )
-    )
-    if constraints.get("landfill"):
+    if constraints.get("contamination_data"):
         lines.append(
             missing_line(
                 "nes_cs_psi",
                 "NES-CS 初步场地调查（PSI）",
-                "公开填埋点图层在本户附近命中。HAIL/污染调查没有公开零售单价，故不计金额。流域尺度污染点计数不能当成这一结果。",
+                "正式 LIM 写有污染监管记录。HAIL/污染调查没有公开零售单价，故不计金额。",
             )
         )
-    landslide = constraints.get("landslide")
-    if landslide in {"Moderate", "High"}:
+    if constraints.get("soil_issues"):
         lines.append(
             missing_line(
                 "geotech_landslide",
-                "滑坡/边坡岩土报告",
-                f"公开大尺度滑坡易发性为 {landslide}。岩土报告没有公开零售单价，故不计金额。Low 分区不按约束计价。",
+                "土壤/边坡岩土报告",
+                "正式 LIM 写有土壤问题。岩土报告没有公开零售单价，故不计金额。",
             )
         )
     return lines
 
 
+LIM_COST_IDS = {
+    "lim_report_fee",
+    "official_lim_pdf",
+    "flood_hazard_assessment",
+    "official_lim_drainage_notices",
+    "nes_cs_psi",
+    "geotech_landslide",
+}
+
+
 def ensure_lim_cost_on_options(options: list[dict[str, Any]], site: dict[str, Any] | None) -> tuple[list[dict[str, Any]], bool]:
     extra = lim_statutory_lines(site)
+    extra_ids = {item["id"] for item in extra}
     changed = False
     updated: list[dict[str, Any]] = []
     for option in options:
@@ -647,21 +652,35 @@ def ensure_lim_cost_on_options(options: list[dict[str, Any]], site: dict[str, An
         if not lines:
             updated.append(option)
             continue
-        existing_ids = {item.get("id") for item in lines}
-        add = [item for item in extra if item["id"] not in existing_ids]
-        if not add:
-            updated.append(option)
-            continue
-        lines = [*lines, *add]
-        totals = dict(option.get("totals") or {})
-        priced_add = sum(
-            item.get("amount_incl_gst") or 0 for item in add if item.get("status") in {"priced", "rule", "zero"}
+        kept = [item for item in lines if item.get("id") not in LIM_COST_IDS]
+        removed = [item for item in lines if item.get("id") in LIM_COST_IDS]
+        merged = [*kept, *extra]
+        if [item.get("id") for item in merged] == [item.get("id") for item in lines] and extra_ids <= {item.get("id") for item in lines}:
+            same = True
+            by_id = {item.get("id"): item for item in lines}
+            for item in extra:
+                old = by_id.get(item["id"]) or {}
+                if old.get("notes") != item.get("notes") or old.get("name_zh") != item.get("name_zh"):
+                    same = False
+                    break
+            if same:
+                updated.append(option)
+                continue
+        priced_removed = sum(
+            item.get("amount_incl_gst") or 0 for item in removed if item.get("status") in {"priced", "rule", "zero"}
         )
-        missing_add = sum(1 for item in add if item.get("status") == "missing")
-        totals["statutory_incl_gst"] = round((totals.get("statutory_incl_gst") or 0) + priced_add, 2)
-        totals["confirmed_total_incl_gst"] = round((totals.get("confirmed_total_incl_gst") or 0) + priced_add, 2)
-        totals["missing_count"] = int(totals.get("missing_count") or 0) + missing_add
-        updated.append({**option, "lines": lines, "totals": totals})
+        missing_removed = sum(1 for item in removed if item.get("status") == "missing")
+        priced_add = sum(
+            item.get("amount_incl_gst") or 0 for item in extra if item.get("status") in {"priced", "rule", "zero"}
+        )
+        missing_add = sum(1 for item in extra if item.get("status") == "missing")
+        totals = dict(option.get("totals") or {})
+        totals["statutory_incl_gst"] = round((totals.get("statutory_incl_gst") or 0) - priced_removed + priced_add, 2)
+        totals["confirmed_total_incl_gst"] = round(
+            (totals.get("confirmed_total_incl_gst") or 0) - priced_removed + priced_add, 2
+        )
+        totals["missing_count"] = max(int(totals.get("missing_count") or 0) - missing_removed + missing_add, 0)
+        updated.append({**option, "lines": merged, "totals": totals})
         changed = True
     return updated, changed
 

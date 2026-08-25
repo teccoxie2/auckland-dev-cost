@@ -20,12 +20,22 @@ from .gis import (
     search_addresses,
     split_estate_note,
 )
-from .graph import configure_option, hydrate_legacy_result, hydrate_lim, hydrate_site_analysis, merge_advice, run_address
+from .graph import (
+    apply_customer_lim,
+    configure_option,
+    hydrate_legacy_result,
+    hydrate_lim,
+    hydrate_site_analysis,
+    merge_advice,
+    run_address,
+)
 from .lim import lim_advice
+from .lim_parse import parse_lim_pdf
 from .site_vision import vision_advice
 from .store import create_project, get_project, list_projects, update_project
 
 DRAWINGS_DIR = Path(__file__).resolve().parent.parent / "data" / "drawings"
+LIM_DIR = Path(__file__).resolve().parent.parent / "data" / "lim"
 
 app = FastAPI(title="Auckland Development Cost MVP", version="0.2.0")
 app.add_middleware(
@@ -297,3 +307,48 @@ async def post_drawings(
     if not updated:
         raise HTTPException(status_code=404, detail="项目不存在")
     return updated
+
+
+@app.post("/projects/{project_id}/lim")
+async def post_lim(
+    project_id: str,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    record = get_project(project_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    result = record.get("result") or {}
+    if result.get("error") or not result.get("site"):
+        raise HTTPException(status_code=400, detail="项目还没有完整地块数据，无法核对 LIM")
+    filename = Path(file.filename or "lim.pdf").name
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail=f"{filename} 不是 PDF")
+    blob = await file.read()
+    if not blob:
+        raise HTTPException(status_code=400, detail="LIM 文件是空的")
+    if len(blob) > MAX_PDF_BYTES:
+        raise HTTPException(status_code=400, detail="LIM PDF 超过 15MB")
+    dest = LIM_DIR / project_id
+    dest.mkdir(parents=True, exist_ok=True)
+    path = dest / filename
+    path.write_bytes(blob)
+    parsed = parse_lim_pdf(path, filename=filename)
+    if not parsed.get("ok"):
+        raise HTTPException(status_code=400, detail=parsed.get("error") or "无法读取这份 LIM")
+    updated_result, error = apply_customer_lim(result, parsed, record.get("address") or "")
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    updated_result["lim_document"] = {
+        "kind": "lim",
+        "filename": filename,
+        "stored_path": str(path),
+        "page_count": parsed.get("page_count"),
+        "char_count": parsed.get("char_count"),
+        "application_number": parsed.get("application_number"),
+        "issued_at": parsed.get("issued_at"),
+        "lim_address": parsed.get("lim_address"),
+    }
+    saved = update_project(project_id, updated_result, record.get("status") or "ready")
+    if not saved:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    return saved

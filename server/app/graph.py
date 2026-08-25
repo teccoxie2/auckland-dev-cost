@@ -33,7 +33,7 @@ from .gis import (
     lookup_terrain,
     lookup_zone,
 )
-from .lim import lim_advice, lim_sections_from_report, lookup_lim, unavailable_lim
+from .lim import awaiting_lim, lim_advice
 from .site_vision import analyze_site, unavailable_analysis, vision_advice
 from .zoning import apply_zone_rules, filter_template, is_existing_unit_title
 
@@ -208,9 +208,7 @@ def _apply_lim(site: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
     updated["lim"] = report
     snapshot = dict(updated.get("snapshot") or {})
     snapshot["lim_order_url"] = report.get("order_url")
-    layers = [item for item in (report.get("layers") or []) if item.get("source_url")]
-    if layers:
-        snapshot["lim_source"] = layers[0]["source_url"]
+    snapshot["lim_source"] = report.get("filename") or report.get("source")
     if snapshot:
         updated["snapshot"] = snapshot
     return updated
@@ -219,28 +217,12 @@ def _apply_lim(site: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
 def lim_node(state: ProjectState) -> dict[str, Any]:
     if state.get("error"):
         return {}
-    try:
-        report = lookup_lim(state.get("site") or {})
-    except Exception as exc:  # noqa: BLE001
-        report = unavailable_lim(f"LIM 公开图层核对失败：{exc}。方案仍按区划硬规则生成。")
+    report = awaiting_lim()
     site = _apply_lim(state.get("site") or {}, report)
-    constraints = report.get("constraints") or {}
-    hits = [
-        key
-        for key, value in (
-            ("flood", constraints.get("flood")),
-            ("overland", constraints.get("overland_flow")),
-            ("coastal", constraints.get("coastal_inundation")),
-            ("landfill", constraints.get("landfill")),
-        )
-        if value
-    ]
-    landslide = constraints.get("landslide")
-    detail = f"status={report.get('status')}; hits={','.join(hits) or 'none'}; landslide={landslide or 'n/a'}"
     return {
         "site": site,
         "lim": report,
-        "trace": _trace(state, "lim", detail),
+        "trace": _trace(state, "lim", "awaiting_customer_pdf"),
     }
 
 
@@ -372,11 +354,11 @@ def explain_node(state: ProjectState) -> dict[str, Any]:
     if findings:
         parts.append("场地核对：" + " ".join(findings[:3]))
     lim = (state.get("site") or {}).get("lim") or {}
-    lim_findings = [item for item in (lim.get("findings") or []) if isinstance(item, str) and item.strip()]
-    if lim_findings:
-        parts.append("LIM 公开核对：" + " ".join(lim_findings[:3]))
-    elif lim:
-        parts.append("LIM 公开图层已核对，这不是已购买的正式 LIM PDF。")
+    if lim.get("status") == "parsed":
+        findings = [item for item in (lim.get("findings") or []) if isinstance(item, str) and item.strip()]
+        parts.append("正式 LIM：" + (" ".join(findings[:3]) if findings else "已读取客户上传的 PDF 文字层。"))
+    else:
+        parts.append("尚未上传客户提供的正式 LIM PDF。污染、风区、地面径流和管网 LIR 以该 PDF 文字层为准。")
     parts.append(
         f"下面给出 {len(feasible)} 个按这块地筛过的初版方案。你可以改套数、层数、户型大小、厨房和卫生间后再核算。"
         "金额只来自价库与官方费率，缺项单独列出。"
@@ -454,6 +436,24 @@ def run_address(
     return WORKFLOW.invoke(payload, config)
 
 
+def apply_customer_lim(result: dict[str, Any], parsed: dict[str, Any], project_address: str) -> tuple[dict[str, Any] | None, str | None]:
+    from .lim import report_from_parsed
+    from .lim_parse import address_matches_project
+
+    ok, message = address_matches_project(parsed.get("lim_address"), project_address)
+    if not ok:
+        return None, message
+    site = _apply_lim(dict(result.get("site") or {}), report_from_parsed(parsed))
+    updated = dict(result)
+    updated["site"] = site
+    kept = [item for item in (updated.get("advice") or []) if not str(item.get("id") or "").startswith("lim_")]
+    updated["advice"] = merge_advice(kept, lim_advice(site))
+    _append_lim_explanation(updated, site)
+    options, _changed = ensure_lim_cost_on_options(updated.get("options") or [], site)
+    updated["options"] = options
+    return updated, None
+
+
 def configure_option(site: dict[str, Any], rules: dict[str, Any], spec: dict[str, Any]) -> dict[str, Any]:
     template = build_template(spec)
     why = [
@@ -509,48 +509,54 @@ def _needs_lim(site: dict[str, Any]) -> bool:
     lim = site.get("lim") or {}
     if not lim:
         return True
-    if lim.get("status") != "checked":
-        return True
-    if not (lim.get("layers") or []):
-        return True
-    layer_ids = {item.get("id") for item in lim.get("layers") or []}
-    if "overland_flow_paths" not in layer_ids:
-        return True
-    return False
+    if lim.get("source") == "customer_pdf" and lim.get("status") in {"parsed", "awaiting_upload"}:
+        return False
+    return True
+
+
+def _lim_explanation(site: dict[str, Any]) -> str:
+    lim = site.get("lim") or {}
+    if lim.get("status") == "parsed":
+        findings = [item for item in (lim.get("findings") or []) if isinstance(item, str) and item.strip()]
+        return "正式 LIM：" + (" ".join(findings[:3]) if findings else "已读取客户上传的 PDF 文字层。")
+    return "尚未上传客户提供的正式 LIM PDF。污染、风区、地面径流和管网 LIR 以该 PDF 文字层为准。"
 
 
 def _append_lim_explanation(result: dict[str, Any], site: dict[str, Any]) -> None:
-    lim = site.get("lim") or {}
-    findings = [item for item in (lim.get("findings") or []) if isinstance(item, str) and item.strip()]
-    extra = "LIM 公开核对：" + " ".join(findings[:3]) if findings else "LIM 公开图层已核对，这不是已购买的正式 LIM PDF。"
+    extra = _lim_explanation(site)
     explanation = result.get("explanation") or ""
-    if extra not in explanation and "LIM 公开" not in explanation:
+    explanation = explanation.replace("LIM 公开图层已核对，这不是已购买的正式 LIM PDF。", "")
+    if "LIM 公开核对：" in explanation:
+        prefix, _, rest = explanation.partition("LIM 公开核对：")
+        cut = rest.find("下面给出")
+        explanation = prefix + (rest[cut:] if cut >= 0 else "")
+    if extra not in explanation:
         result["explanation"] = explanation + extra
+    else:
+        result["explanation"] = explanation
 
 
 def hydrate_lim(result: dict[str, Any]) -> dict[str, Any] | None:
     if result.get("error"):
         return None
     site = dict(result.get("site") or {})
-    geo = site.get("geo") or {}
-    if geo.get("lat") is None or geo.get("lon") is None:
-        return None
     changed = False
+    lim = site.get("lim") or {}
     if _needs_lim(site):
-        try:
-            report = lookup_lim(site)
-        except Exception as exc:  # noqa: BLE001
-            report = unavailable_lim(f"LIM 公开图层核对失败：{exc}。正式报告需向议会订购。")
-        site = _apply_lim(site, report)
+        site = _apply_lim(site, awaiting_lim())
         changed = True
+    elif lim.get("status") == "parsed":
+        from .lim import report_from_parsed
+
+        parsed = lim.get("parsed")
+        if parsed:
+            refreshed = report_from_parsed(parsed)
+            refreshed["queried_at"] = lim.get("queried_at") or refreshed["queried_at"]
+            if refreshed.get("sections") != lim.get("sections") or refreshed.get("findings") != lim.get("findings"):
+                site = _apply_lim(site, refreshed)
+                changed = True
     if not site.get("lim"):
         return None
-    report = dict(site["lim"])
-    sections = lim_sections_from_report(report)
-    if report.get("sections") != sections:
-        report["sections"] = sections
-        site["lim"] = report
-        changed = True
     updated = dict(result)
     updated["site"] = site
     kept = [item for item in (updated.get("advice") or []) if not str(item.get("id") or "").startswith("lim_")]

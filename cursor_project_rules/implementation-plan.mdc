@@ -81,3 +81,9 @@ Done
 Done
 
 公开核对按 s44A 栏对齐：Site Contamination、Wind Zones、Soil Issues、Flooding、Overland Flow Path、Exposure Zones、Coastal、雨污管、许可、规划。Flooding 使用所有 LIM 都有的说明（图上无洪水不排除地面径流）。不把 55 Nelson 的风区、LIR 编号或许可清单套到其他地址。
+
+## 正式 LIM 改为客户上传 PDF
+
+Done
+
+查询不再用公开图层冒充 LIM，也不把议会订购费计入造价。项目页上传议会 LIM PDF，只读文字层；地址必须与当前门牌及郊区一致。读到的地面径流和 LIR 只加缺项，不编单价。扫描件与附图不识别。

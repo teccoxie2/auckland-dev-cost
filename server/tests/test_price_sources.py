@@ -55,8 +55,9 @@ def test_priced_catalog_lines_use_public_skus():
     assert "kitchen_appliances_install" not in missing_ids
     assert "scaffolding_perimeter" not in missing_ids
     assert "kitchen_install_other_trades" in missing_ids
-    assert by_id["lim_report_fee"]["status"] == "priced"
-    assert by_id["lim_report_fee"]["amount_incl_gst"] == 387
+    assert by_id["official_lim_pdf"]["status"] == "missing"
+    assert by_id["official_lim_pdf"]["amount_incl_gst"] == 0
+    assert "lim_report_fee" not in by_id
 
 
 def test_resource_consent_deposit_is_official_lodgement():

@@ -193,6 +193,19 @@ def _sync_children(db: Session, record: dict[str, Any]) -> None:
                 payload=document,
             )
         )
+    lim_document = result.get("lim_document")
+    if lim_document:
+        db.add(
+            DocumentSet(
+                id=str(uuid.uuid4()),
+                project_id=project_id,
+                kind="lim",
+                filename=lim_document.get("filename"),
+                stored_path=lim_document.get("stored_path"),
+                captured_at=captured_docs,
+                payload=lim_document,
+            )
+        )
 
     book = pricebook()
     as_of = ""
