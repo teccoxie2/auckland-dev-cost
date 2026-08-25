@@ -189,34 +189,26 @@ def test_hydrate_lim_skip_paths():
             "geo": {"lat": -36.8, "lon": 174.7},
             "lim": {
                 "status": "checked",
-                "layers": [{"id": "flood_plains", "present": False}, {"id": "overland_flow_paths", "present": False}],
-                "constraints": {"flood": False, "coastal_inundation": False, "landfill": False, "landslide": "Low"},
+                "layers": [
+                    {"id": "flood_plains", "present": False},
+                    {"id": "overland_flow_paths", "present": False},
+                ],
+                "constraints": {
+                    "flood": False,
+                    "overland_flow": False,
+                    "coastal_inundation": False,
+                    "landfill": False,
+                    "landslide": "Low",
+                },
                 "findings": [],
+                "not_queried": [],
                 "fee": lim_report_fee(),
             },
         },
-        "advice": lim_advice(
-            {
-                "lim": {
-                    "status": "checked",
-                    "constraints": {"flood": False, "coastal_inundation": False, "landfill": False, "landslide": "Low"},
-                    "layers": [],
-                    "not_queried": [],
-                    "fee": {
-                        "standard_fee": 387,
-                        "urgent_fee": 522,
-                        "card_surcharge_percent": 1.75,
-                        "standard_working_days": 10,
-                        "urgent_working_days": 3,
-                        "source_name": "Auckland Council LIM",
-                        "source_url": "https://www.aucklandcouncil.govt.nz/en/buying-property/order-property-report/order-lim.html",
-                    },
-                }
-            }
-        ),
         "explanation": "LIM 公开图层已核对，这不是已购买的正式 LIM PDF。",
         "options": [],
     }
+    already["advice"] = lim_advice(already["site"])
     assert hydrate_lim(already) is None
 
 

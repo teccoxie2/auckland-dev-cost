@@ -546,7 +546,8 @@ def hydrate_lim(result: dict[str, Any]) -> dict[str, Any] | None:
         return None
     updated = dict(result)
     updated["site"] = site
-    updated["advice"] = merge_advice(updated.get("advice") or [], lim_advice(site))
+    kept = [item for item in (updated.get("advice") or []) if not str(item.get("id") or "").startswith("lim_")]
+    updated["advice"] = merge_advice(kept, lim_advice(site))
     _append_lim_explanation(updated, site)
     options, cost_changed = ensure_lim_cost_on_options(updated.get("options") or [], site)
     if cost_changed:
