@@ -4,6 +4,8 @@ import math
 from functools import lru_cache
 from typing import Any
 
+import httpx
+
 from .gis import haversine_m
 
 WAYBACK_CATALOG = "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer"

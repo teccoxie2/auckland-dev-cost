@@ -40,8 +40,7 @@ def test_linz_building_outlines_on_howick_parcel_bbox():
         }
     )
     if not result.get("found"):
-        assert "失败" in (result.get("note") or "")
-        return
+        raise AssertionError(result.get("note") or "LINZ 屋顶轮廓未返回")
     assert result["count"] >= 1
     assert result["source_url"].startswith("https://data.linz.govt.nz")
     assert result["roof_area_m2"] > 0
