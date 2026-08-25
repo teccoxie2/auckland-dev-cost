@@ -4,7 +4,7 @@ import math
 from functools import lru_cache
 from typing import Any
 
-import httpx
+from .gis import haversine_m
 
 WAYBACK_CATALOG = "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer"
 WAYBACK_TILE = (
@@ -158,6 +158,8 @@ def collect_imagery(site: dict[str, Any]) -> list[dict[str, Any]]:
 
 QUERY_PAD_DEG = 0.002
 KEEP_PAD_DEG = 0.00006
+SMALL_PARCEL_M2 = 250
+NEAR_ROOF_M = 15
 
 
 def _centroid(rings: list[list[list[float]]]) -> tuple[float, float] | None:
@@ -219,8 +221,9 @@ def lookup_building_outlines(site: dict[str, Any]) -> dict[str, Any]:
         return {"found": False, "note": f"LINZ 屋顶轮廓查询失败：{exc}"}
     if payload.get("error"):
         return {"found": False, "note": f"LINZ 屋顶轮廓查询被拒绝：{payload['error']}"}
-    buildings = []
-    total_m2 = 0.0
+    center_lon = (keep_box["min_lon"] + keep_box["max_lon"]) / 2
+    center_lat = (keep_box["min_lat"] + keep_box["max_lat"]) / 2
+    ranked: list[tuple[float, dict[str, Any]]] = []
     for feature in payload.get("features") or []:
         rings = ((feature.get("geometry") or {}).get("rings")) or []
         center = _centroid(rings)
@@ -232,19 +235,23 @@ def lookup_building_outlines(site: dict[str, Any]) -> dict[str, Any]:
             area_m2 = float(area) if area is not None else None
         except (TypeError, ValueError):
             area_m2 = None
-        if area_m2:
-            total_m2 += area_m2
-        buildings.append(
-            {
-                "building_id": attrs.get("building_id"),
-                "use": attrs.get("use_") or attrs.get("use"),
-                "suburb": attrs.get("suburb_locality"),
-                "area_m2": round(area_m2, 1) if area_m2 is not None else None,
-                "imagery_date": attrs.get("imagery_capture_date") or attrs.get("image_capture_date"),
-                "capture_source": attrs.get("capture_source") or attrs.get("imagery_source"),
-            }
-        )
+        building = {
+            "building_id": attrs.get("building_id"),
+            "use": attrs.get("use_") or attrs.get("use"),
+            "suburb": attrs.get("suburb_locality"),
+            "area_m2": round(area_m2, 1) if area_m2 is not None else None,
+            "imagery_date": attrs.get("imagery_capture_date") or attrs.get("image_capture_date"),
+            "capture_source": attrs.get("capture_source") or attrs.get("imagery_source"),
+        }
+        dist_m = haversine_m(center_lat, center_lon, center[1], center[0])
+        ranked.append((dist_m, building))
     parcel_area = ((site.get("parcel") or {}).get("area_m2")) if (site.get("parcel") or {}).get("found") else None
+    if parcel_area and parcel_area < SMALL_PARCEL_M2:
+        close = [item for item in ranked if item[0] <= NEAR_ROOF_M]
+        if close:
+            ranked = [max(close, key=lambda item: item[1].get("area_m2") or 0)]
+    buildings = [item[1] for item in ranked]
+    total_m2 = sum(float(item["area_m2"]) for item in buildings if item.get("area_m2"))
     coverage = round(total_m2 / float(parcel_area), 3) if parcel_area and total_m2 else None
     return {
         "found": True,
@@ -254,7 +261,8 @@ def lookup_building_outlines(site: dict[str, Any]) -> dict[str, Any]:
         "buildings": buildings,
         "note": (
             "先按约 200 m 范围查询 LINZ 屋顶轮廓，再只保留质心落在本户地块外包矩形（外扩约 7 m）内的记录。"
-            "面积来自该图层，不是议会地籍面积。"
+            + ("本户地块较小，只保留距中心 15 m 内面积最大的一栋，避免把拆分后的邻户屋顶算进来。" if parcel_area and parcel_area < SMALL_PARCEL_M2 else "")
+            + "面积来自该图层，不是议会地籍面积。"
         ),
         "source_name": "LINZ NZ Building Outlines",
         "source_url": BUILDING_ABOUT,

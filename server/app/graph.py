@@ -162,6 +162,8 @@ def merge_advice(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if key:
                 seen.add(key)
             merged.append(item)
+    if any(item.get("id") == "buildings" for item in merged):
+        merged = [item for item in merged if item.get("id") != "buildings_missing"]
     return merged
 
 
@@ -412,10 +414,16 @@ def _needs_site_analysis(site: dict[str, Any]) -> bool:
     if not site.get("imagery") or not site.get("vision"):
         return True
     buildings = site.get("buildings") or {}
+    note = str(buildings.get("note") or "").lower()
+    if "timed out" in note or "超时" in note:
+        return True
+    parcel = site.get("parcel") or {}
+    area = parcel.get("area_m2") if parcel.get("found") else None
+    if buildings.get("found") and area and area < 250 and int(buildings.get("count") or 0) >= 3:
+        return True
     if buildings.get("found"):
         return False
-    note = str(buildings.get("note") or "").lower()
-    return "timed out" in note or "超时" in note
+    return False
 
 
 def hydrate_site_analysis(result: dict[str, Any]) -> dict[str, Any] | None:

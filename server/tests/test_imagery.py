@@ -61,3 +61,14 @@ def test_esri_world_imagery_export_returns_jpeg():
     content_type = (response.headers.get("content-type") or "").lower()
     assert "image" in content_type
     assert len(response.content) > 1000
+
+
+def test_centroid_and_keep_box_filter():
+    from app.imagery import KEEP_PAD_DEG, _centroid, _in_box
+
+    lon, lat = _centroid([[[174.0, -36.0], [174.2, -36.0], [174.2, -36.2], [174.0, -36.2]]])
+    assert round(lon, 1) == 174.1
+    assert round(lat, 1) == -36.1
+    box = {"min_lon": 174.0, "max_lon": 174.1, "min_lat": -36.1, "max_lat": -36.0}
+    assert _in_box(174.05, -36.05, box, KEEP_PAD_DEG)
+    assert not _in_box(175.0, -36.05, box, KEEP_PAD_DEG)

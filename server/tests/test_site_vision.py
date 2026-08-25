@@ -130,6 +130,14 @@ def test_needs_site_analysis_retries_outline_timeout():
             "buildings": {"found": True, "count": 1},
         }
     )
+    assert _needs_site_analysis(
+        {
+            "imagery": [{"id": "current_export"}],
+            "vision": {"status": "imagery_only"},
+            "parcel": {"found": True, "area_m2": 109.5},
+            "buildings": {"found": True, "count": 3, "parcel_coverage": 2.6},
+        }
+    )
 
 
 def test_site_vision_node_fail_open():
@@ -145,6 +153,11 @@ def test_merge_advice_dedupes_by_id():
         [{"id": "zone", "title_zh": "dup"}, {"id": "imagery", "title_zh": "c"}],
     )
     assert [item["id"] for item in merged] == ["zone", "parcel", "imagery"]
+    pruned = merge_advice(
+        [{"id": "buildings_missing", "title_zh": "old"}],
+        [{"id": "buildings", "title_zh": "new"}],
+    )
+    assert [item["id"] for item in pruned] == ["buildings"]
 
 
 def test_unavailable_analysis_has_no_invented_sightings():
