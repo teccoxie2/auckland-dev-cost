@@ -1,4 +1,5 @@
 import type { ProjectRecord } from "@/lib/api";
+import { formatAucklandTime } from "@/lib/datetime";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SiteSnapshot({ project }: { project: ProjectRecord }) {
@@ -16,12 +17,12 @@ export default function SiteSnapshot({ project }: { project: ProjectRecord }) {
       <CardHeader>
         <CardTitle>地块快照</CardTitle>
         <p className="mt-1 text-xs text-[#7b8474]">
-          {captured ? `查询时刻 ${new Date(captured).toLocaleString("zh-CN")}` : "尚未写入查询时刻"}
+          {captured ? `查询时刻 ${formatAucklandTime(captured)}（奥克兰）` : "尚未写入查询时刻"}
           {snapshot?.region ? ` · ${snapshot.region}` : ""}
         </p>
       </CardHeader>
       <CardContent className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-        <SnapshotField label="规范地址" value={site?.geo.display_name || "未读到"} href={site?.geo.source_url} />
+        <SnapshotField label="规范地址" value={site?.geo?.display_name || "未读到"} href={site?.geo?.source_url} />
         <SnapshotField label="Unitary Plan 区划" value={site?.zone?.zone_name || "未读到"} href={site?.zone?.source_url} />
         <SnapshotField
           label="本户地块"
