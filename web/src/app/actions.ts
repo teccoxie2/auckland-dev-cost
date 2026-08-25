@@ -45,7 +45,7 @@ export async function configureProjectAction(projectId: string, _prev: { error: 
     const message = error instanceof Error ? error.message : "选装核算失败";
     return { error: message };
   }
-  redirect(`/projects/${projectId}`);
+  redirect(`/projects/${projectId}?tab=cards#cost-ledger`);
 }
 
 export async function uploadDrawingsAction(projectId: string, _prev: { error: string } | null, formData: FormData) {

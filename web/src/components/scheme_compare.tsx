@@ -1,6 +1,7 @@
 import type { SchemeOption } from "@/lib/api";
 import { nzd } from "@/lib/money";
 import { Badge } from "@/components/ui/badge";
+import { kindLabelZh } from "@/lib/scheme";
 
 export default function SchemeCompare({ options }: { options: SchemeOption[] }) {
   if (!options.length) {
@@ -38,7 +39,7 @@ export default function SchemeCompare({ options }: { options: SchemeOption[] }) 
                     </Badge>
                   ) : null}
                 </td>
-                <td className="py-3 text-[#5c6754]">{option.template.kind}</td>
+                <td className="py-3 text-[#5c6754]">{kindLabelZh(option.template.kind)}</td>
                 <td className="py-3 text-[#5c6754]">
                   {option.template.dwellings} 套 · {option.template.bedrooms} 房 {option.template.bathrooms} 卫
                 </td>

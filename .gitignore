@@ -10,3 +10,5 @@ server/data/drawings/
 server/data/lim/
 .DS_Store
 agent-tools
+.env
+.env.*

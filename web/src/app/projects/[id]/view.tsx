@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CostTree from "@/components/cost_tree";
 import DrawingUpload from "@/components/drawing_upload";
 import LimReport from "@/components/lim_report";
@@ -12,6 +12,18 @@ import SiteSnapshot from "@/components/site_snapshot";
 import { Tabs } from "@/components/ui/tabs";
 import type { AdviceItem, CostLine, ProjectRecord, SchemeOption } from "@/lib/api";
 import { nzd, nzdExact } from "@/lib/money";
+
+const SCHEME_TABS = [
+  { id: "compare", label: "方案对比" },
+  { id: "cards", label: "方案卡片" },
+  { id: "config", label: "按需求选装" },
+] as const;
+
+function readSchemeTab() {
+  if (typeof window === "undefined") return "compare";
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  return tab === "cards" || tab === "config" || tab === "compare" ? tab : "compare";
+}
 
 export default function ProjectView({ project }: { project: ProjectRecord }) {
   const result = project.result;
@@ -28,6 +40,17 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
     [result.options, selected],
   );
 
+  useEffect(() => {
+    setSchemeTab(readSchemeTab());
+  }, []);
+
+  const handleSchemeTab = (id: string) => {
+    setSchemeTab(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", id);
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  };
+
   if (result.error) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-12">
@@ -43,60 +66,81 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8 sm:py-8">
       <Link href="/" className="text-sm text-[#2f4a32]">
         ← 返回工作台
       </Link>
-      <header className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <header className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm text-[#7a5a2b]">初版设计方案</p>
-          <h1 className="mt-1 text-3xl font-semibold">{project.address}</h1>
+          <p className="text-sm text-[#7a5a2b]">项目</p>
+          <h1 className="mt-1 text-2xl font-semibold leading-tight sm:text-3xl">{project.address}</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[#5c6754]">{result.explanation}</p>
           {result.drawing_explanation ? (
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[#2f4a32]">{result.drawing_explanation}</p>
           ) : null}
         </div>
-        <p className="text-xs text-[#7b8474]">{result.pm_review?.note}</p>
       </header>
 
-      <section className="mt-6">
+      <nav
+        aria-label="本页章节"
+        className="sticky top-14 z-20 -mx-4 mt-5 border-y border-[#e4dccb] bg-[#f3eee4]/95 px-4 py-2 backdrop-blur sm:-mx-8 sm:px-8"
+      >
+        <ul className="flex gap-1 overflow-x-auto text-sm">
+          {(
+            [
+              ["#site", "地块"],
+              ["#lim", "正式 LIM"],
+              ["#vision", "场地"],
+              result.advice?.length ? ["#advice", "注意"] : null,
+              ["#schemes", "方案"],
+              ["#cost-ledger", "总账"],
+              ["#drawings", "图纸"],
+            ] as Array<[string, string] | null>
+          )
+            .filter((item): item is [string, string] => Boolean(item))
+            .map(([href, label]) => (
+            <li key={href}>
+              <a
+                href={href}
+                className="inline-flex min-h-10 items-center rounded-full px-3 py-1 text-[#2f4a32] hover:bg-[#e8efe6]"
+              >
+                {label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <section id="site" className="mt-6 scroll-mt-28">
         <SiteSnapshot project={project} />
       </section>
 
-      <section className="mt-6">
+      <section id="lim" className="mt-6 scroll-mt-28">
         <LimReport project={project} />
       </section>
 
-      <section className="mt-6">
+      <section id="vision" className="mt-6 scroll-mt-28">
         <SiteAnalysis project={project} />
       </section>
 
       {(result.advice || []).length ? (
-        <section className="mt-8">
+        <section id="advice" className="mt-8 scroll-mt-28">
           <h2 className="text-lg font-semibold">这块地需要考虑的事</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {result.advice.map((item) => (
+            {(result.advice || []).map((item) => (
               <AdviceCard key={item.id} item={item} />
             ))}
           </div>
         </section>
       ) : null}
 
-      <section className="mt-8">
+      <section id="schemes" className="mt-8 scroll-mt-28">
         <h2 className="text-lg font-semibold">因地制宜初版方案</h2>
         <p className="mt-1 text-sm text-[#5c6754]">
           {result.scheme_filter?.note || "先看并排对比或方案卡片，改户型打开「按需求选装」。"}
         </p>
         <div className="mt-4">
-          <Tabs
-            tabs={[
-              { id: "compare", label: "方案对比" },
-              { id: "cards", label: "方案卡片" },
-              { id: "config", label: "按需求选装" },
-            ]}
-            value={schemeTab}
-            onChange={setSchemeTab}
-          />
+          <Tabs tabs={[...SCHEME_TABS]} value={schemeTab} onChange={handleSchemeTab} />
         </div>
         {schemeTab === "compare" ? (
           <div className="mt-4">
@@ -105,20 +149,26 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
         ) : null}
         {schemeTab === "cards" ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {(result.options || []).map((item) => (
-              <OptionCard
-                key={item.id}
-                option={item}
-                selected={item.id === selected}
-                onSelect={() => {
-                  if (item.verdict.status === "infeasible" && item.origin !== "drawings") return;
-                  setSelected(item.id);
-                  requestAnimationFrame(() =>
-                    document.getElementById("cost-ledger")?.scrollIntoView({ behavior: "smooth", block: "start" }),
-                  );
-                }}
-              />
-            ))}
+            {(result.options || []).length ? (
+              (result.options || []).map((item) => (
+                <OptionCard
+                  key={item.id}
+                  option={item}
+                  selected={item.id === selected}
+                  onSelect={() => {
+                    if (item.verdict.status === "infeasible" && item.origin !== "drawings") return;
+                    setSelected(item.id);
+                    requestAnimationFrame(() =>
+                      document.getElementById("cost-ledger")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                    );
+                  }}
+                />
+              ))
+            ) : (
+              <p className="rounded-xl border border-dashed border-[#d9d0c0] px-4 py-8 text-sm text-[#5c6754] md:col-span-2">
+                这块地还没有生成方案。请确认地址核算已完成。
+              </p>
+            )}
           </div>
         ) : null}
         {schemeTab === "config" ? (
@@ -132,12 +182,12 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
         <CostPanel option={option} />
       ) : null}
 
-      <div className="mt-8">
+      <div id="drawings" className="mt-8 scroll-mt-28">
         <DrawingUpload projectId={project.id} />
       </div>
 
-      <section className="mt-10 rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5">
-        <h2 className="text-lg font-semibold">LangGraph 运行轨迹</h2>
+      <details className="mt-10 rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5">
+        <summary className="cursor-pointer text-sm font-semibold">核算轨迹</summary>
         <ol className="mt-3 space-y-2 text-sm text-[#5c6754]">
           {(result.trace || []).map((step, index) => (
             <li key={`${step.node}-${index}`}>
@@ -154,11 +204,10 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
             </li>
           ))}
         </ol>
-      </section>
+      </details>
     </main>
   );
 }
-
 function AdviceCard({ item }: { item: AdviceItem }) {
   const tone =
     item.severity === "constraint"

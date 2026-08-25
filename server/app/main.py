@@ -98,6 +98,11 @@ def _public_result(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"service": "auckland-dev-cost", "status": "ok"}
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}

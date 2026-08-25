@@ -104,6 +104,24 @@ pnpm dev
 
 浏览器打开 `http://127.0.0.1:43124`。输入 `55 Nelson Street` 会列出 Howick 与 Auckland Central 等多条议会地址，必须点选一条。输入 `115 Bruce Road Glenfield` 时议会已无整宗 115，只会列出拆分后的 115A–F；点选其中一户后，页面只显示该户的议会地籍，并筛掉需要整宗地的方案。
 
+## 生产部署
+
+先构建前端，再同时拉起 API 与 Next：
+
+```bash
+cd web && pnpm install && pnpm build && cd ..
+./scripts/start-prod.sh
+```
+
+或使用 Docker（容器内 127.0.0.1:8764 给 Next 调用，对外只暴露 `$PORT`，默认 43124）：
+
+```bash
+docker build -t auckland-dev-cost .
+docker run --rm -p 43124:43124 auckland-dev-cost
+```
+
+`ENGINE_URL` 默认 `http://127.0.0.1:8764`。不要把 GitHub PAT 或议会密钥写进镜像。
+
 第二阶段在项目页上传 RC/BC PDF。正式 LIM 也在项目页由客户上传议会 PDF，只读文字层。仓库不附带某块地的批准图或 LIM；没有文字层的扫描件无法量尺寸或核对 LIR。门窗表对得上公开尺寸（例如 1800×1200、1200×1200 新铝窗，或 Hume 860 门扇）才计价，其余樘标缺项。
 
 ## 架构要点

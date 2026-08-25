@@ -1,0 +1,11 @@
+.git
+**/.venv
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+server/data
+agent-tools
+**/.DS_Store
+web/AGENTS.md
+web/CLAUDE.md

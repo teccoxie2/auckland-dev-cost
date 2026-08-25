@@ -12,9 +12,19 @@ function SubmitButton({ canSubmit }: { canSubmit: boolean }) {
   const { pending } = useFormStatus();
   const disabled = pending || !canSubmit;
   return (
-    <Button type="submit" disabled={disabled} className="h-12 px-6">
+    <Button type="submit" disabled={disabled} className="h-12 w-full px-6 sm:w-auto" aria-busy={pending}>
       {pending ? "正在读地并出初版方案…" : "读取地块并出初版方案"}
     </Button>
+  );
+}
+
+function BusyNote() {
+  const { pending } = useFormStatus();
+  if (!pending) return null;
+  return (
+    <p className="mt-4 rounded-lg bg-[#eef3ea] px-3 py-2 text-sm leading-6 text-[#2f4a32]" role="status" aria-live="polite">
+      正在读取议会地址、地籍、区划和坡度，通常需要十几秒到一分钟。请不要关闭页面。
+    </p>
   );
 }
 
@@ -233,6 +243,7 @@ export default function AddressForm({
           {splitNote}
         </p>
       ) : null}
+      <BusyNote />
       {selected ? (
         <p className="mt-4 text-sm text-[#2f6b4f]">已选择 {selected.full_address}</p>
       ) : query.trim().length >= 3 ? (
