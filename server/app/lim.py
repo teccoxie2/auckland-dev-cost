@@ -134,7 +134,22 @@ NOT_QUERIED: list[dict[str, str]] = [
     {
         "id": "wind_zone",
         "label_zh": "NZS 3604 风区",
-        "reason": "正式 LIM 的 Wind Zones 来自议会记录（例如 Low 32 m/s）。没有稳定的公开风区 FeatureServer，不编造风区，也不改 E2 计分。",
+        "reason": "正式 LIM 的 Wind Zones 来自议会记录（NZS 3604）。没有稳定的公开风区 FeatureServer，不编造风区，也不改 E2 计分。",
+        "source_url": LIM_ABOUT_URL,
+    },
+    {
+        "id": "exposure_zone",
+        "label_zh": "NZS 3604 腐蚀分区 Exposure Zones",
+        "reason": "正式 LIM 才有 Extreme Sea Spray / B / C / D，或写明 Unknown。没有稳定的公开腐蚀分区图层，不编造。",
+        "source_url": LIM_ABOUT_URL,
+    },
+    {
+        "id": "coastal_erosion",
+        "label_zh": "海岸侵蚀 ASCIE",
+        "reason": (
+            "正式 LIM 每份都有 Coastal Erosion 栏，附图才显示未来 100 年不稳定线。"
+            "公开 1% AEP +1m 淹没图不是 ASCIE，不能互相替代。"
+        ),
         "source_url": LIM_ABOUT_URL,
     },
     {
@@ -159,6 +174,13 @@ DISCLAIMER_ZH = (
     "不能代替议会 LIM 里的管网 LIR、许可、风区、污染监管记录与费率。"
 )
 
+# 正式 LIM 每份都有这段 Flooding 说明，不是某一户的结论。
+FLOODING_ALL_LIMS_ZH = (
+    "正式 LIM 每份都有 Flooding 栏。附图与 GeoMaps 洪水图同源，并会更新。"
+    "图上无洪水不排除地面径流淹没，尤其是来自邻户的路径。"
+    "开发可能需要申请人提供洪水评估。"
+)
+
 
 def lim_fee_snapshot() -> dict[str, Any]:
     table = council_fees()["lim_report"]
@@ -178,7 +200,7 @@ def lim_fee_snapshot() -> dict[str, Any]:
 
 
 def unavailable_lim(note: str) -> dict[str, Any]:
-    return {
+    report = {
         "status": "unavailable",
         "is_official_lim": False,
         "disclaimer_zh": DISCLAIMER_ZH,
@@ -199,6 +221,8 @@ def unavailable_lim(note: str) -> dict[str, Any]:
         "note": note,
         "fee": lim_fee_snapshot(),
     }
+    report["sections"] = lim_sections_from_report(report)
+    return report
 
 
 def lookup_lim(site: dict[str, Any]) -> dict[str, Any]:
@@ -226,7 +250,7 @@ def _lookup_lim(site: dict[str, Any]) -> dict[str, Any]:
     note = DISCLAIMER_ZH
     if timed_out:
         note += " 超时未读：" + "、".join(timed_out) + "。"
-    return {
+    report = {
         "status": "checked",
         "is_official_lim": False,
         "disclaimer_zh": DISCLAIMER_ZH,
@@ -241,6 +265,223 @@ def _lookup_lim(site: dict[str, Any]) -> dict[str, Any]:
         "note": note,
         "fee": lim_fee_snapshot(),
     }
+    report["sections"] = lim_sections_from_report(report)
+    return report
+
+
+def lim_sections_from_report(report: dict[str, Any]) -> list[dict[str, Any]]:
+    layers = report.get("layers") or []
+    constraints = report.get("constraints") or {}
+    by_id = {item.get("id"): item for item in layers if item.get("id")}
+    report_status = report.get("status")
+
+    def state_for(*layer_ids: str, present: bool | None = None) -> str:
+        chosen = [by_id.get(layer_id) or {} for layer_id in layer_ids]
+        if present:
+            return "public_hit"
+        if report_status == "unavailable" and not any(chosen):
+            return "unavailable"
+        if any(item.get("present") for item in chosen):
+            return "public_hit"
+        if any(item.get("error") for item in chosen):
+            return "timeout"
+        if any(item for item in chosen):
+            return "public_clear"
+        return "unavailable"
+
+    landfill = by_id.get("landfill") or {}
+    contamination_state = state_for("landfill", present=bool(constraints.get("landfill")))
+    if contamination_state == "public_hit":
+        contamination_body = (
+            "公开填埋点在本户附近命中。这不能写成正式 LIM 的 Site Contamination，也不能当成 HAIL。"
+            "NES-CS 初步调查没有公开零售单价，已标缺项。"
+        )
+    elif contamination_state == "public_clear":
+        contamination_body = (
+            "公开填埋点未与本户相交。正式 LIM 的 Site Contamination 来自议会监管记录；"
+            "公开图层不能代替这份监管记录，流域多边形也不能当成这一户 HAIL。"
+        )
+    else:
+        contamination_body = (
+            "未读到公开填埋点。正式 LIM 才有议会监管污染记录。"
+        )
+
+    flood_state = state_for(
+        "flood_plains",
+        "flood_prone",
+        "flood_sensitive",
+        present=bool(constraints.get("flood")),
+    )
+    if flood_state == "public_hit":
+        flood_body = "公开洪水平原、易涝区或洪水敏感区与本户相交。这不是禁建，也不等于正式 LIM 结论。"
+    elif flood_state == "public_clear":
+        flood_body = "公开洪水平原/易涝区未与本户相交。"
+    elif flood_state == "timeout":
+        flood_body = "公开洪水图层超时或失败，失败开放。"
+    else:
+        flood_body = "未读到公开洪水图层。"
+    flood_body += " " + FLOODING_ALL_LIMS_ZH
+
+    olfp = by_id.get("overland_flow_paths") or {}
+    olfp_state = state_for("overland_flow_paths", present=bool(constraints.get("overland_flow")))
+    olfp_sample = olfp.get("sample") or {}
+    groups = olfp_sample.get("groups") or olfp_sample.get("CatchmentAreaGroup_label")
+    if olfp_state == "public_hit":
+        extra = f"汇水 {groups}。" if groups else ""
+        olfp_body = (
+            "公开 Overland Flow Path 与本户地块外包矩形相交。"
+            + extra
+            + "正式 LIM 按地块空间相交写明；路径可能随降雨淹没；Unitary Plan 对路径内或邻近工程有规则。"
+            "门牌点查询会漏。不是禁建。"
+        )
+    elif olfp_state == "public_clear":
+        olfp_body = (
+            "抽查的公开地面径流未与本户外包矩形相交。正式 LIM 仍可能因邻户路径或更新后的地形写明相交。"
+        )
+    elif olfp_state == "timeout":
+        olfp_body = "公开地面径流图层超时或失败。必须用地块外包矩形再查，不能改用编造路径。"
+    else:
+        olfp_body = "未读到公开地面径流。正式 LIM 才按地块写明是否与路径相交。"
+
+    landslide_value = constraints.get("landslide")
+    soil_state = state_for("landslide")
+    if landslide_value in {"Moderate", "High"}:
+        soil_state = "public_hit"
+        soil_body = (
+            f"公开大尺度滑坡易发性为 {landslide_value}。正式 LIM 的 Soil Issues 才是议会监管记录。"
+            "岩土报告没有公开零售单价，已标缺项。不是禁建。"
+        )
+    elif soil_state == "public_clear" or landslide_value == "Low":
+        soil_state = "public_clear"
+        soil_body = (
+            "公开大尺度滑坡为 Low 或未达 Moderate/High。正式 LIM 的 Soil Issues 才是议会监管记录；"
+            "全区 Low 分区不按约束列出。"
+        )
+    elif soil_state == "timeout":
+        soil_body = "公开滑坡图层超时或失败，失败开放。不把全区 Low 当成约束。"
+    elif soil_state == "public_hit":
+        soil_state = "public_clear"
+        soil_body = (
+            "公开滑坡图层有覆盖，但未读到 Moderate/High。正式 LIM 的 Soil Issues 才是议会监管记录；"
+            "全区分区不按约束列出。"
+        )
+    else:
+        soil_body = "未读到公开滑坡分区。正式 LIM 的 Soil Issues 才是议会监管记录。"
+
+    coastal_state = state_for("coastal_inundation", present=bool(constraints.get("coastal_inundation")))
+    if coastal_state == "public_hit":
+        coastal_body = (
+            "公开沿海淹没（1% AEP +1m 海平面）与本户相交。这不是正式 LIM 的 Coastal Erosion / ASCIE 线。"
+        )
+    elif coastal_state == "public_clear":
+        coastal_body = "公开 1% AEP +1m 淹没图未与本户相交。"
+    elif coastal_state == "timeout":
+        coastal_body = "公开沿海淹没图层超时或失败，失败开放。"
+    else:
+        coastal_body = "未读到公开沿海淹没图层。"
+    coastal_body += " 正式 LIM 每份都有 Coastal Erosion 栏；ASCIE 不稳定线没有稳定公开查询，不编造。"
+
+    return [
+        {
+            "id": "site_contamination",
+            "heading_en": "Site Contamination",
+            "heading_zh": "场地污染",
+            "s44a": "s44A(2)(a)",
+            "state": contamination_state,
+            "body_zh": contamination_body,
+            "source_url": (landfill.get("source_url") or f"{HEALTHY_WATERS}/wm_Contaminant_Sources_Public/FeatureServer/12"),
+        },
+        {
+            "id": "wind_zones",
+            "heading_en": "Wind Zones",
+            "heading_zh": "风区",
+            "s44a": "s44A(2)(a)",
+            "state": "official_only",
+            "body_zh": "正式 LIM 才有 NZS 3604 风区。没有稳定的公开风区图层，不编造，也不改 E2 计分。",
+            "source_url": LIM_ABOUT_URL,
+        },
+        {
+            "id": "soil_issues",
+            "heading_en": "Soil Issues",
+            "heading_zh": "土壤",
+            "s44a": "s44A(2)(a)",
+            "state": soil_state,
+            "body_zh": soil_body,
+            "source_url": f"{HEALTHY_WATERS}/Large_Scale_Landslide_Susceptibility/FeatureServer/0",
+        },
+        {
+            "id": "flooding",
+            "heading_en": "Flooding",
+            "heading_zh": "洪水",
+            "s44a": "s44A(2)(a)",
+            "state": flood_state,
+            "body_zh": flood_body,
+            "source_url": f"{HEALTHY_WATERS}/Flood_Plains/FeatureServer/0",
+        },
+        {
+            "id": "overland_flow",
+            "heading_en": "Overland Flow Path",
+            "heading_zh": "地面径流",
+            "s44a": "s44A(2)(a)",
+            "state": olfp_state,
+            "body_zh": olfp_body,
+            "source_url": f"{HEALTHY_WATERS}/Overland_Flow_Paths/FeatureServer/0",
+        },
+        {
+            "id": "exposure_zones",
+            "heading_en": "Exposure Zones",
+            "heading_zh": "腐蚀分区",
+            "s44a": "s44A(2)(a)",
+            "state": "official_only",
+            "body_zh": "正式 LIM 才有 NZS 3604 腐蚀分区，或写明 Unknown / Unassessed。没有稳定公开图层，不编造。",
+            "source_url": LIM_ABOUT_URL,
+        },
+        {
+            "id": "coastal",
+            "heading_en": "Coastal Erosion / Inundation",
+            "heading_zh": "海岸侵蚀与淹没",
+            "s44a": "s44A(2)(a)",
+            "state": coastal_state if coastal_state != "public_clear" else "public_clear",
+            "body_zh": coastal_body,
+            "source_url": f"{HEALTHY_WATERS}/Coastal_Inundation_1_AEP_1m_sea_level_rise/FeatureServer/0",
+        },
+        {
+            "id": "drainage",
+            "heading_en": "Stormwater and sewerage drains",
+            "heading_zh": "雨污管网",
+            "s44a": "s44A(2)(b)",
+            "state": "official_only",
+            "body_zh": (
+                "正式 LIM 才有私有/公共雨污管图和 LIR。"
+                "公开 GIS 读不到开发限制通知。可能写明在雨水管容量足够之前不得继续开发，以及业主接到公共管的责任。"
+                "不把某一户的 LIR 编号套到其他地址。"
+            ),
+            "source_url": LIM_ABOUT_URL,
+        },
+        {
+            "id": "consents",
+            "heading_en": "Consents, certificates and notices",
+            "heading_zh": "许可与通知",
+            "s44a": "s44A(2)(d)",
+            "state": "official_only",
+            "body_zh": (
+                "正式 LIM 才列出建工许可、资源许可、车辆出入口和 weathertight 通知。"
+                "公开区划不能代替这份清单。许可条件可能限制管网附近的挡土墙或排水改道。"
+            ),
+            "source_url": LIM_ABOUT_URL,
+        },
+        {
+            "id": "planning",
+            "heading_en": "Resource Management",
+            "heading_zh": "规划",
+            "s44a": "s44A(2)(d)",
+            "state": "official_only",
+            "body_zh": (
+                "本页区划来自公开 Unitary Plan 图层。正式 LIM 另有资源许可、细分许可和工程批准清单，公开区划不能代替。"
+            ),
+            "source_url": LIM_ABOUT_URL,
+        },
+    ]
 
 
 def lim_advice(site: dict[str, Any]) -> list[dict[str, Any]]:
@@ -594,7 +835,7 @@ def _layer_evidence(lim: dict[str, Any], ids: set[str]) -> str:
             continue
         sample = item.get("sample") or {}
         detail = "，".join(f"{key}={sample[key]}" for key in list(sample)[:4])
-        bits.append(f"{item['label_zh']}" + (f"（{detail}）" if detail else ""))
+        bits.append(f"{item.get('label_zh') or item.get('id')}" + (f"（{detail}）" if detail else ""))
     return (" 命中：" + "；".join(bits) + "。") if bits else ""
 
 

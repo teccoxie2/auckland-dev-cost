@@ -33,7 +33,7 @@ from .gis import (
     lookup_terrain,
     lookup_zone,
 )
-from .lim import lim_advice, lookup_lim, unavailable_lim
+from .lim import lim_advice, lim_sections_from_report, lookup_lim, unavailable_lim
 from .site_vision import analyze_site, unavailable_analysis, vision_advice
 from .zoning import apply_zone_rules, filter_template, is_existing_unit_title
 
@@ -229,6 +229,7 @@ def lim_node(state: ProjectState) -> dict[str, Any]:
         key
         for key, value in (
             ("flood", constraints.get("flood")),
+            ("overland", constraints.get("overland_flow")),
             ("coastal", constraints.get("coastal_inundation")),
             ("landfill", constraints.get("landfill")),
         )
@@ -544,6 +545,12 @@ def hydrate_lim(result: dict[str, Any]) -> dict[str, Any] | None:
         changed = True
     if not site.get("lim"):
         return None
+    report = dict(site["lim"])
+    sections = lim_sections_from_report(report)
+    if report.get("sections") != sections:
+        report["sections"] = sections
+        site["lim"] = report
+        changed = True
     updated = dict(result)
     updated["site"] = site
     kept = [item for item in (updated.get("advice") or []) if not str(item.get("id") or "").startswith("lim_")]

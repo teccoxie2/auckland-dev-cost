@@ -213,6 +213,15 @@ export interface ProjectRecord {
           landfill?: boolean;
           landslide?: string | null;
         };
+        sections?: Array<{
+          id: string;
+          heading_en?: string;
+          heading_zh?: string;
+          s44a?: string;
+          state?: string;
+          body_zh?: string;
+          source_url?: string;
+        }>;
         fee?: {
           standard_fee?: number;
           urgent_fee?: number;

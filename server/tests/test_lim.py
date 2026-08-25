@@ -3,7 +3,7 @@ import pytest
 from app.costing import ensure_lim_cost_on_options, lim_statutory_lines
 from app.design import _vision_penalty, generate_typology_options
 from app.graph import hydrate_lim, lim_node
-from app.lim import LAYERS, NOT_QUERIED, lim_advice, lookup_lim, unavailable_lim
+from app.lim import LAYERS, NOT_QUERIED, lim_advice, lim_sections_from_report, lookup_lim, unavailable_lim
 from app.pricing import lim_report_fee
 
 
@@ -127,12 +127,54 @@ def test_lim_advice_from_explicit_hits_is_not_an_official_pdf():
     assert "lim_landfill" not in items
 
 
+def test_lim_sections_follow_official_headings_without_copying_a_pdf():
+    report = {
+        "status": "checked",
+        "constraints": {
+            "flood": False,
+            "overland_flow": True,
+            "coastal_inundation": False,
+            "landfill": False,
+            "landslide": "Low",
+        },
+        "layers": [
+            {"id": "flood_plains", "present": False},
+            {"id": "flood_prone", "present": False},
+            {"id": "flood_sensitive", "present": False},
+            {
+                "id": "overland_flow_paths",
+                "present": True,
+                "sample": {"groups": "2000m²–4000m²、4000m²–1ha"},
+            },
+            {"id": "landfill", "present": False},
+            {"id": "landslide", "present": True, "sample": {"SusceptibilityValue": "Low"}},
+            {"id": "coastal_inundation", "present": False},
+        ],
+    }
+    by_id = {item["id"]: item for item in lim_sections_from_report(report)}
+    assert by_id["flooding"]["state"] == "public_clear"
+    assert "不排除" in by_id["flooding"]["body_zh"]
+    assert "每份都有" in by_id["flooding"]["body_zh"]
+    assert by_id["overland_flow"]["state"] == "public_hit"
+    assert "2000m²–4000m²" in by_id["overland_flow"]["body_zh"]
+    assert by_id["site_contamination"]["state"] == "public_clear"
+    assert "无污染" not in by_id["site_contamination"]["body_zh"]
+    assert by_id["wind_zones"]["state"] == "official_only"
+    assert "32 m/s" not in by_id["wind_zones"]["body_zh"]
+    assert "LIR_00014017" not in by_id["drainage"]["body_zh"]
+    assert by_id["drainage"]["state"] == "official_only"
+    assert by_id["consents"]["state"] == "official_only"
+    assert by_id["soil_issues"]["state"] == "public_clear"
+
+
 def test_catchment_contaminant_layer_is_not_queried_as_hail():
     assert all("FeatureServer/9" not in layer["url"] for layer in LAYERS)
     assert any(item["id"] == "overland_flow_paths" for item in LAYERS)
     assert all(item["id"] != "overland_flow_paths" for item in NOT_QUERIED)
     assert any(item["id"] == "contaminated_sites_catchment" for item in NOT_QUERIED)
     assert any(item["id"] == "drainage_lir" for item in NOT_QUERIED)
+    assert any(item["id"] == "exposure_zone" for item in NOT_QUERIED)
+    assert any(item["id"] == "coastal_erosion" for item in NOT_QUERIED)
     assert all(layer["id"] != "contaminated_sites_catchment" for layer in LAYERS)
 
 
@@ -181,6 +223,52 @@ def test_inject_lim_fee_onto_existing_option_lines():
     assert sum(1 for item in again[0]["lines"] if item["id"] == "lim_report_fee") == 1
 
 
+def test_hydrate_lim_adds_official_sections_without_requery(monkeypatch):
+    called = {"n": 0}
+
+    def boom(_site):
+        called["n"] += 1
+        raise AssertionError("已有 OLFP 层时不应再查公开图层")
+
+    monkeypatch.setattr("app.graph.lookup_lim", boom)
+    result = {
+        "site": {
+            "geo": {"lat": -36.8, "lon": 174.7},
+            "lim": {
+                "status": "checked",
+                "layers": [
+                    {"id": "flood_plains", "label_zh": "洪水平原", "present": False},
+                    {
+                        "id": "overland_flow_paths",
+                        "label_zh": "地面径流",
+                        "present": True,
+                        "sample": {"groups": "4000m²–1ha"},
+                    },
+                ],
+                "constraints": {
+                    "flood": False,
+                    "overland_flow": True,
+                    "coastal_inundation": False,
+                    "landfill": False,
+                    "landslide": None,
+                },
+                "findings": ["公开地面径流与本户相交。"],
+                "not_queried": list(NOT_QUERIED),
+                "fee": lim_report_fee(),
+            },
+        },
+        "explanation": "LIM 公开核对：公开地面径流与本户相交。",
+        "options": [],
+        "advice": [],
+    }
+    updated = hydrate_lim(result)
+    assert called["n"] == 0
+    assert updated is not None
+    sections = {item["id"]: item for item in updated["site"]["lim"]["sections"]}
+    assert sections["overland_flow"]["state"] == "public_hit"
+    assert sections["flooding"]["state"] == "public_clear"
+
+
 def test_hydrate_lim_skip_paths():
     assert hydrate_lim({"site": {}}) is None
     assert hydrate_lim({"error": {"message": "x"}, "site": {"geo": {"lat": -36.8, "lon": 174.7}}}) is None
@@ -208,6 +296,7 @@ def test_hydrate_lim_skip_paths():
         "explanation": "LIM 公开图层已核对，这不是已购买的正式 LIM PDF。",
         "options": [],
     }
+    already["site"]["lim"]["sections"] = lim_sections_from_report(already["site"]["lim"])
     already["advice"] = lim_advice(already["site"])
     assert hydrate_lim(already) is None
 
@@ -227,6 +316,10 @@ def test_unavailable_lim_is_not_sold_as_official():
     assert report["is_official_lim"] is False
     assert report["status"] == "unavailable"
     assert "正式 LIM" in report["disclaimer_zh"]
+    sections = {item["id"]: item for item in report["sections"]}
+    assert sections["wind_zones"]["state"] == "official_only"
+    assert sections["drainage"]["state"] == "official_only"
+    assert sections["flooding"]["state"] == "unavailable"
 
 
 def test_live_flood_plain_centroid_hits():
@@ -280,3 +373,8 @@ def test_live_howick_nelson_is_not_a_flood_or_hail_site():
     assert report["constraints"]["flood"] is False
     assert report["constraints"]["landfill"] is False
     assert report["is_official_lim"] is False
+    sections = {item["id"]: item for item in report["sections"]}
+    assert sections["flooding"]["state"] == "public_clear"
+    assert sections["overland_flow"]["state"] == "public_hit"
+    assert "不排除" in sections["flooding"]["body_zh"]
+    assert "32 m/s" not in sections["wind_zones"]["body_zh"]

@@ -30,7 +30,6 @@ export default function LimReport({ project }: { project: ProjectRecord }) {
   const layers = lim.layers || [];
   const notQueried = lim.not_queried || [];
   const hits = layers.filter((item) => item.present);
-  const timedOut = layers.filter((item) => item.error);
 
   return (
     <Card>
@@ -69,30 +68,40 @@ export default function LimReport({ project }: { project: ProjectRecord }) {
             }
             href={fee?.source_url || lim.order_url || ORDER_URL}
           />
-          <Fact
-            label="洪水 / 淹没"
-            value={floodLabel(lim)}
-          />
-          <Fact
-            label="地面径流"
-            value={
-              lim.constraints?.overland_flow
-                ? "公开 Overland Flow Path 与本户相交"
-                : "抽查范围内未命中"
-            }
-          />
-          <Fact
-            label="填埋点"
-            value={lim.constraints?.landfill ? "本户附近公开填埋点命中" : "抽查范围内未命中"}
-          />
-          <Fact
-            label="大尺度滑坡"
-            value={landslideLabel(lim, timedOut)}
-          />
         </dl>
 
         {lim.queried_at ? (
           <p className="mt-3 text-xs text-[#7b8474]">核对时刻 {formatAucklandTime(lim.queried_at)}（奥克兰）</p>
+        ) : null}
+
+        {(lim.sections || []).length ? (
+          <ol className="mt-5 grid gap-3 md:grid-cols-2">
+            {lim.sections?.map((section) => (
+              <li key={section.id} className="rounded-xl bg-[#f3eee4] px-3 py-3">
+                <p className="text-sm font-medium leading-6">
+                  {section.heading_zh}
+                  {section.heading_en ? (
+                    <span className="ml-2 text-xs font-normal text-[#7b8474]">{section.heading_en}</span>
+                  ) : null}
+                </p>
+                <p className="mt-1 text-xs text-[#7b8474]">
+                  {section.s44a ? `${section.s44a} · ` : ""}
+                  {sectionStateLabel(section.state)}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[#5c6754]">{section.body_zh}</p>
+                {section.source_url ? (
+                  <a
+                    href={section.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-block text-xs text-[#2f4a32]"
+                  >
+                    数据源
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </ol>
         ) : null}
 
         {lim.findings?.length ? (
@@ -101,7 +110,7 @@ export default function LimReport({ project }: { project: ProjectRecord }) {
               <li key={item}>{item}</li>
             ))}
           </ul>
-        ) : hits.length === 0 && lim.status === "checked" ? (
+        ) : hits.length === 0 && lim.status === "checked" && !(lim.sections || []).length ? (
           <p className="mt-4 text-sm leading-6 text-[#5c6754]" role="status">
             抽查的公开洪水、沿海淹没与填埋点未与本户相交。正式 LIM 仍可能有管网、许可、通知或其他灾害记录。
           </p>
@@ -148,7 +157,7 @@ export default function LimReport({ project }: { project: ProjectRecord }) {
           </div>
         ) : null}
 
-        {notQueried.length ? (
+        {notQueried.length && !(lim.sections || []).length ? (
           <div className="mt-4 rounded-xl bg-[#f3eee4] px-3 py-3">
             <p className="text-sm font-medium">未查询（避免误判）</p>
             <ul className="mt-2 space-y-2 text-xs leading-5 text-[#5c6754]">
@@ -177,23 +186,13 @@ export default function LimReport({ project }: { project: ProjectRecord }) {
   );
 }
 
-function floodLabel(lim: NonNullable<NonNullable<ProjectRecord["result"]["site"]>["lim"]>) {
-  const bits: string[] = [];
-  if (lim.constraints?.flood) bits.push("洪水图层命中");
-  if (lim.constraints?.coastal_inundation) bits.push("沿海淹没命中");
-  if (lim.constraints?.overland_flow) bits.push("地面径流命中");
-  return bits.length ? bits.join("，") : "洪水平原/易涝区未命中";
-}
-
-function landslideLabel(
-  lim: NonNullable<NonNullable<ProjectRecord["result"]["site"]>["lim"]>,
-  timedOut: Array<{ id: string }>,
-) {
-  if (timedOut.some((item) => item.id === "landslide")) return "查询超时，失败开放";
-  if (lim.constraints?.landslide === "Moderate" || lim.constraints?.landslide === "High") {
-    return lim.constraints.landslide;
-  }
-  return "正式 LIM 土壤栏另计；全区 Low 不按约束列出";
+function sectionStateLabel(state?: string) {
+  if (state === "public_hit") return "公开图层命中";
+  if (state === "public_clear") return "公开图层未命中";
+  if (state === "official_only") return "正式 LIM 才有";
+  if (state === "timeout") return "查询超时，失败开放";
+  if (state === "unavailable") return "未读到公开图层";
+  return "未核对";
 }
 
 function layerStatus(layer: { present?: boolean; error?: string | null; count?: number }) {
