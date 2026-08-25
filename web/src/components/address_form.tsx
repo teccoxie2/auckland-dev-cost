@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { createProjectAction } from "@/app/actions";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,13 @@ function SubmitButton({ canSubmit }: { canSubmit: boolean }) {
   );
 }
 
-export default function AddressForm() {
+export default function AddressForm({
+  embedded = false,
+  children,
+}: {
+  embedded?: boolean;
+  children?: ReactNode;
+}) {
   const listId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
@@ -110,7 +116,7 @@ export default function AddressForm() {
       onSubmit={(event) => {
         if (!selected) event.preventDefault();
       }}
-      className="rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 shadow-[0_12px_40px_rgba(40,32,18,0.06)] sm:p-7"
+      className={embedded ? "" : "rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 shadow-[0_12px_40px_rgba(40,32,18,0.06)] sm:p-7"}
     >
       {selected ? (
         <>
@@ -237,6 +243,7 @@ export default function AddressForm() {
           {state.error}
         </p>
       ) : null}
+      {children}
       <p className="mt-4 text-xs leading-5 text-[#7b8474]">
         地址来自 Auckland Council AC_Address 公开图层，与 GeoMaps 同一套门牌数据。材料以 Bunnings 公开 SKU
         为主，法定费用以 Auckland Council / Watercare 官方表为准。厨房柜体按 Kaboodle SKU 计，电器安装和未命中尺寸的铝窗仍标缺项。

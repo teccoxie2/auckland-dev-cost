@@ -40,11 +40,6 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
     );
   }
 
-  const parcel = result.site?.parcel;
-  const cluster = result.site?.subdivision;
-  const terrain = result.site?.terrain;
-  const overlays = (result.site?.overlays || []).filter((item) => item.present);
-
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
       <Link href="/" className="text-sm text-[#2f4a32]">
@@ -64,58 +59,6 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
 
       <section className="mt-6">
         <SiteSnapshot project={project} />
-      </section>
-
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Fact
-          label="规范地址"
-          value={result.site?.geo.display_name || "—"}
-          href={result.site?.geo.source_url}
-        />
-        <Fact
-          label="Unitary Plan 区划"
-          value={result.site?.zone?.zone_name || "—"}
-          href={result.site?.zone?.source_url}
-        />
-        <Fact
-          label="本户地块"
-          value={parcel?.found && parcel.area_m2 ? `${parcel.area_m2} m²` : parcel?.note || "未读到"}
-          href={parcel?.source_url}
-        />
-        {cluster?.found ? (
-          <Fact
-            label="议会现址"
-            value={
-              cluster.selected_unit
-                ? `${cluster.selected_unit}${cluster.unit_count ? ` · 同号 ${cluster.unit_count} 户需分别点选` : ""}`
-                : cluster.note || "—"
-            }
-            href={cluster.source_url}
-          />
-        ) : null}
-        <Fact
-          label="DEM 坡度 / 高差"
-          value={
-            terrain?.slope_deg != null
-              ? `${terrain.slope_deg}° · ${terrain.height_range_m} m`
-              : terrain?.note || "未读到"
-          }
-          href={terrain?.source_url}
-        />
-        <Fact label="许可套数（规则表）" value={`${result.rules?.permitted_dwellings ?? "—"} 套`} />
-        <Fact
-          label="覆盖率上限"
-          value={
-            parcel?.found && parcel.area_m2 && result.rules?.coverage
-              ? `本户约 ${Math.round(parcel.area_m2 * result.rules.coverage)} m² 占地`
-              : `${intPct(result.rules?.coverage)} 覆盖率`
-          }
-        />
-        <Fact
-          label="叠加层命中"
-          value={overlays.length ? overlays.map((item) => item.key).join("、") : "抽查层未命中"}
-        />
-        <Fact label="地籍" value={parcel?.legal_description || parcel?.formatted_address || "—"} />
       </section>
 
       {(result.advice || []).length ? (
@@ -200,25 +143,6 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
         </ol>
       </section>
     </main>
-  );
-}
-
-function intPct(value?: number) {
-  if (value == null) return "—";
-  return `${Math.round(value * 100)}%`;
-}
-
-function Fact({ label, value, href }: { label: string; value: string; href?: string }) {
-  return (
-    <div className="rounded-xl border border-[#d9d0c0] bg-[#fffaf3] px-4 py-3">
-      <p className="text-xs text-[#7b8474]">{label}</p>
-      <p className="mt-1 text-sm font-medium leading-6">{value}</p>
-      {href ? (
-        <a href={href} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-[#2f4a32]">
-          数据源
-        </a>
-      ) : null}
-    </div>
   );
 }
 

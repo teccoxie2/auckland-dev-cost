@@ -51,3 +51,9 @@ Done
 Done
 
 项目持久化为关系表（项目 / 地块快照 / 方案 / 成本版本 / 图纸集 / 价表版本），默认 SQLite，可用 `DATABASE_URL` 切 Postgres。单价只经 PriceProvider（价表优先、API 预留）。图改为 geocode→land→rules→typology→quantity→building_rules→cost→explain→pm_gate，checkpoint 落盘，`interrupt()` 留给后期 PM 面板。屋主页加地块快照、方案对比与成本树。
+
+## 首页改为已查询项目下拉
+
+Done
+
+去掉「已建项目」长列表。同一地址只保留最近一次查询，收进地址卡片底部的下拉；项目页地块信息不再与快照重复罗列。

@@ -1,6 +1,5 @@
-import Link from "next/link";
 import AddressForm from "@/components/address_form";
-import { Card } from "@/components/ui/card";
+import RecentQueries from "@/components/recent_queries";
 import { listProjects } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
@@ -11,55 +10,24 @@ export default async function HomePage() {
   try {
     projects = await listProjects();
   } catch {
-    listError = "暂时读不到已建项目（核算服务未启动时会这样）。你仍可以直接输入地址开始核算。";
+    listError = "暂时读不到已查询的项目，仍可直接检索议会地址。";
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-8 sm:px-8">
-      <header className="mb-10 flex items-end justify-between gap-4">
-        <div>
-          <p className="text-sm tracking-[0.18em] text-[#7a5a2b]">AUCKLAND · MVP</p>
-          <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">奥克兰住宅开发核算台</h1>
-          <p className="mt-3 max-w-2xl text-[15px] leading-7 text-[#5c6754]">
-            从奥克兰议会地址库选出物业后，系统读取地块面积、Unitary Plan 区划和 DEM 坡度，给出适合这块地的初版方案。开发完成后的拆分门牌（例如 115 Bruce 现址为 115A–F）只显示当前选中这一户的议会数据，并筛掉放不进本户的整宗方案。
-          </p>
-        </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-10 sm:px-6">
+      <header className="mb-8">
+        <p className="text-sm tracking-[0.18em] text-[#7a5a2b]">AUCKLAND</p>
+        <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">奥克兰住宅开发核算台</h1>
+        <p className="mt-3 max-w-2xl text-[15px] leading-7 text-[#5c6754]">
+          从议会地址库点选物业，读取地块与区划后给出适合这块地的初版方案。拆分门牌只核算当前这一户。
+        </p>
       </header>
 
-      <AddressForm />
-
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold">已建项目</h2>
-        {listError ? (
-          <p className="mt-3 text-sm text-[#9a6b12]">{listError}</p>
-        ) : projects.length === 0 ? (
-          <p className="mt-3 rounded-xl border border-dashed border-[#d9d0c0] px-4 py-8 text-sm text-[#5c6754]">
-            还没有项目。从议会地址库选出物业后会保存在本机工作台，可同时对比多块地。
-          </p>
-        ) : (
-          <ul className="mt-4 grid gap-3">
-            {projects.map((project) => (
-              <li key={project.id}>
-                <Card>
-                  <Link
-                    href={`/projects/${project.id}`}
-                    className="flex items-center justify-between px-4 py-4"
-                  >
-                      <span>
-                        <span className="block font-medium">{project.address}</span>
-                        <span className="mt-1 block text-xs text-[#7b8474]">
-                          {new Date(project.created_at).toLocaleString("zh-CN")} ·{" "}
-                          {project.status === "ready" ? "已核算" : project.status === "running" ? "核算中" : "失败"}
-                        </span>
-                      </span>
-                      <span className="text-sm text-[#2f4a32]">查看方案</span>
-                    </Link>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <div className="rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-5 shadow-[0_12px_40px_rgba(40,32,18,0.06)] sm:p-7">
+        <AddressForm embedded>
+          <RecentQueries projects={projects} error={listError} />
+        </AddressForm>
+      </div>
     </div>
   );
 }
