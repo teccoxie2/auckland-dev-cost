@@ -156,24 +156,61 @@ def collect_imagery(site: dict[str, Any]) -> list[dict[str, Any]]:
     return frames
 
 
-def lookup_building_outlines(site: dict[str, Any]) -> dict[str, Any]:
+QUERY_PAD_DEG = 0.002
+KEEP_PAD_DEG = 0.00006
+
+
+def _centroid(rings: list[list[list[float]]]) -> tuple[float, float] | None:
+    points = [point for ring in rings for point in ring]
+    if not points:
+        return None
+    lon = sum(point[0] for point in points) / len(points)
+    lat = sum(point[1] for point in points) / len(points)
+    return lon, lat
+
+
+def _in_box(lon: float, lat: float, box: dict[str, float], pad: float) -> bool:
+    return (
+        box["min_lon"] - pad <= lon <= box["max_lon"] + pad
+        and box["min_lat"] - pad <= lat <= box["max_lat"] + pad
+    )
+
+
+def _keep_box(site: dict[str, Any]) -> dict[str, float] | None:
     box = _bbox(site)
-    if not box:
+    if box:
+        return box
+    geo = site.get("geo") or {}
+    if geo.get("lat") is None or geo.get("lon") is None:
+        return None
+    lat = float(geo["lat"])
+    lon = float(geo["lon"])
+    pad = 0.00015
+    return {"min_lon": lon - pad, "max_lon": lon + pad, "min_lat": lat - pad, "max_lat": lat + pad}
+
+
+def lookup_building_outlines(site: dict[str, Any]) -> dict[str, Any]:
+    keep_box = _keep_box(site)
+    if not keep_box:
         return {"found": False, "note": "没有地块范围，无法查询 LINZ 屋顶轮廓。"}
-    envelope = f"{box['min_lon']},{box['min_lat']},{box['max_lon']},{box['max_lat']}"
+    envelope = (
+        f"{keep_box['min_lon'] - QUERY_PAD_DEG},{keep_box['min_lat'] - QUERY_PAD_DEG},"
+        f"{keep_box['max_lon'] + QUERY_PAD_DEG},{keep_box['max_lat'] + QUERY_PAD_DEG}"
+    )
     try:
-        with _client(timeout=8.0) as client:
+        with _client(timeout=20.0) as client:
             response = client.get(
                 BUILDING_OUTLINES,
                 params={
                     "geometry": envelope,
                     "geometryType": "esriGeometryEnvelope",
                     "inSR": 4326,
+                    "outSR": 4326,
                     "spatialRel": "esriSpatialRelIntersects",
                     "outFields": "*",
-                    "returnGeometry": "false",
+                    "returnGeometry": "true",
                     "f": "json",
-                    "resultRecordCount": 25,
+                    "resultRecordCount": 200,
                 },
             )
             response.raise_for_status()
@@ -185,6 +222,10 @@ def lookup_building_outlines(site: dict[str, Any]) -> dict[str, Any]:
     buildings = []
     total_m2 = 0.0
     for feature in payload.get("features") or []:
+        rings = ((feature.get("geometry") or {}).get("rings")) or []
+        center = _centroid(rings)
+        if center is None or not _in_box(center[0], center[1], keep_box, KEEP_PAD_DEG):
+            continue
         attrs = feature.get("attributes") or {}
         area = attrs.get("Shape__Area")
         try:
@@ -211,7 +252,10 @@ def lookup_building_outlines(site: dict[str, Any]) -> dict[str, Any]:
         "roof_area_m2": round(total_m2, 1),
         "parcel_coverage": coverage,
         "buildings": buildings,
-        "note": "与地块外包矩形相交，可能含邻户屋顶。面积来自 LINZ 屋顶轮廓，不是议会地籍面积。",
+        "note": (
+            "先按约 200 m 范围查询 LINZ 屋顶轮廓，再只保留质心落在本户地块外包矩形（外扩约 7 m）内的记录。"
+            "面积来自该图层，不是议会地籍面积。"
+        ),
         "source_name": "LINZ NZ Building Outlines",
         "source_url": BUILDING_ABOUT,
     }

@@ -51,7 +51,7 @@
       "name": "LINZ NZ Building Outlines",
       "url": "https://services.arcgis.com/xdsHIIxuCWByZiCB/arcgis/rest/services/LINZ_NZ_Building_Outlines/FeatureServer/0",
       "used_for": "site_vision",
-      "note": "屋顶轮廓与地籍外包矩形相交；失败则空结果，不把地块当成空地。"
+      "note": "约 200 m 范围查询后再按本户地块外包矩形过滤。很小的外包矩形直接查询会超时；失败则空结果，不把地块当成空地。"
     }
   ],
   "zone_rule_table": "server/app/data/zone_rules.json"

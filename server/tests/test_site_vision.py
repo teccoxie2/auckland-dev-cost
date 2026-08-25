@@ -113,6 +113,25 @@ def test_hydrate_site_analysis_skip_paths():
     assert hydrate_site_analysis(already) is None
 
 
+def test_needs_site_analysis_retries_outline_timeout():
+    from app.graph import _needs_site_analysis
+
+    assert _needs_site_analysis(
+        {
+            "imagery": [{"id": "current_export"}],
+            "vision": {"status": "imagery_only"},
+            "buildings": {"found": False, "note": "LINZ 屋顶轮廓查询失败：The read operation timed out"},
+        }
+    )
+    assert not _needs_site_analysis(
+        {
+            "imagery": [{"id": "current_export"}],
+            "vision": {"status": "imagery_only"},
+            "buildings": {"found": True, "count": 1},
+        }
+    )
+
+
 def test_site_vision_node_fail_open():
     assert site_vision_node({"error": {"message": "geocode failed"}}) == {}
     empty = site_vision_node({"site": {}, "rules": {}})

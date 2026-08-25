@@ -408,6 +408,16 @@ def configure_option(site: dict[str, Any], rules: dict[str, Any], spec: dict[str
     return costed_option(template, rules, site, why=why, recommended=True, origin="custom")
 
 
+def _needs_site_analysis(site: dict[str, Any]) -> bool:
+    if not site.get("imagery") or not site.get("vision"):
+        return True
+    buildings = site.get("buildings") or {}
+    if buildings.get("found"):
+        return False
+    note = str(buildings.get("note") or "").lower()
+    return "timed out" in note or "超时" in note
+
+
 def hydrate_site_analysis(result: dict[str, Any]) -> dict[str, Any] | None:
     if result.get("error"):
         return None
@@ -415,7 +425,7 @@ def hydrate_site_analysis(result: dict[str, Any]) -> dict[str, Any] | None:
     geo = site.get("geo") or {}
     if geo.get("lat") is None or geo.get("lon") is None:
         return None
-    if site.get("imagery") and site.get("vision"):
+    if not _needs_site_analysis(site):
         return None
     try:
         analysis = analyze_site(site, result.get("rules") or {})
