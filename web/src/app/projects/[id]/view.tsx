@@ -6,6 +6,7 @@ import CostTree from "@/components/cost_tree";
 import DrawingUpload from "@/components/drawing_upload";
 import SchemeCompare from "@/components/scheme_compare";
 import SchemeConfig from "@/components/scheme_config";
+import SiteAnalysis from "@/components/site_analysis";
 import SiteSnapshot from "@/components/site_snapshot";
 import { Tabs } from "@/components/ui/tabs";
 import type { AdviceItem, CostLine, ProjectRecord, SchemeOption } from "@/lib/api";
@@ -59,6 +60,10 @@ export default function ProjectView({ project }: { project: ProjectRecord }) {
 
       <section className="mt-6">
         <SiteSnapshot project={project} />
+      </section>
+
+      <section className="mt-6">
+        <SiteAnalysis project={project} />
       </section>
 
       {(result.advice || []).length ? (

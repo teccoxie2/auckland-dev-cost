@@ -191,6 +191,43 @@ export interface ProjectRecord {
         zone_source?: string;
         parcel_source?: string;
         terrain_source?: string;
+        imagery_source?: string;
+        buildings_source?: string;
+      };
+      imagery?: Array<{
+        id: string;
+        kind?: string;
+        label_zh: string;
+        note?: string;
+        url: string;
+        source_name?: string;
+        source_url?: string;
+        captured_label?: string;
+      }>;
+      buildings?: {
+        found?: boolean;
+        count?: number;
+        roof_area_m2?: number;
+        parcel_coverage?: number | null;
+        buildings?: Array<{
+          building_id?: string | number | null;
+          use?: string | null;
+          suburb?: string | null;
+          area_m2?: number | null;
+          imagery_date?: string | null;
+          capture_source?: string | null;
+        }>;
+        note?: string;
+        source_name?: string;
+        source_url?: string;
+      };
+      vision?: {
+        status?: string;
+        scheme_hints?: string[];
+        findings?: string[];
+        model?: string | null;
+        note?: string;
+        observations?: string | null;
       };
     };
     rules?: {

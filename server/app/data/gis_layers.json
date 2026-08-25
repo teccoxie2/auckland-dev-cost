@@ -31,6 +31,27 @@
       "name": "LINZ NZ 8m DEM via OpenTopodata",
       "url": "https://www.opentopodata.org/datasets/nzdem/",
       "used_for": "terrain"
+    },
+    {
+      "id": "esri_world_imagery",
+      "name": "Esri World Imagery mosaic",
+      "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export",
+      "used_for": "site_vision",
+      "note": "最新公开航拍镶嵌，不是直播卫星。"
+    },
+    {
+      "id": "esri_wayback",
+      "name": "Esri World Imagery Wayback",
+      "url": "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer",
+      "used_for": "site_vision",
+      "note": "同一位置的历史镶嵌，用来对照场地变化。"
+    },
+    {
+      "id": "linz_building_outlines",
+      "name": "LINZ NZ Building Outlines",
+      "url": "https://services.arcgis.com/xdsHIIxuCWByZiCB/arcgis/rest/services/LINZ_NZ_Building_Outlines/FeatureServer/0",
+      "used_for": "site_vision",
+      "note": "屋顶轮廓与地籍外包矩形相交；失败则空结果，不把地块当成空地。"
     }
   ],
   "zone_rule_table": "server/app/data/zone_rules.json"

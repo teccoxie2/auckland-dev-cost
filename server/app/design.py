@@ -239,6 +239,7 @@ def generate_typology_options(rules: dict[str, Any], site: dict[str, Any]) -> tu
             0 if item.get("origin") == "site_fit" else 1,
             0 if item["verdict"]["status"] == "permitted" else 1,
             _slope_penalty(item, site),
+            _vision_penalty(item, site),
             -int(item["template"]["dwellings"] <= int(rules.get("permitted_dwellings") or 1)),
         ),
     )
@@ -341,7 +342,38 @@ def _why(template: dict[str, Any], rules: dict[str, Any], site: dict[str, Any]) 
         reasons.append("单层大占地在坡地上切填更多，初版不优先。")
     if template["kind"] == "terrace" and rules.get("terrace_ok"):
         reasons.append("本区划允许联排形态。")
+    hints = ((site.get("vision") or {}).get("scheme_hints") or [])
+    if "existing_rebuild" in hints and template["kind"] == "standalone" and int(template["dwellings"]) == 1:
+        reasons.append("航拍/屋顶轮廓显示已有房屋，初版按本户独栋重建来排。")
+    if "vacant_infill" in hints and template["kind"] in {"duplex", "terrace"}:
+        reasons.append("屋顶轮廓未显示现有房屋，在区划允许时把加密形态列入比较。")
+    if "prefer_two_storey" in hints and int(template["storeys"]) >= 2:
+        reasons.append("坡地或场地判读倾向二层，减少占地切填。")
+    if "prefer_compact" in hints and float(template["gfa_m2"]) <= 165:
+        reasons.append("场地偏紧，初版优先较小建筑面积。")
     return reasons
+
+
+def _vision_penalty(option: dict[str, Any], site: dict[str, Any]) -> int:
+    hints = ((site.get("vision") or {}).get("scheme_hints") or [])
+    if not hints:
+        return 0
+    kind = str(option["template"]["kind"])
+    storeys = int(option["template"]["storeys"])
+    dwellings = int(option["template"]["dwellings"])
+    gfa = float(option["template"]["gfa_m2"])
+    score = 0
+    if "prefer_compact" in hints and gfa > 180:
+        score += 2
+    if "prefer_two_storey" in hints and storeys == 1 and gfa >= 150:
+        score += 2
+    if "avoid_terrace" in hints and kind == "terrace":
+        score += 3
+    if "existing_rebuild" in hints and not (kind == "standalone" and dwellings == 1):
+        score += 2
+    if "vacant_infill" in hints and kind in {"duplex", "terrace"}:
+        score -= 1
+    return score
 
 
 def _slope_penalty(option: dict[str, Any], site: dict[str, Any]) -> int:

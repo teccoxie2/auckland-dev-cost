@@ -7,6 +7,7 @@ def test_workflow_has_planned_nodes():
         "geocode",
         "land",
         "rules",
+        "site_vision",
         "typology",
         "quantity",
         "building_rules",

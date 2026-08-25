@@ -20,7 +20,7 @@ from .gis import (
     search_addresses,
     split_estate_note,
 )
-from .graph import configure_option, hydrate_legacy_result, run_address
+from .graph import configure_option, hydrate_legacy_result, hydrate_site_analysis, run_address
 from .store import create_project, get_project, list_projects, update_project
 
 DRAWINGS_DIR = Path(__file__).resolve().parent.parent / "data" / "drawings"
@@ -121,9 +121,15 @@ def get_one_project(project_id: str) -> dict[str, Any]:
     record = get_project(project_id)
     if not record:
         raise HTTPException(status_code=404, detail="项目不存在")
-    hydrated = hydrate_legacy_result(record.get("address") or "", record.get("result") or {})
+    result = record.get("result") or {}
+    hydrated = hydrate_legacy_result(record.get("address") or "", result)
     if hydrated:
-        updated = update_project(project_id, hydrated, record.get("status") or "ready")
+        result = hydrated
+    visioned = hydrate_site_analysis(result)
+    if visioned:
+        result = visioned
+    if hydrated or visioned:
+        updated = update_project(project_id, result, record.get("status") or "ready")
         if updated:
             return updated
     return record

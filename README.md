@@ -1,11 +1,11 @@
 # 奥克兰住宅开发核算台
 
-输入奥克兰地址后，系统读取公开地块面积、Unitary Plan 区划和 DEM 坡度，给出**适合这块地的初版方案**。你再选户型大小、厨房和卫生间数量，或上传 RC/BC 图纸按文字层套价。挡土墙、覆盖率和叠加层会写进建议；金额不由大模型生成。
+输入奥克兰地址后，系统读取公开地块面积、Unitary Plan 区划和 DEM 坡度，再用**最新公开航拍 / 历史镶嵌**和 LINZ 屋顶轮廓核对场地，给出**适合这块地的初版方案**。你再选户型大小、厨房和卫生间数量，或上传 RC/BC 图纸按文字层套价。挡土墙、覆盖率和叠加层会写进建议；金额不由大模型生成。航拍不是直播，也不能改地籍数字。
 
 ## 能做什么
 
 - 多项目屋主工作台
-- 地址 → 地块面积 / 区划 / 叠加层 / 坡度 → 初版方案（许可 / 需 Resource Consent / 这块地放不下）
+- 地址 → 地块面积 / 区划 / 叠加层 / 坡度 → 公开航拍与屋顶轮廓核对 → 初版方案（许可 / 需 Resource Consent / 这块地放不下）
 - 客户选装：套数、层数、卧室、卫生间、厨房、建筑面积，按已读地块重新套价
 - 坡地建议：分台、挡土墙、E12 土方门槛（500m² / 250m³）；支撑建筑平台的墙按 surcharge 提示建筑许可
 - 户型模板工程量（尺寸进入木材、空腔、屋面、石膏板、卫生间洁具数量）
@@ -64,6 +64,9 @@
 - 地块：[Auckland Council AC_Property](https://services1.arcgis.com/n4yPwebTjJCmXB6W/arcgis/rest/services/AC_Property_Query/FeatureServer/0)
 - 坡度：[LINZ NZ 8m DEM / OpenTopodata](https://www.opentopodata.org/datasets/nzdem/)
 - 叠加层：Auckland Council UnitaryPlanManagementLayers
+- 最新公开航拍：[Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08fda2d9bc)（镶嵌，不是直播）
+- 历史航拍：[Esri World Imagery Wayback](https://livingatlas.arcgis.com/wayback/)
+- 屋顶轮廓：[LINZ NZ Building Outlines](https://data.linz.govt.nz/layer/101290-nz-building-outlines/)（与地块外包矩形相交，可能含邻户）
 - 挡土墙许可：[MBIE Schedule 1 exemption 20](https://www.building.govt.nz/projects-and-consents/planning-a-successful-build/scope-and-design/check-if-you-need-consents/building-work-that-doesnt-need-a-building-consent/technical-requirements-for-exempt-building-work/13-support-structures/13-2-retaining-walls-up-to-1-5-metres-depth-of-ground)、[Auckland Council AC2231](https://www.aucklandcouncil.govt.nz/content/dam/ac/docs/building-and-consents/ac2231-retaining-walls.pdf)
 
 替换价表：编辑 `server/app/data/pricebook.json` 与 `server/app/data/council_fees.json`，改完后重启 API（`pricebook()` 有缓存）。运行时只通过 `PriceProvider.get_rate(sku, qty, context)` 取单价：第一期是本地价表，设置 `PRICE_API_URL` 后会再问供应商 HTTP；接口失败或缺 SKU 一律标缺项，不编价。官方 Council / IGC / DC 走 `council_fees.json` 的版本化费率。
@@ -94,6 +97,8 @@ pnpm dev
 - `PM_HITL=1`：`pm_gate` 调用 `interrupt()`，把最终定价权留给项目经理（第一期屋主界面不画审核面板）。
 - `PRICE_API_URL`：价源第二实现；未设置时只用价表。
 - `ENGINE_URL`：前端服务端请求核算 API，默认 `http://127.0.0.1:8764`。
+- `OPENAI_API_KEY`：可选。设置后会把最多两张公开航拍送给视觉模型，只描述可见场地（房屋、树木、车道、空地），**不得改面积/区划/坡度，不得定价**。未设置时只做 GIS × 屋顶轮廓交叉核对，不编造看见的内容。
+- `OPENAI_BASE_URL` / `SITE_VISION_MODEL`：视觉模型接口与名称，默认 `https://api.openai.com/v1` 与 `gpt-4o-mini`。
 
 浏览器打开 `http://127.0.0.1:43124`。输入 `55 Nelson Street` 会列出 Howick 与 Auckland Central 等多条议会地址，必须点选一条。输入 `115 Bruce Road Glenfield` 时议会已无整宗 115，只会列出拆分后的 115A–F；点选其中一户后，页面只显示该户的议会地籍，并筛掉需要整宗地的方案。
 
@@ -101,14 +106,14 @@ pnpm dev
 
 ## 架构要点
 
-LangGraph 地址流：`geocode → land → rules → typology → quantity → building_rules → cost → explain → pm_gate`。`land` 合并规划区划、地籍与 DEM，并写入 `captured_at` 快照。`typology` 只做户型硬过滤；`cost` 才走 PriceProvider，并行节点不得写总价。选装走 `POST /projects/{id}/configure`，不再重新查 GIS。图纸流：`parse_drawings → drawing_template → drawing_cost → drawing_explain`，入口为 `POST /projects/{id}/drawings`。`pm_gate` 默认自动通过；`PM_HITL=1` 时 `interrupt()`。说明节点只写中文，不改金额。
+LangGraph 地址流：`geocode → land → rules → site_vision → typology → quantity → building_rules → cost → explain → pm_gate`。`land` 合并规划区划、地籍与 DEM，并写入 `captured_at` 快照。`site_vision` 读取公开航拍与 LINZ 屋顶轮廓；失败只记 note，不让整图失败。hints 只影响方案排序与说明，不把区划可行方案标成 infeasible。`typology` 只做户型硬过滤；`cost` 才走 PriceProvider，并行节点不得写总价。选装走 `POST /projects/{id}/configure`，不再重新查 GIS。图纸流：`parse_drawings → drawing_template → drawing_cost → drawing_explain`，入口为 `POST /projects/{id}/drawings`。`pm_gate` 默认自动通过；`PM_HITL=1` 时 `interrupt()`。说明节点只写中文，不改金额。
 
 ## 开发要求
 
 **不允许使用假数据。** 这是硬性要求，不是可选风格。
 
-- 地址、坐标、地籍、区划、叠加层、DEM 必须来自奥克兰议会 / LINZ 等公开接口；选址必须从 `AC_Address` 下拉点选。
-- 金额必须来自带链接与取价日期的价表或官方费率表；禁止大模型定价，禁止编造单价或总价。
+- 地址、坐标、地籍、区划、叠加层、DEM、航拍 URL、屋顶轮廓必须来自奥克兰议会 / LINZ / Esri 等公开接口；选址必须从 `AC_Address` 下拉点选。
+- 金额必须来自带链接与取价日期的价表或官方费率表；禁止大模型定价，禁止编造单价或总价。视觉模型不得改写地籍面积、区划或坡度数字。
 - 没有可核对来源的科目标成缺项（`missing`），不要用估算、经验值、mock、默认地块或缓存值把页面凑完整。
 - 图纸只读 PDF 文字层；读不到面积就不要套户型模板的 110 m²，读不到厨卫就不要套模板洁具。
 - 单测可以给纯函数喂显式数字；不得把假 GIS / 假价源当成议会或供应商返回值。

@@ -32,6 +32,7 @@ from .gis import (
     lookup_terrain,
     lookup_zone,
 )
+from .site_vision import analyze_site, unavailable_analysis, vision_advice
 from .zoning import apply_zone_rules, filter_template, is_existing_unit_title
 
 
@@ -50,6 +51,7 @@ class ProjectState(TypedDict, total=False):
     explanation: str
     pm_review: dict
     scheme_filter: dict
+    vision: dict
     material_elements: Annotated[list, add]
 
 
@@ -149,6 +151,53 @@ def rules_node(state: ProjectState) -> dict[str, Any]:
     return {"rules": rules, "trace": _trace(state, "rules", f"permitted_dwellings={rules.get('permitted_dwellings')}")}
 
 
+def merge_advice(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    merged: list[dict[str, Any]] = []
+    for group in groups:
+        for item in group or []:
+            key = str(item.get("id") or "")
+            if key and key in seen:
+                continue
+            if key:
+                seen.add(key)
+            merged.append(item)
+    return merged
+
+
+def _apply_site_analysis(site: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
+    updated = dict(site)
+    updated["imagery"] = analysis.get("imagery") or []
+    updated["buildings"] = analysis.get("buildings") or {"found": False}
+    updated["vision"] = analysis.get("vision") or {}
+    snapshot = dict(updated.get("snapshot") or {})
+    frames = updated["imagery"]
+    if frames:
+        snapshot["imagery_source"] = frames[0].get("source_url")
+    if updated["buildings"].get("source_url"):
+        snapshot["buildings_source"] = updated["buildings"]["source_url"]
+    if snapshot:
+        updated["snapshot"] = snapshot
+    return updated
+
+
+def site_vision_node(state: ProjectState) -> dict[str, Any]:
+    if state.get("error"):
+        return {}
+    try:
+        analysis = analyze_site(state.get("site") or {}, state.get("rules") or {})
+    except Exception as exc:  # noqa: BLE001
+        analysis = unavailable_analysis(f"场地影像核对失败：{exc}。方案仍按区划硬规则生成。")
+    site = _apply_site_analysis(state.get("site") or {}, analysis)
+    status = (site.get("vision") or {}).get("status") or "unavailable"
+    n_img = len(site.get("imagery") or [])
+    return {
+        "site": site,
+        "vision": site.get("vision"),
+        "trace": _trace(state, "site_vision", f"{status}; images={n_img}"),
+    }
+
+
 def land_node(state: ProjectState) -> dict[str, Any]:
     if state.get("error"):
         return {}
@@ -183,7 +232,10 @@ def land_node(state: ProjectState) -> dict[str, Any]:
 def typology_node(state: ProjectState) -> dict[str, Any]:
     if state.get("error"):
         return {}
-    advice = build_advice(state["site"], state["rules"])
+    advice = merge_advice(
+        build_advice(state["site"], state["rules"]),
+        vision_advice(state["site"]),
+    )
     options, skipped = generate_typology_options(state["rules"], state["site"])
     meta = scheme_filter_meta(state["site"], skipped)
     payload: dict[str, Any] = {
@@ -268,6 +320,10 @@ def explain_node(state: ProjectState) -> dict[str, Any]:
         parts.append("命中叠加层：" + "、".join(overlays) + "。加密方案更可能需要 Resource Consent。")
     else:
         parts.append("未在抽查的叠加层上命中遗产/特殊风貌/SEA/淹没控制（不代表没有其他约束）。")
+    vision = (state.get("site") or {}).get("vision") or {}
+    findings = [item for item in (vision.get("findings") or []) if isinstance(item, str) and item.strip()]
+    if findings:
+        parts.append("场地核对：" + " ".join(findings[:3]))
     parts.append(
         f"下面给出 {len(feasible)} 个按这块地筛过的初版方案。你可以改套数、层数、户型大小、厨房和卫生间后再核算。"
         "金额只来自价库与官方费率，缺项单独列出。"
@@ -307,6 +363,7 @@ def build_graph():
     graph.add_node("geocode", geocode_node)
     graph.add_node("land", land_node)
     graph.add_node("rules", rules_node)
+    graph.add_node("site_vision", site_vision_node)
     graph.add_node("typology", typology_node)
     graph.add_node("quantity", quantity_node)
     graph.add_node("building_rules", building_rules_node)
@@ -316,7 +373,8 @@ def build_graph():
     graph.add_edge(START, "geocode")
     graph.add_edge("geocode", "land")
     graph.add_edge("land", "rules")
-    graph.add_edge("rules", "typology")
+    graph.add_edge("rules", "site_vision")
+    graph.add_edge("site_vision", "typology")
     graph.add_edge("typology", "quantity")
     graph.add_edge("quantity", "building_rules")
     graph.add_edge("building_rules", "cost")
@@ -348,6 +406,32 @@ def configure_option(site: dict[str, Any], rules: dict[str, Any], spec: dict[str
         "坡度、挡土墙和覆盖率仍用这块地已读到的公开数据，不重新编数。",
     ]
     return costed_option(template, rules, site, why=why, recommended=True, origin="custom")
+
+
+def hydrate_site_analysis(result: dict[str, Any]) -> dict[str, Any] | None:
+    if result.get("error"):
+        return None
+    site = dict(result.get("site") or {})
+    geo = site.get("geo") or {}
+    if geo.get("lat") is None or geo.get("lon") is None:
+        return None
+    if site.get("imagery") and site.get("vision"):
+        return None
+    try:
+        analysis = analyze_site(site, result.get("rules") or {})
+    except Exception as exc:  # noqa: BLE001
+        analysis = unavailable_analysis(f"场地影像核对失败：{exc}。方案仍按区划硬规则生成。")
+    site = _apply_site_analysis(site, analysis)
+    updated = dict(result)
+    updated["site"] = site
+    updated["advice"] = merge_advice(updated.get("advice") or [], vision_advice(site))
+    findings = [item for item in ((site.get("vision") or {}).get("findings") or []) if isinstance(item, str) and item.strip()]
+    if findings:
+        extra = "场地核对：" + " ".join(findings[:3])
+        explanation = updated.get("explanation") or ""
+        if extra not in explanation:
+            updated["explanation"] = explanation + extra
+    return updated
 
 
 def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any] | None:
@@ -398,7 +482,7 @@ def hydrate_legacy_result(address: str, result: dict[str, Any]) -> dict[str, Any
         site["subdivision"] = cluster
         result["site"] = site
     if result.get("rules"):
-        result["advice"] = build_advice(site, result["rules"])
+        result["advice"] = merge_advice(build_advice(site, result["rules"]), vision_advice(site))
     if is_existing_unit_title(site):
         _apply_current_title_filter(result, site)
     else:
