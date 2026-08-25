@@ -260,6 +260,30 @@ def test_hydrate_keeps_uploaded_lim(monkeypatch):
     assert hydrate_lim(result) is None
 
 
+def test_hydrate_replaces_stale_english_lim_explanation():
+    parsed = parse_lim_text(HOWITK_TEXT, filename="895269-LIM.pdf")
+    report = report_from_parsed(parsed)
+    result = {
+        "site": {"geo": {"lat": -36.8, "lon": 174.7}, "lim": report},
+        "explanation": (
+            "区划说明。"
+            "尚未上传客户提供的正式 LIM PDF。污染、风区、地面径流和管网 LIR 以该 PDF 文字层为准。"
+            "下面给出 6 个按这块地筛过的初版方案。"
+            "正式 LIM：正式 LIM 管网通知 LIR_00014017：No further development until such time there is an adequate stormwater system for connection."
+        ),
+        "options": [],
+        "advice": lim_advice({"lim": report}),
+    }
+    updated = hydrate_lim(result)
+    assert updated is not None
+    explanation = updated["explanation"]
+    assert "No further development" not in explanation
+    assert "尚未上传" not in explanation
+    assert explanation.count("正式 LIM：") == 1
+    assert "限制继续开发" in explanation
+    assert explanation.index("正式 LIM：") < explanation.index("下面给出")
+
+
 def test_apply_customer_lim_rejects_other_street():
     parsed = parse_lim_text(HOWITK_TEXT, filename="895269-LIM.pdf")
     updated, error = apply_customer_lim({"site": {}, "options": [], "advice": []}, parsed, "12 Queen Street, Auckland Central")

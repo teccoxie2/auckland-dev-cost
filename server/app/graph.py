@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from operator import add
@@ -522,18 +523,43 @@ def _lim_explanation(site: dict[str, Any]) -> str:
     return "尚未上传客户提供的正式 LIM PDF。污染、风区、地面径流和管网 LIR 以该 PDF 文字层为准。"
 
 
+def _strip_lim_explanation(explanation: str) -> str:
+    text = explanation or ""
+    text = text.replace("LIM 公开图层已核对，这不是已购买的正式 LIM PDF。", "")
+    text = text.replace(
+        "尚未上传客户提供的正式 LIM PDF。污染、风区、地面径流和管网 LIR 以该 PDF 文字层为准。",
+        "",
+    )
+    starters = ("正式 LIM：", "LIM 公开核对：")
+    while True:
+        hits = [text.find(token) for token in starters]
+        hits = [index for index in hits if index >= 0]
+        if not hits:
+            break
+        start = min(hits)
+        next_hits = []
+        for token in ("正式 LIM：", "LIM 公开核对：", "下面给出", "场地核对："):
+            pos = text.find(token, start + 1)
+            if pos >= 0:
+                next_hits.append(pos)
+        end = min(next_hits) if next_hits else len(text)
+        text = text[:start] + text[end:]
+    return re.sub(r"[ \t]{2,}", " ", text).strip()
+
+
 def _append_lim_explanation(result: dict[str, Any], site: dict[str, Any]) -> None:
     extra = _lim_explanation(site)
-    explanation = result.get("explanation") or ""
-    explanation = explanation.replace("LIM 公开图层已核对，这不是已购买的正式 LIM PDF。", "")
-    if "LIM 公开核对：" in explanation:
-        prefix, _, rest = explanation.partition("LIM 公开核对：")
-        cut = rest.find("下面给出")
-        explanation = prefix + (rest[cut:] if cut >= 0 else "")
-    if extra not in explanation:
-        result["explanation"] = explanation + extra
-    else:
+    explanation = _strip_lim_explanation(result.get("explanation") or "")
+    if extra in explanation:
         result["explanation"] = explanation
+        return
+    marker = "下面给出"
+    index = explanation.find(marker)
+    if index >= 0:
+        pad_before = "" if index == 0 or explanation[index - 1].isspace() else " "
+        result["explanation"] = explanation[:index] + extra + pad_before + explanation[index:]
+        return
+    result["explanation"] = (explanation + extra) if explanation else extra
 
 
 def hydrate_lim(result: dict[str, Any]) -> dict[str, Any] | None:
