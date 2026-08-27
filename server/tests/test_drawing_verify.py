@@ -3,7 +3,7 @@ import sys
 
 from fastapi.testclient import TestClient
 
-from app.drawing_llm import evidence_in_source, parse_llm_json, combined_drawing_text
+from app.drawing_llm import evidence_in_source, parse_llm_json, combined_drawing_text, charts_prompt_block
 from app.drawing_llm import llm_base_url, probe_llm
 from app.drawing_parse import extract_from_text
 from app.drawing_verify import group_lines_by_zone, verify_drawing_parts, verify_drawing_parts_rules, zone_for_line
@@ -256,7 +256,7 @@ def test_http_verify_reads_text_pdf(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-not-used")
     monkeypatch.setattr(
         "app.drawing_verify.call_drawing_llm",
-        lambda source_text: {"ok": True, "model": "test-model", "payload": sample_llm_payload()},
+        lambda *args, **kwargs: {"ok": True, "model": "test-model", "payload": sample_llm_payload()},
     )
     rc = tmp_path / "rc-notes.pdf"
     bc = tmp_path / "bc-plans.pdf"
@@ -316,3 +316,35 @@ def test_cpa_api_key_marks_llm_configured(monkeypatch):
     assert probed["reachable"] is False
     assert probed["authorized"] is False
     assert "127.0.0.1:9/v1" in probed["base_url"]
+
+
+def test_verify_exposes_chart_rows_and_audit():
+    result = verify_drawing_parts(drawing_parts(), llm_payload=sample_llm_payload())
+    assert result.get("error") is None
+    charts = {item["id"]: item for item in result["charts"]}
+    assert "window_schedule" in charts
+    codes = {row["code"] for row in charts["window_schedule"]["rows"]}
+    assert {"W1", "W2", "ED1", "SL1"} <= codes
+    assert result["audit"]["window_count"] == 11
+    assert result["audit"]["chart_rows"] >= 4
+    assert result["coverage"]["sent_chars"] <= result["coverage"]["full_chars"] or result["coverage"]["full_chars"] == 0
+
+
+def test_llm_grounds_against_full_text_when_packed_is_cover(monkeypatch):
+    monkeypatch.setattr("app.drawing_verify.combined_drawing_text", lambda parts, **kwargs: "cover sheet legend north")
+    result = verify_drawing_parts(drawing_parts(), llm_payload=sample_llm_payload())
+    assert result.get("error") is None
+    rejected_ids = {item["item_id"] for item in result["llm"]["rejected"]}
+    assert "gfa_m2" not in rejected_ids
+    gfa = next(item for item in result["fields"] if item["key"] == "gfa_m2")
+    assert gfa["value"] == 186.4
+
+
+def test_charts_prompt_includes_every_window_row():
+    parts = drawing_parts()
+    from app.drawing_parse import merge_extracts
+
+    charts = merge_extracts(parts)["charts"]
+    blob = charts_prompt_block(charts)
+    assert "W1" in blob
+    assert "1800" in blob

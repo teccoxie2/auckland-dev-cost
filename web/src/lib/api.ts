@@ -358,6 +358,51 @@ export interface DrawingVerifyLlm {
   rejected?: Array<{ item_id?: string; reason_zh?: string }>;
 }
 
+export interface DrawingChartRow {
+  line?: string;
+  code?: string;
+  w_mm?: number;
+  h_mm?: number;
+  count?: number;
+  kind?: string | null;
+  label?: string;
+  value?: string | number;
+  pct?: string;
+  area_m2?: string;
+  evidence?: string;
+}
+
+export interface DrawingChart {
+  id?: string;
+  name_zh?: string;
+  source_file?: string;
+  page?: number | null;
+  rows?: DrawingChartRow[];
+}
+
+export interface DrawingPageDebug {
+  page?: number;
+  filename?: string;
+  kind?: string;
+  char_count?: number;
+  role?: string;
+  table_rows?: number;
+  preview?: string;
+}
+
+export interface DrawingAudit {
+  page_count?: number;
+  char_count?: number;
+  full_chars?: number;
+  sent_chars?: number;
+  no_text_pages?: number;
+  schedule_pages?: number;
+  chart_count?: number;
+  chart_rows?: number;
+  window_schedule_rows?: number;
+  window_count?: number;
+}
+
 export interface DrawingVerifyCompare {
   error?: { code: string; message: string } | null;
   explanation?: string;
@@ -383,8 +428,14 @@ export interface DrawingVerifyResult {
     page_count?: number;
     char_count?: number;
     sent_chars?: number;
+    full_chars?: number;
+    no_text_pages?: number;
+    chart_rows?: number;
     note?: string;
   };
+  charts?: DrawingChart[];
+  page_debug?: DrawingPageDebug[];
+  audit?: DrawingAudit;
   fields?: Array<{
     key: string;
     value: unknown;
@@ -398,6 +449,7 @@ export interface DrawingVerifyResult {
     count: number;
     evidence?: string;
     source_file?: string;
+    kind?: string | null;
   }>;
   warnings?: string[];
   zones?: DrawingVerifyZone[];

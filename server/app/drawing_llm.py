@@ -162,7 +162,7 @@ def _chunk_score(text: str) -> int:
     return len(HINT_RE.findall(text))
 
 
-def combined_drawing_text(parts: list[dict[str, Any]], *, limit: int = 80_000) -> str:
+def combined_drawing_text(parts: list[dict[str, Any]], *, limit: int = 120_000) -> str:
     first_pages: list[dict[str, Any]] = []
     ranked: list[dict[str, Any]] = []
     for part in parts:
@@ -195,7 +195,10 @@ def combined_drawing_text(parts: list[dict[str, Any]], *, limit: int = 80_000) -
         if not text or remaining <= 80:
             continue
         header = f"===== FILE {row.get('filename')} KIND {row.get('kind')} PAGE {row.get('page')} =====\n"
-        cap = min(remaining - len(header), FIRST_PAGE_CAP if row.get("first") else remaining - len(header))
+        is_schedule = int(row.get("score") or 0) >= 2
+        cap = remaining - len(header)
+        if row.get("first") and not is_schedule:
+            cap = min(cap, FIRST_PAGE_CAP)
         body = text[: max(cap, 0)]
         if not body:
             break
@@ -203,6 +206,17 @@ def combined_drawing_text(parts: list[dict[str, Any]], *, limit: int = 80_000) -
         remaining -= len(header) + len(body)
         if remaining <= 0:
             break
+    return "\n\n".join(chunks)
+
+
+def full_drawing_text(parts: list[dict[str, Any]]) -> str:
+    chunks: list[str] = []
+    for part in parts:
+        for page, text in _iter_pages(part):
+            blob = str(text or "").strip()
+            if not blob:
+                continue
+            chunks.append(f"===== FILE {part.get('filename')} KIND {part.get('kind')} PAGE {page} =====\n{blob}")
     return "\n\n".join(chunks)
 
 
@@ -388,7 +402,29 @@ def _chat_completion(
     return str(content or ""), str(payload.get("model") or model)
 
 
-def call_drawing_llm(source_text: str) -> dict[str, Any]:
+def charts_prompt_block(charts: list[dict[str, Any]] | None) -> str:
+    compact: list[dict[str, Any]] = []
+    for chart in charts or []:
+        if not isinstance(chart, dict):
+            continue
+        compact.append(
+            {
+                "id": chart.get("id"),
+                "name_zh": chart.get("name_zh"),
+                "source_file": chart.get("source_file"),
+                "page": chart.get("page"),
+                "rows": chart.get("rows") or [],
+            }
+        )
+    if not compact:
+        return "服务器未从文字层抽出可识别的表格行。仍须逐页读正文，不要猜扫描图上的毫米。"
+    blob = json.dumps(compact, ensure_ascii=False)
+    if len(blob) > 40_000:
+        blob = blob[:40_000]
+    return blob
+
+
+def call_drawing_llm(source_text: str, charts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     if not llm_configured():
         return {
             "ok": False,
@@ -411,9 +447,11 @@ def call_drawing_llm(source_text: str) -> dict[str, Any]:
     prompt = (
         "你在读新西兰奥克兰住宅 Resource Consent / Building Consent PDF 的文字层。"
         "正文按 FILE/PAGE 分段，门窗表、面积表、厨卫标注可能在靠后的 PAGE，必须逐段读完，不要只看封面。"
-        "只根据图纸正文做穷尽抽取：每一行门窗表、每一处面积/覆盖率/层数/厨卫/卧室、以及正文提到的材料。"
-        "evidence 必须从 PAGE 正文逐字抄录（可去掉换行），数字必须与原文一致。"
+        "只根据图纸正文和服务器抽出的表格行做穷尽抽取：每一行门窗表、每一处面积/覆盖率/层数/厨卫/卧室、以及正文提到的材料。"
+        "服务器抽出的图表 JSON 里每一行都必须进入 windows 或 fields，不得合并、跳过或改数字。"
+        "evidence 必须从 PAGE 正文或图表 line 逐字抄录（可去掉换行），数字必须与原文一致。"
         "不要发明正文里没有的毫米、面积或件数。禁止输出任何价格、单价、总价、NZD 或 $。"
+        "几乎无文字的图页不要猜尺寸，也不要做图像识别。"
         "门窗只能从文字层的门窗表或尺寸标注读取，每一樘都要列出，Qty 写在 count。"
         "材料行的 item_id 必须来自给定价库目录；目录不含单价，你也不许写单价。"
         "价库能对上的都写入 lines；对不上的写入 unmapped，不要省略。"
@@ -428,6 +466,7 @@ def call_drawing_llm(source_text: str) -> dict[str, Any]:
         '"unmapped":[{"name_zh":"说明","quantity":1,"unit":"ea","evidence":"原文","reason_zh":"价库没有对应 SKU"}]}\n'
         f"fields.key 只能是 {sorted(ALLOWED_FIELD_KEYS)}。zone 只能是 {sorted(ALLOWED_ZONES)}。\n"
         f"价库目录：{json.dumps(catalog, ensure_ascii=False)}\n"
+        f"文字层图表：\n{charts_prompt_block(charts)}\n"
         f"图纸文字：\n{source_text}"
     )
     try:

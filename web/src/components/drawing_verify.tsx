@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
-import type { DrawingVerifyResult, DrawingVerifyZone } from "@/lib/api";
+import type { DrawingAudit, DrawingChart, DrawingPageDebug, DrawingVerifyResult, DrawingVerifyZone } from "@/lib/api";
 import { nzdExact } from "@/lib/money";
 
 const FIELD_LABELS: Record<string, string> = {
@@ -22,6 +22,12 @@ const FIELD_LABELS: Record<string, string> = {
   stud_spacing_mm: "立柱间距 mm",
   cladding: "外墙做法",
   site_area_m2: "地块面积 m²",
+};
+
+const PAGE_ROLE_LABELS: Record<string, string> = {
+  drawing_no_text: "几乎无文字（不做 OCR）",
+  schedule: "门窗表 / 面积表",
+  notes: "说明或其他",
 };
 
 function errorMessage(data: unknown, fallback: string) {
@@ -89,6 +95,140 @@ function ZoneTable({ zone }: { zone: DrawingVerifyZone }) {
   );
 }
 
+function PageAudit({
+  pageDebug,
+  charts,
+  audit,
+}: {
+  pageDebug?: DrawingPageDebug[];
+  charts?: DrawingChart[];
+  audit?: DrawingAudit;
+}) {
+  const noTextPages = (pageDebug || []).filter((item) => item.role === "drawing_no_text");
+  return (
+    <div className="space-y-4">
+      {audit ? (
+        <section className="rounded-2xl border border-[#d9d0c0] bg-white p-4 sm:p-5">
+          <h2 className="text-xl font-semibold">抽取核对</h2>
+          <p className="mt-2 text-sm leading-6 text-[#5c6754]">
+            {audit.page_count || 0} 页 · 全文 {audit.full_chars || audit.char_count || 0} 字 · 送给模型{" "}
+            {audit.sent_chars || 0} 字 · 表 {audit.chart_count || 0} 张 / {audit.chart_rows || 0} 行 · 门窗{" "}
+            {audit.window_count || 0} 樘
+            {audit.no_text_pages ? ` · ${audit.no_text_pages} 页几乎无文字` : ""}
+            {audit.schedule_pages ? ` · ${audit.schedule_pages} 页含表` : ""}
+          </p>
+        </section>
+      ) : null}
+      {noTextPages.length ? (
+        <section className="rounded-2xl border border-[#e2b48a] bg-[#f8e7dc] p-4 sm:p-5" role="status">
+          <h2 className="text-lg font-semibold text-[#8a3b1d]">这些页几乎没有文字层</h2>
+          <p className="mt-2 text-sm leading-6 text-[#8a3b1d]">
+            平面/立面如果只是线条图，尺寸不会被读取，也不会做图像识别。请对照下表确认是否缺了门窗表或面积表页。
+          </p>
+          <ul className="mt-3 space-y-2 text-sm text-[#8a3b1d]">
+            {noTextPages.map((item) => (
+              <li key={`${item.filename}-${item.page}`}>
+                {item.filename || "PDF"} 第 {item.page} 页 · {item.char_count || 0} 字
+                {item.preview ? ` · ${item.preview}` : ""}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {pageDebug?.length ? (
+        <section>
+          <h2 className="text-xl font-semibold">逐页文字层</h2>
+          <div className="mt-3 overflow-x-auto rounded-2xl border border-[#d9d0c0] bg-white">
+            <table className="w-full min-w-[36rem] text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#eee6d8] text-xs text-[#7b8474]">
+                  <th className="px-3 py-2 font-medium">文件</th>
+                  <th className="px-3 py-2 font-medium">页</th>
+                  <th className="px-3 py-2 font-medium">角色</th>
+                  <th className="px-3 py-2 font-medium">字数</th>
+                  <th className="px-3 py-2 font-medium">表行</th>
+                  <th className="px-3 py-2 font-medium">预览</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageDebug.map((item) => (
+                  <tr
+                    key={`${item.filename}-${item.page}`}
+                    className={
+                      item.role === "drawing_no_text"
+                        ? "border-b border-[#f3eee4] bg-[#f8e7dc]"
+                        : "border-b border-[#f3eee4]"
+                    }
+                  >
+                    <td className="px-3 py-2 text-xs">{item.filename}</td>
+                    <td className="px-3 py-2">{item.page}</td>
+                    <td className="px-3 py-2">{PAGE_ROLE_LABELS[item.role || ""] || item.role}</td>
+                    <td className="px-3 py-2">{item.char_count}</td>
+                    <td className="px-3 py-2">{item.table_rows || 0}</td>
+                    <td className="px-3 py-2 text-xs text-[#7b8474]">{item.preview || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+      {charts?.length ? (
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">文字层图表每一行</h2>
+          {charts.map((chart, index) => (
+            <div
+              key={`${chart.id}-${chart.source_file}-${chart.page}-${index}`}
+              className="overflow-x-auto rounded-2xl border border-[#d9d0c0] bg-white"
+            >
+              <div className="border-b border-[#eee6d8] px-3 py-2 text-sm">
+                <span className="font-medium">{chart.name_zh || chart.id}</span>
+                <span className="ml-2 text-xs text-[#7b8474]">
+                  {chart.source_file || "PDF"}
+                  {chart.page ? ` · 第 ${chart.page} 页` : ""}
+                  {` · ${(chart.rows || []).length} 行`}
+                </span>
+              </div>
+              <table className="w-full min-w-[28rem] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[#eee6d8] text-xs text-[#7b8474]">
+                    <th className="px-3 py-2 font-medium">原文行</th>
+                    <th className="px-3 py-2 font-medium">读出</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(chart.rows || []).map((row, rowIndex) => (
+                    <tr key={`${row.line}-${rowIndex}`} className="border-b border-[#f3eee4] align-top">
+                      <td className="px-3 py-2 text-xs text-[#5c6754]">{row.line || row.evidence || "—"}</td>
+                      <td className="px-3 py-2">
+                        {row.code ? (
+                          <span>
+                            {row.code} {row.w_mm}×{row.h_mm} mm × {row.count}
+                            {row.kind ? ` · ${row.kind}` : ""}
+                          </span>
+                        ) : (
+                          <span>
+                            {row.label || ""}
+                            {row.value ? ` ${row.value}` : ""}
+                            {row.pct ? ` ${row.pct}%` : ""}
+                            {row.area_m2 ? ` ${row.area_m2} m²` : ""}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </section>
+      ) : (
+        <p className="text-sm text-[#9a6b12]">文字层没有抽出可识别的表格行。若 PDF 是扫描件，不会对附图做识别。</p>
+      )}
+    </div>
+  );
+}
+
 function FieldsAndWindows({
   result,
 }: {
@@ -113,7 +253,9 @@ function FieldsAndWindows({
         ) : null}
         {result.coverage?.sent_chars ? (
           <p className="mt-2 text-xs leading-5 text-[#7b8474]">
-            全文 {result.coverage.char_count} 字，送给模型 {result.coverage.sent_chars} 字（门窗表/面积页优先）。
+            全文 {result.coverage.full_chars || result.coverage.char_count} 字，送给模型 {result.coverage.sent_chars} 字
+            {result.coverage.chart_rows ? ` · 表行 ${result.coverage.chart_rows}` : ""}
+            {result.coverage.no_text_pages ? ` · 无文字页 ${result.coverage.no_text_pages}` : ""}。
             {result.coverage.note ? ` ${result.coverage.note}` : ""}
           </p>
         ) : null}
@@ -148,6 +290,7 @@ function FieldsAndWindows({
                   <th className="px-3 py-2 font-medium">代码</th>
                   <th className="px-3 py-2 font-medium">宽 × 高 mm</th>
                   <th className="px-3 py-2 font-medium">数量</th>
+                  <th className="px-3 py-2 font-medium">类型</th>
                   <th className="px-3 py-2 font-medium">出处</th>
                 </tr>
               </thead>
@@ -159,6 +302,7 @@ function FieldsAndWindows({
                       {opening.w_mm} × {opening.h_mm}
                     </td>
                     <td className="px-3 py-2">{opening.count}</td>
+                    <td className="px-3 py-2 text-xs text-[#5c6754]">{opening.kind || "—"}</td>
                     <td className="px-3 py-2 text-xs text-[#7b8474]">{opening.evidence || opening.source_file}</td>
                   </tr>
                 ))}
@@ -287,7 +431,7 @@ export default function DrawingVerify() {
       <p className="text-sm tracking-[0.18em] text-[#7a5a2b]">VERIFY</p>
       <h1 className="mt-2 text-3xl font-semibold">RC / BC 图纸物料验证</h1>
       <p className="mt-3 max-w-3xl text-[15px] leading-7 text-[#5c6754]">
-        上传可选中文字的 Resource Consent 或 Building Consent PDF。系统读全部文字层：正则先抽面积和门窗表，大模型再补正文里的表和材料，二者合并。送给模型时优先保留门窗表和面积页，避免封面把后页截掉。数量按公式、窗表或原文件数重算，单价只走价库。扫描件没有文字层会失败，不会用图像识别猜毫米，也不会采用模型写的金额。价库没有的材料会列为缺项而不是删掉。
+        上传可选中文字的 Resource Consent 或 Building Consent PDF。系统按页读文字层：平面图如果几乎没有字会标出来且不做 OCR；门窗表、面积表、覆盖率表按行列抽出，要求每一行都留下核对。正则与大模型结果合并后套价。送给模型时优先保留表页，接地核对应全文。数量按公式、窗表或原文件数重算，单价只走价库。扫描件没有文字层会失败，不会用图像识别猜毫米，也不会采用模型写的金额。
       </p>
 
       {llmReady === false ? (
@@ -393,6 +537,8 @@ export default function DrawingVerify() {
               onChange={setTab}
             />
           ) : null}
+
+          <PageAudit pageDebug={result.page_debug} charts={result.charts} audit={result.audit} />
 
           {tab === "rules" && compare && !compare.error ? (
             <div className="space-y-6">

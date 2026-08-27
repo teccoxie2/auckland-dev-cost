@@ -16,6 +16,14 @@ WINDOW_ROW = re.compile(
     r"(?:\s*(?:qty|no\.?|×|x)\s*(?P<qty>\d{1,2}))?",
     re.IGNORECASE,
 )
+COLUMN_WINDOW = re.compile(
+    r"(?P<code>(?:EW|ED|DW|SL|RS|W|D)[-\s]?\d+)\s+"
+    r"(?P<a>\d{3,4})(?:\s*mm)?\s+"
+    r"(?P<b>\d{3,4})(?:\s*mm)?"
+    r"(?:\s+(?P<qty>\d{1,2}))?"
+    r"(?:\s+(?P<kind>[A-Za-z][A-Za-z +/.-]{1,24}))?",
+    re.IGNORECASE,
+)
 HW_THEN_CODE = re.compile(
     r"(?P<h>\d{3,4})\s*[Hh]\s*[xX×]\s*(?P<w>\d{3,4})\s*[Ww]\s+"
     r"(?P<code>(?:EW|ED|DW|SL|RS|W|D)[-\s]?\d+)",
@@ -40,7 +48,13 @@ DIM_HW = re.compile(
 )
 QTY_NEAR = re.compile(r"(?:qty|quantity|no\.?|数量)\s*[:=]?\s*(\d{1,2})", re.IGNORECASE)
 GFA = re.compile(
-    r"(?:gross\s+floor\s+area|gfa|总建筑面积|建筑面积)\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(?:m2|m²)",
+    r"(?:gross\s+floor\s+area|total\s+gfa|gfa\s+total|gfa|总建筑面积|建筑面积)\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(?:m2|m²)?",
+    re.IGNORECASE,
+)
+FLOOR_AREA = re.compile(
+    r"(?P<label>ground\s+floor(?:\s+area)?|first\s+floor(?:\s+area)?|second\s+floor(?:\s+area)?|"
+    r"level\s+\d(?:\s+area)?|total\s+gfa|gross\s+floor\s+area|gfa|roof(?:ing)?\s+area|"
+    r"底层面积|一楼面积|二楼面积|屋面面积)\s*[:：]?\s*(?P<val>\d+(?:\.\d+)?)\s*(?:m2|m²)?",
     re.IGNORECASE,
 )
 GROUND = re.compile(
@@ -101,9 +115,197 @@ def _empty_parse(kind: str, filename: str, error: str, warning: str) -> dict[str
         "text": "",
         "fields": {},
         "windows": [],
+        "charts": [],
+        "page_debug": [],
+        "pages": [],
         "warnings": [warning],
         "address_hint": None,
     }
+
+
+def group_text_items(items: list[tuple[float, float, str]], y_tol: float = 3.0) -> str:
+    pieces = [(float(y), float(x), str(text or "").replace("\n", " ").strip()) for y, x, text in items]
+    pieces = [item for item in pieces if item[2]]
+    if not pieces:
+        return ""
+    ordered = sorted(pieces, key=lambda item: (-item[0], item[1]))
+    lines: list[str] = []
+    bucket: list[tuple[float, str]] = []
+    current_y = ordered[0][0]
+    for y, x, text in ordered:
+        if bucket and abs(y - current_y) > y_tol:
+            bucket.sort(key=lambda item: item[0])
+            lines.append(" ".join(item[1] for item in bucket))
+            bucket = [(x, text)]
+            current_y = y
+        else:
+            bucket.append((x, text))
+            if not lines and not bucket[1:]:
+                current_y = y
+    if bucket:
+        bucket.sort(key=lambda item: item[0])
+        lines.append(" ".join(item[1] for item in bucket))
+    return "\n".join(lines)
+
+
+def _schedule_hits(text: str) -> int:
+    blob = text or ""
+    return len(re.findall(r"\b(?:EW|ED|DW|SL|RS|W|D)[-\s]?\d+\b", blob, re.I)) + len(
+        re.findall(r"schedule|gfa|qty|m2|m²|window|door", blob, re.I)
+    )
+
+
+def extract_page_layers(page) -> dict[str, str]:
+    glyphs: list[tuple[float, float, str]] = []
+
+    def visitor(text, _cm, tm, _font_dict, _font_size) -> None:
+        if not text:
+            return
+        try:
+            glyphs.append((float(tm[5]), float(tm[4]), str(text)))
+        except (TypeError, ValueError, IndexError):
+            return
+
+    plain = ""
+    try:
+        plain = page.extract_text(visitor_text=visitor) or ""
+    except TypeError:
+        try:
+            plain = page.extract_text() or ""
+        except Exception:  # noqa: BLE001
+            plain = ""
+    except Exception:  # noqa: BLE001
+        plain = ""
+    rows = group_text_items(glyphs)
+    layout = ""
+    try:
+        layout = page.extract_text(extraction_mode="layout") or ""
+    except Exception:  # noqa: BLE001
+        layout = ""
+    candidates = [item for item in (layout, rows, plain) if item and str(item).strip()]
+    if not candidates:
+        return {"plain": plain, "layout": layout, "rows": rows, "text": ""}
+    best = max(candidates, key=lambda text: (_schedule_hits(text), len(text)))
+    merged = "\n".join(dict.fromkeys(candidates))
+    return {"plain": plain, "layout": layout, "rows": rows, "text": merged or best}
+
+
+def page_role(text: str, table_rows: int) -> str:
+    n = len((text or "").strip())
+    if n < 40:
+        return "drawing_no_text"
+    if table_rows or re.search(r"schedule|window|door|gfa|qty", text or "", re.I):
+        return "schedule"
+    return "notes"
+
+
+def extract_charts(text: str, *, filename: str, page: int | None = None) -> list[dict[str, Any]]:
+    charts: list[dict[str, Any]] = []
+    window_rows: list[dict[str, Any]] = []
+    seen_lines: set[str] = set()
+    for raw_line in (text or "").splitlines():
+        line = raw_line.strip()
+        if len(line) < 4 or line in seen_lines:
+            continue
+        match = WINDOW_ROW.search(line) or COLUMN_WINDOW.search(line) or HW_THEN_CODE.search(line) or SIZE_THEN_CODE.search(line)
+        if not match:
+            continue
+        groups = match.groupdict()
+        width = int(groups.get("w") or groups.get("a") or 0)
+        height = int(groups.get("h") or groups.get("b") or 0)
+        if groups.get("w") and groups.get("h"):
+            width, height = int(groups["w"]), int(groups["h"])
+        elif groups.get("a") and groups.get("b"):
+            width, height = _orient(str(groups.get("code") or "W"), int(groups["a"]), int(groups["b"]))
+        if not _plausible_opening(width, height):
+            continue
+        seen_lines.add(line)
+        window_rows.append(
+            {
+                "line": line,
+                "code": re.sub(r"\s+", "", str(groups.get("code") or "")).upper(),
+                "w_mm": width,
+                "h_mm": height,
+                "count": int(groups.get("qty") or 1),
+                "kind": (groups.get("kind") or "").strip() or None,
+                "evidence": match.group(0).strip(),
+            }
+        )
+    if window_rows:
+        charts.append(
+            {
+                "id": "window_schedule",
+                "name_zh": "门窗表",
+                "source_file": filename,
+                "page": page,
+                "rows": window_rows,
+            }
+        )
+    area_rows: list[dict[str, Any]] = []
+    seen_area: set[str] = set()
+    for match in FLOOR_AREA.finditer(text or ""):
+        evidence = match.group(0).strip()
+        if evidence in seen_area:
+            continue
+        seen_area.add(evidence)
+        area_rows.append(
+            {
+                "line": evidence,
+                "label": match.group("label"),
+                "value": match.group("val"),
+                "evidence": evidence,
+            }
+        )
+    if area_rows:
+        charts.append(
+            {
+                "id": "area_schedule",
+                "name_zh": "面积表",
+                "source_file": filename,
+                "page": page,
+                "rows": area_rows,
+            }
+        )
+    coverage_rows: list[dict[str, Any]] = []
+    seen_cov: set[str] = set()
+    for match in PROPOSED_COVERAGE.finditer(text or ""):
+        evidence = match.group(0).strip()
+        if evidence in seen_cov:
+            continue
+        seen_cov.add(evidence)
+        coverage_rows.append(
+            {
+                "line": evidence,
+                "label": "Proposed Coverage",
+                "pct": match.group(1),
+                "area_m2": match.group(2),
+                "evidence": evidence,
+            }
+        )
+    for match in GROSS_SITE.finditer(text or ""):
+        evidence = match.group(0).strip()
+        if evidence in seen_cov:
+            continue
+        seen_cov.add(evidence)
+        coverage_rows.append(
+            {
+                "line": evidence,
+                "label": "Gross Site Area",
+                "value": match.group(1),
+                "evidence": evidence,
+            }
+        )
+    if coverage_rows:
+        charts.append(
+            {
+                "id": "coverage_schedule",
+                "name_zh": "覆盖率 / 地块面积表",
+                "source_file": filename,
+                "page": page,
+                "rows": coverage_rows,
+            }
+        )
+    return charts
 
 
 def extract_pdf(path: Path, *, kind: str, filename: str) -> dict[str, Any]:
@@ -123,12 +325,16 @@ def extract_pdf(path: Path, *, kind: str, filename: str) -> dict[str, Any]:
                 )
         pages = []
         page_warnings: list[str] = []
+        page_debug: list[dict[str, Any]] = []
+        charts: list[dict[str, Any]] = []
         for index, page in enumerate(reader.pages, start=1):
             try:
-                pages.append({"page": index, "text": page.extract_text() or ""})
+                layers = extract_page_layers(page)
+                text = layers.get("text") or ""
             except Exception as exc:  # noqa: BLE001
                 page_warnings.append(f"page_{index}_unreadable")
-                pages.append({"page": index, "text": ""})
+                text = ""
+                layers = {"plain": "", "layout": "", "rows": "", "text": ""}
                 if "cryptography" in str(exc).lower() or isinstance(exc, DependencyError):
                     return _empty_parse(
                         kind,
@@ -136,16 +342,40 @@ def extract_pdf(path: Path, *, kind: str, filename: str) -> dict[str, Any]:
                         "加密 PDF 需要 cryptography 才能读文字层。服务已缺少该依赖时请重试。",
                         "aes_dependency",
                     )
+            page_charts = extract_charts(text, filename=filename, page=index)
+            table_rows = sum(len(item.get("rows") or []) for item in page_charts)
+            role = page_role(text, table_rows)
+            if role == "drawing_no_text":
+                page_warnings.append(f"page_{index}_drawing_no_text")
+            pages.append({"page": index, "text": text, "plain": layers.get("plain"), "layout": layers.get("layout")})
+            page_debug.append(
+                {
+                    "page": index,
+                    "filename": filename,
+                    "kind": kind,
+                    "char_count": len(text.strip()),
+                    "role": role,
+                    "table_rows": table_rows,
+                    "preview": re.sub(r"\s+", " ", text).strip()[:280],
+                }
+            )
+            charts.extend(page_charts)
         text = "\n".join(item["text"] for item in pages)
         parsed = extract_from_text(text, kind=kind, filename=filename)
         parsed["page_count"] = len(pages)
         parsed["char_count"] = len(text.strip())
         parsed["text"] = text
         parsed["pages"] = [{"page": item["page"], "text": item["text"]} for item in pages]
+        parsed["page_debug"] = page_debug
+        if charts:
+            parsed["charts"] = charts
         parsed["warnings"] = list(dict.fromkeys([*(parsed.get("warnings") or []), *page_warnings]))
         if parsed["char_count"] < 80 and not parsed["fields"] and not parsed["windows"]:
             parsed["warnings"].append("scanned_or_empty_text")
             parsed["error"] = parsed.get("error") or "PDF 几乎没有文字层。扫描件无法按尺寸套价，请上传可选中文字的 RC/BC 图，或提供 IFC。"
+        no_text = sum(1 for item in page_debug if item.get("role") == "drawing_no_text")
+        if no_text:
+            parsed["warnings"].append(f"有 {no_text} 页几乎无文字层，图里的尺寸和线型未读取，也不做图像识别。")
         return parsed
     except DependencyError:
         return _empty_parse(
@@ -282,7 +512,9 @@ def extract_from_text(text: str, *, kind: str, filename: str) -> dict[str, Any]:
         fields["stud_spacing_mm"] = {"value": 400, "evidence": evidence, "source_file": filename}
         fields["cladding"] = {"value": "block_veneer", "evidence": evidence, "source_file": filename}
 
-    windows = _windows(compact, filename)
+    charts = extract_charts(text, filename=filename)
+    apply_chart_fields(fields, charts, filename)
+    windows = merge_window_lists(_windows(f"{text}\n{compact}", filename), windows_from_charts(charts))
     if not windows:
         warnings.append("no_window_schedule")
 
@@ -294,9 +526,123 @@ def extract_from_text(text: str, *, kind: str, filename: str) -> dict[str, Any]:
         "char_count": len(text.strip()),
         "fields": fields,
         "windows": windows,
+        "charts": charts,
+        "page_debug": [],
         "warnings": warnings,
         "address_hint": _address_hint(compact),
     }
+
+
+def windows_from_charts(charts: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    found: dict[str, dict[str, Any]] = {}
+    for chart in charts or []:
+        if chart.get("id") != "window_schedule":
+            continue
+        filename = str(chart.get("source_file") or "")
+        for row in chart.get("rows") or []:
+            code = re.sub(r"\s+", "", str(row.get("code") or "")).upper()
+            if not code:
+                continue
+            try:
+                width = int(row.get("w_mm") or 0)
+                height = int(row.get("h_mm") or 0)
+                count = int(row.get("count") or 1)
+            except (TypeError, ValueError):
+                continue
+            if not _plausible_opening(width, height) or count < 1:
+                continue
+            previous = found.get(code)
+            if previous is not None and int(previous.get("count") or 1) >= count:
+                continue
+            found[code] = {
+                "code": code,
+                "w_mm": width,
+                "h_mm": height,
+                "count": count,
+                "evidence": str(row.get("evidence") or row.get("line") or ""),
+                "source_file": filename,
+                "kind": row.get("kind"),
+            }
+    return list(found.values())
+
+
+def merge_window_lists(
+    primary: list[dict[str, Any]] | None,
+    extra: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    by_code: dict[str, dict[str, Any]] = {}
+    for item in primary or []:
+        code = re.sub(r"\s+", "", str(item.get("code") or "")).upper()
+        if code:
+            by_code[code] = item
+    for item in extra or []:
+        code = re.sub(r"\s+", "", str(item.get("code") or "")).upper()
+        if not code:
+            continue
+        previous = by_code.get(code)
+        if previous is None:
+            by_code[code] = item
+            continue
+        extra_count = int(item.get("count") or 0)
+        previous_count = int(previous.get("count") or 0)
+        if extra_count > previous_count:
+            by_code[code] = {**item, "source_file": item.get("source_file") or previous.get("source_file")}
+        elif item.get("kind") and not previous.get("kind"):
+            previous["kind"] = item.get("kind")
+    return list(by_code.values())
+
+
+def apply_chart_fields(fields: dict[str, Any], charts: list[dict[str, Any]] | None, filename: str) -> None:
+    for chart in charts or []:
+        source = str(chart.get("source_file") or filename)
+        if chart.get("id") == "area_schedule":
+            for row in chart.get("rows") or []:
+                label = str(row.get("label") or "").lower()
+                try:
+                    value = float(row.get("value"))
+                except (TypeError, ValueError):
+                    continue
+                evidence = str(row.get("evidence") or row.get("line") or "")
+                key = None
+                if "total" in label or "gross" in label or label.strip() in {"gfa"} or "总建筑" in label or "建筑面积" in label:
+                    key = "gfa_m2"
+                elif "ground" in label or "底层" in label or "占地" in label:
+                    key = "footprint_m2"
+                elif "roof" in label or "屋面" in label:
+                    key = "roof_m2"
+                if not key or key in fields:
+                    continue
+                fields[key] = {"value": value, "evidence": evidence, "source_file": source}
+        elif chart.get("id") == "coverage_schedule":
+            for row in chart.get("rows") or []:
+                evidence = str(row.get("evidence") or row.get("line") or "")
+                if row.get("pct") and "coverage_pct" not in fields:
+                    try:
+                        fields["coverage_pct"] = {
+                            "value": float(row["pct"]),
+                            "evidence": evidence,
+                            "source_file": source,
+                        }
+                    except (TypeError, ValueError):
+                        pass
+                if row.get("area_m2") and "footprint_m2" not in fields:
+                    try:
+                        fields["footprint_m2"] = {
+                            "value": float(row["area_m2"]),
+                            "evidence": evidence,
+                            "source_file": source,
+                        }
+                    except (TypeError, ValueError):
+                        pass
+                if str(row.get("label") or "").lower().startswith("gross site") and "site_area_m2" not in fields:
+                    try:
+                        fields["site_area_m2"] = {
+                            "value": float(row.get("value")),
+                            "evidence": evidence,
+                            "source_file": source,
+                        }
+                    except (TypeError, ValueError):
+                        pass
 
 
 def _value(fields: dict[str, Any], key: str):
@@ -349,6 +695,8 @@ def merge_extracts(parts: list[dict[str, Any]]) -> dict[str, Any]:
     warnings: list[str] = []
     documents = []
     errors = []
+    charts: list[dict[str, Any]] = []
+    page_debug: list[dict[str, Any]] = []
     rc_road = next((_road_key(part.get("address_hint")) for part in parts if part.get("kind") == "rc" and part.get("address_hint")), "")
     for part in parts:
         documents.append(
@@ -372,6 +720,8 @@ def merge_extracts(parts: list[dict[str, Any]]) -> dict[str, Any]:
             )
             continue
         kind = part.get("kind")
+        charts.extend(part.get("charts") or [])
+        page_debug.extend(part.get("page_debug") or [])
         for key, value in (part.get("fields") or {}).items():
             if key not in fields:
                 fields[key] = value
@@ -387,6 +737,8 @@ def merge_extracts(parts: list[dict[str, Any]]) -> dict[str, Any]:
         "documents": documents,
         "fields": fields,
         "windows": windows,
+        "charts": charts,
+        "page_debug": page_debug,
         "warnings": list(dict.fromkeys(warnings)),
         "errors": errors,
         "enough_to_cost": bool(fields.get("gfa_m2") or fields.get("footprint_m2") or windows),
@@ -412,6 +764,9 @@ def _windows(text: str, filename: str) -> list[dict[str, Any]]:
             return
         key = re.sub(r"\s+", "", code).upper()
         if key in found:
+            if qty > int(found[key].get("count") or 1):
+                found[key]["count"] = qty
+                found[key]["evidence"] = evidence.strip()
             return
         found[key] = {
             "code": key,
@@ -425,6 +780,9 @@ def _windows(text: str, filename: str) -> list[dict[str, Any]]:
     for match in HW_THEN_CODE.finditer(text):
         add(match.group("code"), int(match.group("w")), int(match.group("h")), match.group(0))
     for match in WINDOW_ROW.finditer(text):
+        width, height = _orient(match.group("code"), int(match.group("a")), int(match.group("b")))
+        add(match.group("code"), width, height, match.group(0), int(match.group("qty") or 1))
+    for match in COLUMN_WINDOW.finditer(text):
         width, height = _orient(match.group("code"), int(match.group("a")), int(match.group("b")))
         add(match.group("code"), width, height, match.group(0), int(match.group("qty") or 1))
     for match in SIZE_THEN_CODE.finditer(text):

@@ -3,7 +3,7 @@ from pathlib import Path
 from app.costing import cost_option
 from app.design import wrap_typology
 from app.drawing_flow import run_drawings, template_from_extract
-from app.drawing_parse import extract_from_text, extract_pdf, infer_kind, merge_extracts
+from app.drawing_parse import extract_from_text, extract_pdf, group_text_items, infer_kind, merge_extracts
 from app.quantity import takeoff
 from app.zoning import filter_template
 
@@ -25,6 +25,22 @@ Block veneer cladding
 Stud spacing 400 mm
 Retaining wall height 1.1 m
 W9 900 x 900 Qty 1
+"""
+
+COLUMN_SCHEDULE = """
+Window Schedule
+MARK   WIDTH  HEIGHT  QTY  TYPE
+W1     1800   1200    4    AWNING
+W2     1200   1200    4    FIXED
+ED1    860    2040    2    ENTRY
+SL1    3000   2100    1    SLIDER
+"""
+
+AREA_SCHEDULE = """
+Area Schedule
+Ground Floor    98.2 m2
+First Floor     88.2 m2
+Total GFA      186.4 m2
 """
 
 BC_TEXT = """
@@ -54,19 +70,26 @@ def _rules():
     }
 
 
-def write_text_pdf(path: Path, text: str) -> None:
-    escaped = " ".join(text.split()).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-    stream = f"BT /F1 11 Tf 40 720 Td ({escaped}) Tj ET\n"
+def write_pages_pdf(path: Path, page_texts: list[str]) -> None:
+    n = len(page_texts)
     objects = [
         "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n",
-        "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n",
-        (
-            "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-            "/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj\n"
-        ),
-        "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n",
-        f"5 0 obj << /Length {len(stream.encode('ascii'))} >> stream\n{stream}endstream\nendobj\n",
+        "2 0 obj << /Type /Pages /Kids ["
+        + " ".join(f"{4 + index * 2} 0 R" for index in range(n))
+        + f"] /Count {n} >> endobj\n",
+        "3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n",
     ]
+    for index, text in enumerate(page_texts):
+        page_id = 4 + index * 2
+        content_id = 5 + index * 2
+        escaped = " ".join(text.split()).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+        stream = f"BT /F1 11 Tf 40 720 Td ({escaped}) Tj ET\n" if escaped else "\n"
+        objects.append(
+            f"{page_id} 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            f"/Resources << /Font << /F1 3 0 R >> >> /Contents {content_id} 0 R >> endobj\n"
+        )
+        raw = stream.encode("ascii")
+        objects.append(f"{content_id} 0 obj << /Length {len(raw)} >> stream\n{stream}endstream\nendobj\n")
     header = "%PDF-1.4\n"
     body = "".join(objects)
     offsets = [0]
@@ -74,11 +97,16 @@ def write_text_pdf(path: Path, text: str) -> None:
     for item in objects:
         offsets.append(cursor)
         cursor += len(item.encode("ascii"))
-    xref = ["xref\n0 6\n0000000000 65535 f \n"]
+    count = len(objects) + 1
+    xref = [f"xref\n0 {count}\n0000000000 65535 f \n"]
     for offset in offsets[1:]:
         xref.append(f"{offset:010d} 00000 n \n")
-    trailer = f"trailer << /Size 6 /Root 1 0 R >>\nstartxref\n{cursor}\n%%EOF\n"
+    trailer = f"trailer << /Size {count} /Root 1 0 R >>\nstartxref\n{cursor}\n%%EOF\n"
     path.write_bytes((header + body + "".join(xref) + trailer).encode("ascii"))
+
+
+def write_text_pdf(path: Path, text: str) -> None:
+    write_pages_pdf(path, [text])
 
 
 def test_infer_kind_from_filenames():
@@ -324,4 +352,56 @@ def test_wide_slider_not_priced_as_hume_door():
     assert "joinery_ED14_3000x2100" in by_id
     assert "joinery_ED08_710x2100" in by_id
     assert "joinery_ED12_2700x2100" in by_id
+
+
+def test_extract_column_window_schedule_and_area_table():
+    parsed = extract_from_text(COLUMN_SCHEDULE + "\n" + AREA_SCHEDULE, kind="bc", filename="schedule.pdf")
+    by_code = {item["code"]: item for item in parsed["windows"]}
+    assert by_code["W1"]["count"] == 4
+    assert by_code["W1"]["w_mm"] == 1800
+    assert by_code["W1"]["kind"] == "AWNING"
+    assert by_code["ED1"]["h_mm"] == 2040
+    assert by_code["SL1"]["w_mm"] == 3000
+    charts = {item["id"]: item for item in parsed["charts"]}
+    window_codes = {row["code"] for row in charts["window_schedule"]["rows"]}
+    assert window_codes == {"W1", "W2", "ED1", "SL1"}
+    area_labels = [row["label"].lower() for row in charts["area_schedule"]["rows"]]
+    assert any("ground" in item for item in area_labels)
+    assert any("first" in item for item in area_labels)
+    assert any("gfa" in item for item in area_labels)
+    assert parsed["fields"]["gfa_m2"]["value"] == 186.4
+    assert parsed["fields"]["footprint_m2"]["value"] == 98.2
+
+
+def test_group_text_items_rebuilds_schedule_row():
+    text = group_text_items(
+        [
+            (200, 10, "W1"),
+            (200, 40, "1800"),
+            (200, 70, "1200"),
+            (200, 100, "4"),
+            (200, 130, "AWNING"),
+            (180, 10, "W2"),
+            (180, 40, "1200"),
+            (180, 70, "1200"),
+            (180, 100, "4"),
+            (180, 130, "FIXED"),
+        ]
+    )
+    assert "W1 1800 1200 4 AWNING" in text
+    assert "W2 1200 1200 4 FIXED" in text
+
+
+def test_extract_pdf_flags_pages_without_text(tmp_path: Path):
+    path = tmp_path / "mixed.pdf"
+    write_pages_pdf(
+        path,
+        ["Window schedule W1 1800 x 1200 Qty 4 Gross floor area: 165 m2", ""],
+    )
+    parsed = extract_pdf(path, kind="bc", filename="mixed.pdf")
+    roles = {item["page"]: item["role"] for item in parsed["page_debug"]}
+    assert roles[2] == "drawing_no_text"
+    assert any("page_2_drawing_no_text" in item for item in parsed["warnings"])
+    assert any("几乎无文字层" in item for item in parsed["warnings"])
+    assert parsed["windows"][0]["count"] == 4
 

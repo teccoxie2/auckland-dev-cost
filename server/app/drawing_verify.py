@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from .costing import WINDOW_ITEMS, cost_option
@@ -12,6 +11,7 @@ from .drawing_llm import (
     call_drawing_llm,
     combined_drawing_text,
     evidence_in_source,
+    full_drawing_text,
     ground_fields,
     ground_windows,
     llm_configured,
@@ -19,7 +19,7 @@ from .drawing_llm import (
     looks_like_price,
     number_in_text,
 )
-from .drawing_parse import merge_extracts
+from .drawing_parse import merge_extracts, merge_window_lists, windows_from_charts
 from .price_provider import pricebook_meta
 from .pricing import line, missing_line
 from .quantity import takeoff
@@ -182,33 +182,6 @@ def merge_field_maps(regex_fields: dict[str, Any] | None, llm_fields: dict[str, 
     return merged
 
 
-def merge_window_lists(
-    regex_windows: list[dict[str, Any]] | None,
-    llm_windows: list[dict[str, Any]] | None,
-) -> list[dict[str, Any]]:
-    by_code: dict[str, dict[str, Any]] = {}
-    for item in regex_windows or []:
-        code = re.sub(r"\s+", "", str(item.get("code") or "")).upper()
-        if code:
-            by_code[code] = item
-    for item in llm_windows or []:
-        code = re.sub(r"\s+", "", str(item.get("code") or "")).upper()
-        if not code:
-            continue
-        previous = by_code.get(code)
-        if previous is None:
-            by_code[code] = item
-            continue
-        llm_count = int(item.get("count") or 0)
-        regex_count = int(previous.get("count") or 0)
-        if llm_count > regex_count:
-            by_code[code] = {
-                **item,
-                "source_file": item.get("source_file") or previous.get("source_file"),
-            }
-    return list(by_code.values())
-
-
 def item_name_zh(item_id: str) -> str:
     book = pricebook()
     for item in book.get("items") or []:
@@ -273,8 +246,56 @@ def documents_public(parts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def drawing_audit(
+    parts: list[dict[str, Any]],
+    merged: dict[str, Any],
+    packed_text: str,
+    full_text: str,
+    windows: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    page_debug = merged.get("page_debug") or []
+    charts = merged.get("charts") or []
+    window_rows = [
+        row
+        for chart in charts
+        if chart.get("id") == "window_schedule"
+        for row in (chart.get("rows") or [])
+    ]
+    openings = windows if windows is not None else (merged.get("windows") or [])
+    return {
+        "page_count": sum(int(part.get("page_count") or 0) for part in parts) or len(page_debug),
+        "char_count": sum(int(part.get("char_count") or 0) for part in parts),
+        "full_chars": len(full_text or ""),
+        "sent_chars": len(packed_text or ""),
+        "no_text_pages": sum(1 for item in page_debug if item.get("role") == "drawing_no_text"),
+        "schedule_pages": sum(1 for item in page_debug if item.get("role") == "schedule"),
+        "chart_count": len(charts),
+        "chart_rows": sum(len(chart.get("rows") or []) for chart in charts),
+        "window_schedule_rows": len(window_rows),
+        "window_count": sum(int(item.get("count") or 0) for item in openings),
+    }
+
+
+def coverage_from_audit(audit: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "page_count": audit.get("page_count"),
+        "char_count": audit.get("char_count"),
+        "sent_chars": audit.get("sent_chars"),
+        "full_chars": audit.get("full_chars"),
+        "no_text_pages": audit.get("no_text_pages"),
+        "chart_rows": audit.get("chart_rows"),
+        "note": (
+            "只读文字层。图表按行列抽出，不依赖模型才看见表行。"
+            "送给模型的字符数可能少于全文，优先保留门窗表和面积页。"
+            "几乎无文字的图页不做图像识别，也不猜毫米。"
+        ),
+    }
+
+
 def verify_drawing_parts_rules(parts: list[dict[str, Any]]) -> dict[str, Any]:
     merged = merge_extracts(parts)
+    packed = combined_drawing_text(parts)
+    full_text = full_drawing_text(parts) or packed
     if not merged["enough_to_cost"]:
         return {
             "error": {
@@ -282,13 +303,16 @@ def verify_drawing_parts_rules(parts: list[dict[str, Any]]) -> dict[str, Any]:
                 "message": "图纸文字层里没有可核对的建筑面积或门窗表。扫描件无法量尺寸，请上传可选中文字的 RC/BC PDF。",
             },
             "extracted": merged,
+            "charts": merged.get("charts") or [],
+            "page_debug": merged.get("page_debug") or [],
+            "audit": drawing_audit(parts, merged, packed, full_text),
         }
     template = template_from_extract(merged, {})
     cost = cost_option(template, NO_ZONING, site={}, include_overheads=False)
     zones = group_lines_by_zone(cost["lines"])
     n_win = sum(int(item["count"]) for item in merged.get("windows") or [])
     fields = merged.get("fields") or {}
-    bits = ["对照路径：正则读文字层，再按固定公式展开材料，不含议会法定费用。"]
+    bits = ["对照路径：正则读文字层图表每一行，再按固定公式展开材料，不含议会法定费用。"]
     if fields.get("gfa_m2"):
         bits.append(f"建筑面积 {fields['gfa_m2']['value']} m²。")
     elif fields.get("footprint_m2"):
@@ -296,12 +320,17 @@ def verify_drawing_parts_rules(parts: list[dict[str, Any]]) -> dict[str, Any]:
     if n_win:
         bits.append(f"门窗表 {n_win} 樘。")
     bits.append("对不上公开 SKU 的科目标缺项，不编单价。")
+    audit = drawing_audit(parts, merged, packed, full_text, merged.get("windows") or [])
     return {
         "error": None,
         "explanation": "".join(bits),
         "documents": merged.get("documents") or [],
         "fields": field_values(fields),
         "windows": merged.get("windows") or [],
+        "charts": merged.get("charts") or [],
+        "page_debug": merged.get("page_debug") or [],
+        "audit": audit,
+        "coverage": coverage_from_audit(audit),
         "warnings": merged.get("warnings") or [],
         "quantities": cost["quantities"],
         "zones": zones,
@@ -320,6 +349,9 @@ def verify_drawing_parts_rules(parts: list[dict[str, Any]]) -> dict[str, Any]:
 
 def verify_drawing_parts(parts: list[dict[str, Any]], *, llm_payload: dict[str, Any] | None = None) -> dict[str, Any]:
     rule_compare = verify_drawing_parts_rules(parts)
+    merged = merge_extracts(parts)
+    packed = combined_drawing_text(parts)
+    source_text = full_drawing_text(parts) or packed
     if not text_layer_ok(parts):
         return {
             "error": {
@@ -328,8 +360,10 @@ def verify_drawing_parts(parts: list[dict[str, Any]], *, llm_payload: dict[str, 
             },
             "documents": documents_public(parts),
             "derivation": "llm",
+            "charts": merged.get("charts") or [],
+            "page_debug": merged.get("page_debug") or [],
+            "audit": drawing_audit(parts, merged, packed, source_text),
         }
-    source_text = combined_drawing_text(parts)
     if llm_payload is None:
         if not llm_configured():
             return {
@@ -339,22 +373,28 @@ def verify_drawing_parts(parts: list[dict[str, Any]], *, llm_payload: dict[str, 
                 },
                 "documents": documents_public(parts),
                 "derivation": "llm",
+                "charts": merged.get("charts") or [],
+                "page_debug": merged.get("page_debug") or [],
+                "audit": drawing_audit(parts, merged, packed, source_text),
                 "llm": {"status": "unavailable", "model": None, "note": "缺密钥时不编造材料清单。"},
             }
-        called = call_drawing_llm(source_text)
+        called = call_drawing_llm(packed, charts=merged.get("charts") or [])
         if not called.get("ok"):
             return {
                 "error": called.get("error")
                 or {"code": "llm_failed", "message": "大模型读取图纸失败。"},
                 "documents": documents_public(parts),
                 "derivation": "llm",
+                "charts": merged.get("charts") or [],
+                "page_debug": merged.get("page_debug") or [],
+                "audit": drawing_audit(parts, merged, packed, source_text),
                 "llm": {"status": "failed", "model": llm_model_name(), "note": "模型调用失败，未编造材料或金额。"},
             }
         model = called.get("model")
         llm_payload = called.get("payload") or {}
     else:
         model = llm_model_name()
-    built = build_llm_result(parts, source_text, llm_payload, model=model)
+    built = build_llm_result(parts, source_text, llm_payload, model=model, packed_text=packed)
     if built.get("error"):
         return built
     if rule_compare.get("error") is None:
@@ -377,16 +417,32 @@ def build_llm_result(
     payload: dict[str, Any],
     *,
     model: str | None,
+    packed_text: str | None = None,
 ) -> dict[str, Any]:
     rejected: list[dict[str, Any]] = []
     regex = merge_extracts(parts)
+    packed = packed_text if packed_text is not None else combined_drawing_text(parts)
     fields, field_rejected = ground_fields(payload.get("fields"), source_text)
     windows, window_rejected = ground_windows(payload.get("windows"), source_text)
     rejected.extend(field_rejected)
     rejected.extend(window_rejected)
     fields = merge_field_maps(regex.get("fields"), fields)
     windows = merge_window_lists(regex.get("windows"), windows)
+    window_sources = {item.get("source_file") for item in (regex.get("windows") or []) if item.get("source_file")}
+    chart_windows = [
+        item
+        for item in windows_from_charts(regex.get("charts"))
+        if not window_sources or item.get("source_file") in window_sources
+    ]
+    windows = merge_window_lists(windows, chart_windows)
     warnings = [item for item in (regex.get("warnings") or []) if item and item != "no_window_schedule"]
+    audit = drawing_audit(parts, regex, packed, source_text, windows)
+    debug = {
+        "charts": regex.get("charts") or [],
+        "page_debug": regex.get("page_debug") or [],
+        "audit": audit,
+        "coverage": coverage_from_audit(audit),
+    }
     if not fields and not windows:
         return {
             "error": {
@@ -395,6 +451,7 @@ def build_llm_result(
             },
             "documents": documents_public(parts),
             "derivation": "llm",
+            **debug,
             "llm": {
                 "status": "ungrounded",
                 "model": model,
@@ -423,6 +480,7 @@ def build_llm_result(
             },
             "documents": documents_public(parts),
             "derivation": "llm",
+            **debug,
             "llm": {"status": "ungrounded", "model": model, "rejected": rejected},
         }
     summary = payload.get("summary_zh") if isinstance(payload.get("summary_zh"), str) else ""
@@ -430,7 +488,7 @@ def build_llm_result(
         summary = ""
     n_win = sum(int(item["count"]) for item in windows)
     bits = [
-        "本页用大模型读 PDF 文字层，并与正则全文抽取合并。送给模型的是门窗表/面积页优先，不是只截封面。",
+        "本页用大模型读 PDF 文字层，并与正则全文及图表行抽取合并。送给模型的是门窗表/面积页优先，接地核对应全文。",
         "数量由服务器按公式、门窗表或原文件数重算，单价只走公开价库，模型不得定价。",
         "模型未点名但已读到面积/厨卫/门窗的科目，会按价库公式补全，不会用图像识别猜毫米。",
     ]
@@ -440,6 +498,8 @@ def build_llm_result(
         bits.append(f"读到占地 {fields['footprint_m2']['value']} m²。")
     if n_win:
         bits.append(f"门窗表 {n_win} 樘。")
+    if audit.get("no_text_pages"):
+        bits.append(f"有 {audit['no_text_pages']} 页几乎无文字层，图面尺寸未读取。")
     if summary:
         bits.append(summary.strip())
     return {
@@ -447,12 +507,10 @@ def build_llm_result(
         "derivation": "llm",
         "explanation": "".join(bits),
         "documents": documents_public(parts),
-        "coverage": {
-            "page_count": sum(int(part.get("page_count") or 0) for part in parts),
-            "char_count": sum(int(part.get("char_count") or 0) for part in parts),
-            "sent_chars": len(source_text),
-            "note": "只读文字层。送给模型的字符数可能少于全文，优先保留门窗表和面积页。",
-        },
+        "coverage": debug["coverage"],
+        "charts": debug["charts"],
+        "page_debug": debug["page_debug"],
+        "audit": audit,
         "fields": field_values(fields),
         "windows": windows,
         "warnings": list(dict.fromkeys(warnings)),
@@ -473,7 +531,7 @@ def build_llm_result(
             "model": model,
             "summary_zh": summary.strip() or None,
             "rejected": rejected,
-            "note": "模型金额已丢弃。门窗表与面积已和正则全文合并；公式科目会补上模型没点名的行。",
+            "note": "模型金额已丢弃。门窗表与面积已和正则全文、图表行合并；公式科目会补上模型没点名的行。",
         },
     }
 
@@ -491,10 +549,6 @@ def price_llm_selection(
     raw_lines = payload.get("lines") if isinstance(payload.get("lines"), list) else []
     priced: list[dict[str, Any]] = []
     seen: set[str] = set()
-
-    joinery_lines = joinery_from_windows(windows)
-    priced.extend(joinery_lines)
-    seen.update(str(item["id"]) for item in joinery_lines)
 
     joinery_lines = joinery_from_windows(windows)
     priced.extend(joinery_lines)
