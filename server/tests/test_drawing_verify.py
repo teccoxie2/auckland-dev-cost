@@ -3,7 +3,7 @@ import sys
 
 from fastapi.testclient import TestClient
 
-from app.drawing_llm import evidence_in_source, parse_llm_json
+from app.drawing_llm import evidence_in_source, parse_llm_json, combined_drawing_text
 from app.drawing_llm import llm_base_url, probe_llm
 from app.drawing_parse import extract_from_text
 from app.drawing_verify import group_lines_by_zone, verify_drawing_parts, verify_drawing_parts_rules, zone_for_line
@@ -147,18 +147,89 @@ def test_llm_derivation_uses_catalog_prices_and_formula_qty():
     assert result["rule_compare"]["zones"]
 
 
-def test_llm_rejects_ungrounded_fields():
+def test_evidence_in_source_ignores_whitespace():
+    assert evidence_in_source("Gross floor area: 186.4 m2", RC_TEXT)
+    assert evidence_in_source("Gross floor area 186.4m2", "Gross\nfloor\narea:\n186.4\nm2")
+
+
+def test_combined_text_prefers_window_schedule():
+    filler = "cover sheet legend north arrow revision cloud " * 4000
+    schedule = "Window schedule\nW1 1800 x 1200 Qty 4\nGross floor area: 186.4 m2"
+    packed = combined_drawing_text(
+        [{"filename": "big.pdf", "kind": "bc", "text": filler + "\n" + schedule}],
+        limit=8_000,
+    )
+    assert "W1 1800 x 1200" in packed
+    assert "Gross floor area" in packed
+
+
+def test_llm_keeps_regex_windows_when_model_omits_them():
+    payload = {
+        "fields": [{"key": "gfa_m2", "value": 186.4, "evidence": GFA_EVIDENCE}],
+        "windows": [],
+        "lines": [
+            {
+                "item_id": "timber_sg8_90x45_h12",
+                "quantity": 1,
+                "zone": "structure",
+                "evidence": GFA_EVIDENCE,
+                "reason_zh": "结构材",
+            }
+        ],
+    }
+    result = verify_drawing_parts(drawing_parts(), llm_payload=payload)
+    assert result.get("error") is None
+    codes = {item["code"] for item in result["windows"]}
+    assert "W1" in codes
+    zones = {item["id"]: item for item in result["zones"]}
+    assert "kitchen" in zones
+    assert any(line["id"] == "kaboodle_base_600" for line in zones["kitchen"]["lines"])
+    assert any("补全" in (warning or "") for warning in result["warnings"])
+
+
+def test_llm_rejects_ungrounded_fields_but_keeps_text_layer():
     payload = {
         "fields": [{"key": "gfa_m2", "value": 500, "evidence": "this phrase is not in the drawing"}],
         "windows": [],
         "lines": [],
     }
     result = verify_drawing_parts(drawing_parts(), llm_payload=payload)
+    assert result.get("error") is None
+    rejected_ids = {item["item_id"] for item in result["llm"]["rejected"]}
+    assert "gfa_m2" in rejected_ids
+    gfa = next(item for item in result["fields"] if item["key"] == "gfa_m2")
+    assert gfa["value"] == 186.4
+
+
+def test_llm_ungrounded_when_text_has_no_quantities():
+    notes = "General architectural notes about finishes and colours. " * 8
+    parts = [extract_from_text(notes, kind="rc", filename="notes.pdf")]
+    result = verify_drawing_parts(parts, llm_payload={"fields": [], "windows": [], "lines": []})
     assert result["error"]["code"] == "llm_ungrounded"
 
 
-def test_evidence_in_source_ignores_whitespace():
-    assert evidence_in_source("Gross floor area: 186.4 m2", RC_TEXT)
+def test_llm_keeps_catalog_item_with_count_in_evidence():
+    text = RC_TEXT + "\nScaffold hire 2 no. 3.0m mobile tower\n"
+    parts = [
+        extract_from_text(text, kind="rc", filename="rc-notes.pdf"),
+        extract_from_text(BC_TEXT, kind="bc", filename="bc-plans.pdf"),
+    ]
+    payload = sample_llm_payload()
+    payload["lines"].append(
+        {
+            "item_id": "scaffolding_mobile_3m_week",
+            "quantity": 2,
+            "zone": "scaffold",
+            "evidence": "Scaffold hire 2 no. 3.0m mobile tower",
+            "reason_zh": "图纸写了移动脚手架",
+        }
+    )
+    result = verify_drawing_parts(parts, llm_payload=payload)
+    assert result.get("error") is None
+    zones = {item["id"]: item for item in result["zones"]}
+    mobile = next(item for item in zones["scaffold"]["lines"] if item["id"] == "scaffolding_mobile_3m_week")
+    assert mobile["quantity"] == 2
+    assert mobile["status"] == "priced"
 
 
 def test_parse_llm_json_from_fence():

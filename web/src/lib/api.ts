@@ -379,6 +379,12 @@ export interface DrawingVerifyResult {
     char_count?: number;
     error?: string | null;
   }>;
+  coverage?: {
+    page_count?: number;
+    char_count?: number;
+    sent_chars?: number;
+    note?: string;
+  };
   fields?: Array<{
     key: string;
     value: unknown;

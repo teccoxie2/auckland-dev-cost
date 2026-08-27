@@ -54,8 +54,17 @@ INT_FIELDS = {
 
 
 DEFAULT_DRAWING_MODEL = "gpt-5.6-luna"
-CHAT_TIMEOUT = httpx.Timeout(connect=8.0, read=90.0, write=30.0, pool=8.0)
+CHAT_TIMEOUT = httpx.Timeout(connect=8.0, read=120.0, write=30.0, pool=8.0)
 PROBE_TIMEOUT = httpx.Timeout(connect=5.0, read=8.0, write=8.0, pool=5.0)
+PAGE_CHUNK = 3_500
+FIRST_PAGE_CAP = 6_000
+HINT_RE = re.compile(
+    r"schedule|window|door|joinery|gfa|gross\s*floor|floor\s*area|m²|m2|"
+    r"kitchen|bath|ensuite|\bens\b|bedroom|coverage|eaves|retain|cladding|stud|"
+    r"qty|quantity|roof|slab|foundation|insulation|gib|timber|plumb|"
+    r"area|dwelling|storey|lintel|joist|\b(?:ew|ed|dw|sl|rs|w|d)[-\s]?\d+",
+    re.I,
+)
 
 
 def llm_api_key() -> str:
@@ -122,15 +131,72 @@ def catalog_for_prompt() -> list[dict[str, Any]]:
     return rows
 
 
+def _iter_pages(part: dict[str, Any]) -> list[tuple[int, str]]:
+    rows: list[tuple[int, str]] = []
+    raw_pages = part.get("pages")
+    if isinstance(raw_pages, list) and raw_pages:
+        for item in raw_pages:
+            if not isinstance(item, dict):
+                continue
+            text = str(item.get("text") or "")
+            try:
+                page = int(item.get("page") or 0)
+            except (TypeError, ValueError):
+                page = 0
+            rows.append((page or len(rows) + 1, text))
+        if rows:
+            return rows
+    text = str(part.get("text") or "")
+    if not text:
+        return []
+    index = 1
+    for start in range(0, len(text), PAGE_CHUNK):
+        rows.append((index, text[start : start + PAGE_CHUNK]))
+        index += 1
+    return rows
+
+
+def _chunk_score(text: str) -> int:
+    if not str(text).strip():
+        return -1
+    return len(HINT_RE.findall(text))
+
+
 def combined_drawing_text(parts: list[dict[str, Any]], *, limit: int = 80_000) -> str:
+    first_pages: list[dict[str, Any]] = []
+    ranked: list[dict[str, Any]] = []
+    for part in parts:
+        pages = _iter_pages(part)
+        for offset, (page, text) in enumerate(pages):
+            row = {
+                "filename": part.get("filename"),
+                "kind": part.get("kind"),
+                "page": page,
+                "text": text,
+                "score": _chunk_score(text),
+                "first": offset == 0,
+            }
+            if offset == 0:
+                first_pages.append(row)
+            ranked.append(row)
+    ranked.sort(key=lambda item: (-int(item["score"]), str(item["filename"] or ""), int(item["page"] or 0)))
+    ordered: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    for row in [*first_pages, *ranked]:
+        key = (row["filename"], row["page"], str(row.get("text") or "")[:24])
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(row)
     chunks: list[str] = []
     remaining = limit
-    for part in parts:
-        text = str(part.get("text") or "").strip()
-        if not text:
+    for row in ordered:
+        text = str(row.get("text") or "").strip()
+        if not text or remaining <= 80:
             continue
-        header = f"===== FILE {part.get('filename')} KIND {part.get('kind')} =====\n"
-        body = text[: max(remaining - len(header), 0)]
+        header = f"===== FILE {row.get('filename')} KIND {row.get('kind')} PAGE {row.get('page')} =====\n"
+        cap = min(remaining - len(header), FIRST_PAGE_CAP if row.get("first") else remaining - len(header))
+        body = text[: max(cap, 0)]
         if not body:
             break
         chunks.append(header + body)
@@ -144,12 +210,36 @@ def normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", value or "").strip().lower()
 
 
+def fold_alnum(value: str) -> str:
+    return re.sub(r"[^a-z0-9.]+", "", normalize_text(value))
+
+
+def number_in_text(number: float | int, text: str) -> bool:
+    raw = str(text or "").replace(",", "")
+    if isinstance(number, float) and not number.is_integer():
+        token = f"{number:g}"
+        return token in raw.replace(" ", "") or str(number) in raw
+    token = str(int(round(float(number))))
+    return re.search(rf"(?<!\d){re.escape(token)}(?!\d)", raw) is not None
+
+
 def evidence_in_source(evidence: str, source: str) -> bool:
     ev = normalize_text(evidence)
     src = normalize_text(source)
-    if len(ev) < 6 or not src:
+    if not ev or not src:
         return False
-    return ev in src
+    if len(ev) >= 6 and ev in src:
+        return True
+    folded_ev = fold_alnum(evidence)
+    folded_src = fold_alnum(source)
+    if len(folded_ev) >= 8 and folded_ev in folded_src:
+        return True
+    numbers = re.findall(r"\d+(?:\.\d+)?", ev)
+    words = re.findall(r"[a-z]{3,}", ev)
+    if len(ev) >= 10 and numbers and all(item in src.replace(" ", "") or item in src for item in numbers):
+        if not words or any(word in src for word in words):
+            return True
+    return False
 
 
 def looks_like_price(text: str) -> bool:
@@ -320,13 +410,17 @@ def call_drawing_llm(source_text: str) -> dict[str, Any]:
     model = llm_model_name(models)
     prompt = (
         "你在读新西兰奥克兰住宅 Resource Consent / Building Consent PDF 的文字层。"
-        "只根据下面图纸正文做结构化抽取，不要发明正文里没有的毫米、面积或件数。"
-        "禁止输出任何价格、单价、总价、NZD 或 $。"
-        "门窗只能从文字层的门窗表读取。"
+        "正文按 FILE/PAGE 分段，门窗表、面积表、厨卫标注可能在靠后的 PAGE，必须逐段读完，不要只看封面。"
+        "只根据图纸正文做穷尽抽取：每一行门窗表、每一处面积/覆盖率/层数/厨卫/卧室、以及正文提到的材料。"
+        "evidence 必须从 PAGE 正文逐字抄录（可去掉换行），数字必须与原文一致。"
+        "不要发明正文里没有的毫米、面积或件数。禁止输出任何价格、单价、总价、NZD 或 $。"
+        "门窗只能从文字层的门窗表或尺寸标注读取，每一樘都要列出，Qty 写在 count。"
         "材料行的 item_id 必须来自给定价库目录；目录不含单价，你也不许写单价。"
-        "数量可以按常识配比填写，服务器会用公式或门窗表重算，不会采用你写的金额。\n"
+        "价库能对上的都写入 lines；对不上的写入 unmapped，不要省略。"
+        "结构/屋面/保温等可按读到的 GFA 或厨卫套数点名对应 SKU，服务器会用公式重算数量，不采用你写的金额。"
+        "没有公式的科目，quantity 必须是原文里出现的件数。\n"
         "只返回 JSON："
-        '{"summary_zh":"中文简述读到的户型",'
+        '{"summary_zh":"中文简述读到的户型与表",'
         '"fields":[{"key":"gfa_m2","value":186.4,"evidence":"原文短句"}],'
         '"windows":[{"code":"W1","w_mm":1800,"h_mm":1200,"count":4,"evidence":"原文短句"}],'
         '"lines":[{"item_id":"kaboodle_base_600","quantity":5,"zone":"kitchen",'
@@ -389,6 +483,9 @@ def ground_fields(raw_fields: Any, source_text: str) -> tuple[dict[str, Any], li
             continue
         if key in INT_FIELDS:
             number = int(round(number))
+        if not number_in_text(number, evidence):
+            rejected.append({"item_id": key, "reason_zh": "字段数字未出现在证据句中，已丢弃。"})
+            continue
         fields[key] = {"value": number, "evidence": evidence, "source_file": "llm"}
     return fields, rejected
 
@@ -419,6 +516,12 @@ def ground_windows(raw_windows: Any, source_text: str) -> tuple[list[dict[str, A
             continue
         if width < 400 or height < 350 or width > 7000 or height > 4000 or count < 1:
             rejected.append({"item_id": code, "reason_zh": "门窗尺寸或数量超出可信范围。"})
+            continue
+        if not number_in_text(width, evidence) or not number_in_text(height, evidence):
+            rejected.append({"item_id": code, "reason_zh": "门窗尺寸未出现在证据句中，已丢弃。"})
+            continue
+        if count != 1 and not number_in_text(count, evidence):
+            rejected.append({"item_id": code, "reason_zh": "门窗数量未出现在证据句中，已丢弃。"})
             continue
         if code in seen:
             continue

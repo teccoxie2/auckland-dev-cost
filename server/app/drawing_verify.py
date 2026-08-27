@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .costing import WINDOW_ITEMS, cost_option
@@ -16,6 +17,7 @@ from .drawing_llm import (
     llm_configured,
     llm_model_name,
     looks_like_price,
+    number_in_text,
 )
 from .drawing_parse import merge_extracts
 from .price_provider import pricebook_meta
@@ -172,6 +174,50 @@ def field_values(fields: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+def merge_field_maps(regex_fields: dict[str, Any] | None, llm_fields: dict[str, Any] | None) -> dict[str, Any]:
+    merged = dict(regex_fields or {})
+    merged.update(llm_fields or {})
+    return merged
+
+
+def merge_window_lists(
+    regex_windows: list[dict[str, Any]] | None,
+    llm_windows: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    by_code: dict[str, dict[str, Any]] = {}
+    for item in regex_windows or []:
+        code = re.sub(r"\s+", "", str(item.get("code") or "")).upper()
+        if code:
+            by_code[code] = item
+    for item in llm_windows or []:
+        code = re.sub(r"\s+", "", str(item.get("code") or "")).upper()
+        if not code:
+            continue
+        previous = by_code.get(code)
+        if previous is None:
+            by_code[code] = item
+            continue
+        llm_count = int(item.get("count") or 0)
+        regex_count = int(previous.get("count") or 0)
+        if llm_count > regex_count:
+            by_code[code] = {
+                **item,
+                "source_file": item.get("source_file") or previous.get("source_file"),
+            }
+    return list(by_code.values())
+
+
+def item_name_zh(item_id: str) -> str:
+    book = pricebook()
+    for item in book.get("items") or []:
+        if item.get("id") == item_id:
+            return str(item.get("name_zh") or item_id)
+    for item in book.get("missing_on_purpose") or []:
+        if item.get("id") == item_id:
+            return str(item.get("name_zh") or item_id)
+    return item_id
 
 
 def totals_from_lines(lines: list[dict[str, Any]]) -> dict[str, Any]:
@@ -333,15 +379,19 @@ def build_llm_result(
     model: str | None,
 ) -> dict[str, Any]:
     rejected: list[dict[str, Any]] = []
+    regex = merge_extracts(parts)
     fields, field_rejected = ground_fields(payload.get("fields"), source_text)
     windows, window_rejected = ground_windows(payload.get("windows"), source_text)
     rejected.extend(field_rejected)
     rejected.extend(window_rejected)
+    fields = merge_field_maps(regex.get("fields"), fields)
+    windows = merge_window_lists(regex.get("windows"), windows)
+    warnings = [item for item in (regex.get("warnings") or []) if item and item != "no_window_schedule"]
     if not fields and not windows:
         return {
             "error": {
                 "code": "llm_ungrounded",
-                "message": "大模型没有给出能在图纸文字层对上原文的面积、户型或门窗表。未编造材料。",
+                "message": "大模型与正则都没有在图纸文字层对上面积、户型或门窗表。未编造材料。",
             },
             "documents": documents_public(parts),
             "derivation": "llm",
@@ -349,14 +399,14 @@ def build_llm_result(
                 "status": "ungrounded",
                 "model": model,
                 "rejected": rejected,
-                "note": "证据句必须能在 PDF 文字层找到。",
+                "note": "证据句必须能在 PDF 文字层找到。扫描件没有文字层时无法读表。",
             },
         }
     extracted = {"fields": fields, "windows": windows}
     template = template_from_extract(extracted, {})
     qty = takeoff(template, {})
     qty["dwellings"] = int(template.get("dwellings") or 1)
-    priced_lines, line_rejected, warnings = price_llm_selection(
+    priced_lines, line_rejected, line_warnings = price_llm_selection(
         payload,
         source_text,
         qty,
@@ -364,6 +414,7 @@ def build_llm_result(
         template,
     )
     rejected.extend(line_rejected)
+    warnings.extend(line_warnings)
     if not priced_lines:
         return {
             "error": {
@@ -379,13 +430,14 @@ def build_llm_result(
         summary = ""
     n_win = sum(int(item["count"]) for item in windows)
     bits = [
-        "本页用大模型读 PDF 文字层，抽取带原文证据的字段并选择价库 SKU。",
-        "数量由服务器按公式或门窗表重算，单价只走公开价库，模型不得定价。",
+        "本页用大模型读 PDF 文字层，并与正则全文抽取合并。送给模型的是门窗表/面积页优先，不是只截封面。",
+        "数量由服务器按公式、门窗表或原文件数重算，单价只走公开价库，模型不得定价。",
+        "模型未点名但已读到面积/厨卫/门窗的科目，会按价库公式补全，不会用图像识别猜毫米。",
     ]
     if fields.get("gfa_m2"):
-        bits.append(f"模型读到建筑面积 {fields['gfa_m2']['value']} m²。")
+        bits.append(f"读到建筑面积 {fields['gfa_m2']['value']} m²。")
     elif fields.get("footprint_m2"):
-        bits.append(f"模型读到占地 {fields['footprint_m2']['value']} m²。")
+        bits.append(f"读到占地 {fields['footprint_m2']['value']} m²。")
     if n_win:
         bits.append(f"门窗表 {n_win} 樘。")
     if summary:
@@ -395,9 +447,15 @@ def build_llm_result(
         "derivation": "llm",
         "explanation": "".join(bits),
         "documents": documents_public(parts),
+        "coverage": {
+            "page_count": sum(int(part.get("page_count") or 0) for part in parts),
+            "char_count": sum(int(part.get("char_count") or 0) for part in parts),
+            "sent_chars": len(source_text),
+            "note": "只读文字层。送给模型的字符数可能少于全文，优先保留门窗表和面积页。",
+        },
         "fields": field_values(fields),
         "windows": windows,
-        "warnings": warnings,
+        "warnings": list(dict.fromkeys(warnings)),
         "quantities": qty,
         "zones": group_lines_by_zone(priced_lines),
         "totals": totals_from_lines(priced_lines),
@@ -415,7 +473,7 @@ def build_llm_result(
             "model": model,
             "summary_zh": summary.strip() or None,
             "rejected": rejected,
-            "note": "模型输出的金额已丢弃。数量若属面积/厨卫/门窗科目，已按公式或窗表重算。",
+            "note": "模型金额已丢弃。门窗表与面积已和正则全文合并；公式科目会补上模型没点名的行。",
         },
     }
 
@@ -438,15 +496,12 @@ def price_llm_selection(
     priced.extend(joinery_lines)
     seen.update(str(item["id"]) for item in joinery_lines)
 
+    joinery_lines = joinery_from_windows(windows)
+    priced.extend(joinery_lines)
+    seen.update(str(item["id"]) for item in joinery_lines)
+
     if not raw_lines:
-        fallback = cost_option(template, NO_ZONING, site={}, include_overheads=False)
-        for item in fallback["lines"]:
-            if item.get("id") in seen:
-                continue
-            priced.append(item)
-            seen.add(str(item["id"]))
-        warnings.append("模型没有列出 SKU 行，材料清单改由价库公式按模型读到的字段展开。")
-        return priced, rejected, warnings
+        warnings.append("模型没有列出 SKU 行，面积/厨卫/门窗科目改由价库公式补全。")
 
     aliases = {
         "plumber_prepipe_kitchen": ("plumber_prepipe_fixture", "kitchen"),
@@ -480,24 +535,32 @@ def price_llm_selection(
         if not evidence_in_source(evidence, source_text):
             rejected.append({"item_id": item_id, "reason_zh": "材料证据未出现在图纸文字层，已丢弃。"})
             continue
-        resolved = resolve_quantity(item_id, zone, raw.get("quantity"), qty)
+        resolved = resolve_quantity(item_id, zone, raw.get("quantity"), qty, evidence, source_text)
+        line_id = line_id_for(item_id, zone)
+        if line_id in seen:
+            continue
         if resolved is None:
-            rejected.append({"item_id": item_id, "reason_zh": "该科目数量无法由公式或窗表重算，且正文没有可引用件数。"})
+            row = missing_line(
+                line_id,
+                item_name_zh(item_id),
+                "图纸提到该科目，但没有可重算件数，也没有原文中的件数，故标缺项。",
+            )
+            row["zone"] = zone or None
+            row["llm_reason_zh"] = reason or None
+            priced.append(row)
+            seen.add(line_id)
             continue
         quantity, formula, note = resolved
         if quantity <= 0:
             rejected.append({"item_id": item_id, "reason_zh": "按公式重算后数量为 0，未计价。"})
             continue
-        line_id = line_id_for(item_id, zone)
-        if line_id in seen:
-            continue
-        extra = "数量已按公式或门窗表由服务器重算，未采用模型数字。"
+        extra = "数量已按公式、门窗表或原文件数由服务器重算，未采用无依据配比。"
         if reason:
             extra = f"{reason} {extra}"
         if note:
             extra = f"{extra} {note}"
         if item_id in {item["id"] for item in pricebook().get("missing_on_purpose") or []}:
-            row = missing_line(line_id, next(item["name_zh"] for item in pricebook()["missing_on_purpose"] if item["id"] == item_id), missing_reason(item_id), quantity=quantity)
+            row = missing_line(line_id, item_name_zh(item_id), missing_reason(item_id), quantity=quantity)
             row["formula"] = formula
             row["zone"] = zone or None
             row["llm_reason_zh"] = reason or None
@@ -510,29 +573,48 @@ def price_llm_selection(
         priced.append(row)
         seen.add(line_id)
 
+    filled = 0
+    fallback = cost_option(template, NO_ZONING, site={}, include_overheads=False)
+    for item in fallback["lines"]:
+        item_id = str(item.get("id") or "")
+        if not item_id or item_id in seen:
+            continue
+        item = {**item, "llm_reason_zh": "模型未点名，已按读到的面积/厨卫/门窗表用价库公式补全。"}
+        priced.append(item)
+        seen.add(item_id)
+        filled += 1
+    if filled:
+        warnings.append(f"已按价库公式补全 {filled} 项模型未点名的面积/厨卫/门窗科目。")
+
     for raw in payload.get("unmapped") or []:
         if not isinstance(raw, dict):
             continue
         evidence = str(raw.get("evidence") or "").strip()
         name_zh = str(raw.get("name_zh") or "未列入价库的材料").strip()
-        if evidence and not evidence_in_source(evidence, source_text):
+        if not evidence:
+            rejected.append({"item_id": name_zh, "reason_zh": "未映射项没有原文证据，未列入清单。"})
+            continue
+        if not evidence_in_source(evidence, source_text):
             rejected.append({"item_id": name_zh, "reason_zh": "未映射项的证据不在文字层。"})
             continue
         try:
             quantity = float(raw.get("quantity") or 0)
         except (TypeError, ValueError):
             quantity = 0
+        if quantity and not number_in_text(quantity, evidence):
+            quantity = 0
         reason = str(raw.get("reason_zh") or missing_reason("window_joinery_unmatched"))
         if looks_like_price(reason):
             reason = "价库没有对应 SKU，标缺项。"
-        row = missing_line(
-            f"unmapped_{len(priced)}",
-            name_zh,
-            reason,
-            quantity=quantity,
-            unit=str(raw.get("unit") or ""),
+        priced.append(
+            missing_line(
+                f"unmapped_{len(priced)}",
+                name_zh,
+                reason,
+                quantity=quantity,
+                unit=str(raw.get("unit") or ""),
+            )
         )
-        priced.append(row)
 
     if qty.get("cavity_required") and "cavity_closers_flashings" not in seen:
         priced.append(
@@ -556,8 +638,10 @@ def line_id_for(item_id: str, zone: str) -> str:
 def resolve_quantity(
     item_id: str,
     zone: str,
-    _raw_quantity: Any,
+    raw_quantity: Any,
     qty: dict[str, Any],
+    evidence: str = "",
+    source_text: str = "",
 ) -> tuple[float, str, str] | None:
     mapped_id = line_id_for(item_id, zone)
     if mapped_id == "plumber_prepipe_bathroom":
@@ -601,7 +685,25 @@ def resolve_quantity(
     if item_id == "geotextile_strol_50m":
         retaining = qty.get("retaining") or {}
         return float(retaining.get("geotextile_rolls") or 0), "墙面面积 / 50m² 每卷", ""
-    return None
+    return quantity_from_evidence(raw_quantity, evidence, source_text)
+
+
+def quantity_from_evidence(
+    raw_quantity: Any,
+    evidence: str,
+    source_text: str,
+) -> tuple[float, str, str] | None:
+    try:
+        quantity = float(raw_quantity)
+    except (TypeError, ValueError):
+        return None
+    if quantity <= 0 or quantity > 10_000:
+        return None
+    if not evidence_in_source(evidence, source_text):
+        return None
+    if not number_in_text(quantity, evidence):
+        return None
+    return quantity, "按文字层证据中的件数计，未编造数量。", "件数来自图纸原文，不是面积公式。"
 
 
 def joinery_from_windows(windows: list[dict[str, Any]]) -> list[dict[str, Any]]:

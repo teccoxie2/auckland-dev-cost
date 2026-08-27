@@ -141,6 +141,7 @@ def extract_pdf(path: Path, *, kind: str, filename: str) -> dict[str, Any]:
         parsed["page_count"] = len(pages)
         parsed["char_count"] = len(text.strip())
         parsed["text"] = text
+        parsed["pages"] = [{"page": item["page"], "text": item["text"]} for item in pages]
         parsed["warnings"] = list(dict.fromkeys([*(parsed.get("warnings") or []), *page_warnings]))
         if parsed["char_count"] < 80 and not parsed["fields"] and not parsed["windows"]:
             parsed["warnings"].append("scanned_or_empty_text")

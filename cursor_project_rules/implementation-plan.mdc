@@ -130,8 +130,9 @@ Done
 
 认 `CPA_BASE_URL` / `CPA_API_KEY`（管理页 URL 会收成 `/v1`）。就绪检查会探测 `/v1/models`；Chat 在 CPA 不支持 `json_object` 时自动降级。密钥不入库。
 
-## 图纸验证页开发态报错浮层
+## 图纸验证读图过粗、科目缺失
 
 Done
 
-Next 开发浮层把 Bitdefender 注入的 `bis_*` 属性和扩展 `unhandledrejection`（`M_ID`）当成页面错误。在 `html`/`body` 上 `suppressHydrationWarning`，并用 `instrumentation-client` 在捕获阶段拦截扩展噪音，避免挡住上传表单。
+根因是封面截断文字、大模型结果未与正则全文合并、没有公式的材料被整行丢掉。改为优先送门窗表/面积页，合并正则与模型抽取，公式科目补全模型未点名的行，原文件数可计价，对不上的材料改为缺项而不是删除。
+

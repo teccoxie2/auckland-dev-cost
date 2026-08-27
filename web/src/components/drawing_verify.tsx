@@ -92,17 +92,35 @@ function ZoneTable({ zone }: { zone: DrawingVerifyZone }) {
 function FieldsAndWindows({
   result,
 }: {
-  result: Pick<DrawingVerifyResult, "fields" | "windows" | "warnings" | "explanation">;
+  result: Pick<DrawingVerifyResult, "fields" | "windows" | "warnings" | "explanation" | "documents" | "coverage">;
 }) {
   return (
     <>
       <section>
         <h2 className="text-xl font-semibold">读到的图纸字段</h2>
         <p className="mt-2 text-sm leading-6 text-[#5c6754]">{result.explanation}</p>
+        {result.documents?.length ? (
+          <ul className="mt-3 space-y-1 text-xs text-[#7b8474]">
+            {result.documents.map((doc) => (
+              <li key={`${doc.kind}-${doc.filename}`}>
+                {doc.filename || "PDF"}
+                {doc.page_count ? ` · ${doc.page_count} 页` : ""}
+                {doc.char_count ? ` · ${doc.char_count} 字` : ""}
+                {doc.error ? ` · ${doc.error}` : ""}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {result.coverage?.sent_chars ? (
+          <p className="mt-2 text-xs leading-5 text-[#7b8474]">
+            全文 {result.coverage.char_count} 字，送给模型 {result.coverage.sent_chars} 字（门窗表/面积页优先）。
+            {result.coverage.note ? ` ${result.coverage.note}` : ""}
+          </p>
+        ) : null}
         {result.warnings?.length ? (
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[#9a6b12]">
-            {result.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
+            {result.warnings.map((warning, index) => (
+              <li key={`${warning}-${index}`}>{warning}</li>
             ))}
           </ul>
         ) : null}
@@ -148,7 +166,9 @@ function FieldsAndWindows({
             </table>
           </div>
         </section>
-      ) : null}
+      ) : (
+        <p className="text-sm text-[#9a6b12]">文字层没有对得上的门窗表。</p>
+      )}
     </>
   );
 }
@@ -267,8 +287,7 @@ export default function DrawingVerify() {
       <p className="text-sm tracking-[0.18em] text-[#7a5a2b]">VERIFY</p>
       <h1 className="mt-2 text-3xl font-semibold">RC / BC 图纸物料验证</h1>
       <p className="mt-3 max-w-3xl text-[15px] leading-7 text-[#5c6754]">
-        上传可选中文字的 Resource Consent 或 Building Consent PDF。本页调用大模型读文字层，抽出带原文证据的面积、厨卫和门窗表，并选择价库
-        SKU。数量由服务器按公式或窗表重算，单价只走公开价库。扫描件没有文字层会失败，不会用图像识别猜毫米，也不会采用模型写的金额。
+        上传可选中文字的 Resource Consent 或 Building Consent PDF。系统读全部文字层：正则先抽面积和门窗表，大模型再补正文里的表和材料，二者合并。送给模型时优先保留门窗表和面积页，避免封面把后页截掉。数量按公式、窗表或原文件数重算，单价只走价库。扫描件没有文字层会失败，不会用图像识别猜毫米，也不会采用模型写的金额。价库没有的材料会列为缺项而不是删掉。
       </p>
 
       {llmReady === false ? (
@@ -350,13 +369,16 @@ export default function DrawingVerify() {
                 {result.llm.note || ""}
               </p>
               {result.llm.rejected?.length ? (
-                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-[#9a6b12]">
-                  {result.llm.rejected.map((item, index) => (
-                    <li key={`${item.item_id}-${index}`}>
-                      {item.item_id}：{item.reason_zh}
-                    </li>
-                  ))}
-                </ul>
+                <div className="mt-3">
+                  <p className="text-sm font-medium text-[#9a6b12]">未能采用 {result.llm.rejected.length} 条模型输出</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[#9a6b12]">
+                    {result.llm.rejected.map((item, index) => (
+                      <li key={`${item.item_id}-${index}`}>
+                        {item.item_id}：{item.reason_zh}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
             </section>
           ) : null}
