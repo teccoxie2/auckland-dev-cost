@@ -123,3 +123,9 @@ Done
 Done
 
 `/drawing-takeoff` 调用大模型读 PDF 文字层：只接受能在原文对上的字段与门窗表，并选择价库 SKU。数量按公式或窗表由服务器重算，模型输出的单价丢弃。缺 `OPENAI_API_KEY` 或扫描件则失败。页面保留正则+公式对照。
+
+## 图纸验证可走本地 CPA
+
+Done
+
+认 `CPA_BASE_URL` / `CPA_API_KEY`（管理页 URL 会收成 `/v1`）。就绪检查会探测 `/v1/models`；Chat 在 CPA 不支持 `json_object` 时自动降级。密钥不入库。

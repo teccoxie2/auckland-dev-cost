@@ -289,7 +289,7 @@ def verify_drawing_parts(parts: list[dict[str, Any]], *, llm_payload: dict[str, 
             return {
                 "error": {
                     "code": "llm_unavailable",
-                    "message": "未配置 OPENAI_API_KEY，无法用大模型做本页材料推导。设置密钥后重试；金额仍只走价库。",
+                    "message": "未配置 CPA_API_KEY / OPENAI_API_KEY，无法用大模型做本页材料推导。设置密钥后重试；金额仍只走价库。",
                 },
                 "documents": documents_public(parts),
                 "derivation": "llm",

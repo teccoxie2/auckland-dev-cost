@@ -53,16 +53,57 @@ INT_FIELDS = {
 }
 
 
+PREFERRED_MODELS = (
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.5-pro",
+    "gpt-4o-mini",
+    "gpt-4o",
+    "gpt-5.4-mini",
+    "gpt-5.4",
+    "claude-sonnet-4-5",
+    "claude-3-5-sonnet-latest",
+)
+CHAT_TIMEOUT = httpx.Timeout(connect=8.0, read=90.0, write=30.0, pool=8.0)
+PROBE_TIMEOUT = httpx.Timeout(connect=5.0, read=8.0, write=8.0, pool=5.0)
+
+
+def llm_api_key() -> str:
+    return (os.environ.get("CPA_API_KEY") or os.environ.get("OPENAI_API_KEY") or "").strip()
+
+
 def llm_configured() -> bool:
-    return bool(os.environ.get("OPENAI_API_KEY", "").strip())
+    return bool(llm_api_key())
 
 
-def llm_model_name() -> str:
-    return (
+def llm_base_url() -> str:
+    raw = (os.environ.get("CPA_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or "").strip()
+    if not raw:
+        return "https://api.openai.com/v1"
+    raw = re.sub(r"/management\.html.*$", "", raw, flags=re.I)
+    raw = re.sub(r"/chat/completions/?$", "", raw, flags=re.I).rstrip("/")
+    if raw.endswith("/v1"):
+        return raw
+    return f"{raw}/v1"
+
+
+def llm_model_name(available: list[str] | None = None) -> str:
+    requested = (
         os.environ.get("DRAWING_LLM_MODEL", "").strip()
         or os.environ.get("SITE_VISION_MODEL", "").strip()
-        or "gpt-4o-mini"
     )
+    if requested:
+        return requested
+    names = available or []
+    lookup = {item.lower(): item for item in names}
+    for name in PREFERRED_MODELS:
+        if name.lower() in lookup:
+            return lookup[name.lower()]
+    return names[0] if names else "gpt-4o-mini"
+
+
+def llm_headers() -> dict[str, str]:
+    return {"Authorization": f"Bearer {llm_api_key()}", "Content-Type": "application/json"}
 
 
 def catalog_for_prompt() -> list[dict[str, Any]]:
@@ -150,14 +191,117 @@ def parse_llm_json(raw: str) -> dict[str, Any] | None:
     return None
 
 
+def list_llm_models() -> tuple[list[str], str | None]:
+    if not llm_configured():
+        return [], "未配置 CPA_API_KEY / OPENAI_API_KEY。"
+    base = llm_base_url()
+    try:
+        with httpx.Client(timeout=PROBE_TIMEOUT) as client:
+            response = client.get(f"{base}/models", headers=llm_headers())
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as exc:  # noqa: BLE001
+        return [], str(exc)
+    rows = payload.get("data") if isinstance(payload, dict) else payload
+    if not isinstance(rows, list):
+        return [], "模型列表格式无法解析。"
+    names: list[str] = []
+    for item in rows:
+        if isinstance(item, str) and item.strip():
+            names.append(item.strip())
+        elif isinstance(item, dict):
+            name = str(item.get("id") or item.get("name") or "").strip()
+            if name:
+                names.append(name)
+    return list(dict.fromkeys(names)), None
+
+
+def probe_llm(*, ping_chat: bool = False) -> dict[str, Any]:
+    if not llm_configured():
+        return {
+            "configured": False,
+            "reachable": False,
+            "base_url": None,
+            "model": None,
+            "models": [],
+            "note": "未配置 CPA_API_KEY 或 OPENAI_API_KEY，无法调用本地 CPA / 大模型，也不会编造材料清单。",
+        }
+    base = llm_base_url()
+    models, list_error = list_llm_models()
+    model = llm_model_name(models)
+    result: dict[str, Any] = {
+        "configured": True,
+        "reachable": list_error is None,
+        "base_url": base,
+        "model": model,
+        "models": models[:24],
+        "note": "",
+    }
+    if list_error:
+        result["note"] = f"已配置密钥，但连不上 {base}：{list_error}"
+        return result
+    if not ping_chat:
+        result["note"] = f"已连上 {base}，模型 {model}。本页用它读文字层选 SKU，数量按公式或门窗表重算，单价只走价库。"
+        return result
+    try:
+        raw, used_model = _chat_completion(
+            model,
+            [{"role": "user", "content": '只返回 JSON：{"ok":true}'}],
+            timeout=PROBE_TIMEOUT,
+        )
+    except Exception as exc:  # noqa: BLE001
+        result["reachable"] = False
+        result["note"] = f"模型列表可读，但 chat/completions 失败：{exc}"
+        return result
+    parsed = parse_llm_json(raw)
+    result["model"] = used_model
+    result["chat_ok"] = bool(parsed)
+    result["note"] = (
+        f"已用 {used_model} 完成一次 CPA 试调用。"
+        if parsed
+        else f"已连上 CPA，但试调用没有返回 JSON：{(raw or '')[:180]}"
+    )
+    return result
+
+
+def _chat_completion(
+    model: str,
+    messages: list[dict[str, Any]],
+    *,
+    timeout: httpx.Timeout = CHAT_TIMEOUT,
+) -> tuple[str, str]:
+    base = llm_base_url()
+    body = {
+        "model": model,
+        "temperature": 0,
+        "messages": messages,
+    }
+    with httpx.Client(timeout=timeout) as client:
+        response = client.post(
+            f"{base}/chat/completions",
+            headers=llm_headers(),
+            json={**body, "response_format": {"type": "json_object"}},
+        )
+        if response.status_code >= 400:
+            retry = client.post(f"{base}/chat/completions", headers=llm_headers(), json=body)
+            retry.raise_for_status()
+            payload = retry.json()
+        else:
+            response.raise_for_status()
+            payload = response.json()
+    content = payload["choices"][0]["message"]["content"]
+    if isinstance(content, list):
+        content = "".join(str(part.get("text") or part) if isinstance(part, dict) else str(part) for part in content)
+    return str(content or ""), str(payload.get("model") or model)
+
+
 def call_drawing_llm(source_text: str) -> dict[str, Any]:
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key:
+    if not llm_configured():
         return {
             "ok": False,
             "error": {
                 "code": "llm_unavailable",
-                "message": "未配置 OPENAI_API_KEY，无法用大模型读图纸文字层。数量与金额都不会编造；请设置密钥后再验证。",
+                "message": "未配置 CPA_API_KEY / OPENAI_API_KEY，无法用大模型读图纸文字层。数量与金额都不会编造；请设置密钥后再验证。",
             },
         }
     if not source_text.strip():
@@ -169,8 +313,11 @@ def call_drawing_llm(source_text: str) -> dict[str, Any]:
             },
         }
     catalog = catalog_for_prompt()
-    model = llm_model_name()
-    base = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    explicit = os.environ.get("DRAWING_LLM_MODEL", "").strip() or os.environ.get("SITE_VISION_MODEL", "").strip()
+    models: list[str] = []
+    if not explicit:
+        models, _list_error = list_llm_models()
+    model = llm_model_name(models)
     prompt = (
         "你在读新西兰奥克兰住宅 Resource Consent / Building Consent PDF 的文字层。"
         "只根据下面图纸正文做结构化抽取，不要发明正文里没有的毫米、面积或件数。"
@@ -190,20 +337,7 @@ def call_drawing_llm(source_text: str) -> dict[str, Any]:
         f"图纸文字：\n{source_text}"
     )
     try:
-        with httpx.Client(timeout=90.0) as client:
-            response = client.post(
-                f"{base}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": model,
-                    "temperature": 0,
-                    "response_format": {"type": "json_object"},
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-            )
-            response.raise_for_status()
-            payload = response.json()
-        raw = payload["choices"][0]["message"]["content"]
+        raw, used_model = _chat_completion(model, [{"role": "user", "content": prompt}])
     except Exception as exc:  # noqa: BLE001
         return {
             "ok": False,
@@ -221,7 +355,7 @@ def call_drawing_llm(source_text: str) -> dict[str, Any]:
                 "message": "大模型没有返回可解析的 JSON。未编造材料或金额。",
             },
         }
-    return {"ok": True, "model": model, "payload": parsed}
+    return {"ok": True, "model": used_model, "payload": parsed}
 
 
 def ground_fields(raw_fields: Any, source_text: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:

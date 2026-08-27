@@ -4,6 +4,7 @@ import sys
 from fastapi.testclient import TestClient
 
 from app.drawing_llm import evidence_in_source, parse_llm_json
+from app.drawing_llm import llm_base_url, probe_llm
 from app.drawing_parse import extract_from_text
 from app.drawing_verify import group_lines_by_zone, verify_drawing_parts, verify_drawing_parts_rules, zone_for_line
 from app.main import app
@@ -167,6 +168,7 @@ def test_parse_llm_json_from_fence():
 
 def test_http_verify_requires_llm_key(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("CPA_API_KEY", raising=False)
     rc = tmp_path / "rc-notes.pdf"
     write_text_pdf(rc, RC_TEXT)
     client = TestClient(app)
@@ -176,7 +178,7 @@ def test_http_verify_requires_llm_key(tmp_path, monkeypatch):
         data={"kinds": "rc"},
     )
     assert response.status_code == 400
-    assert "OPENAI_API_KEY" in response.json()["detail"]
+    assert "CPA_API_KEY" in response.json()["detail"]
 
 
 def test_http_verify_reads_text_pdf(tmp_path, monkeypatch):
@@ -211,7 +213,25 @@ def test_http_verify_reads_text_pdf(tmp_path, monkeypatch):
 
 def test_ready_endpoint_reports_missing_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("CPA_API_KEY", raising=False)
     client = TestClient(app)
     response = client.get("/drawings/verify/ready")
     assert response.status_code == 200
-    assert response.json()["llm"] is False
+    body = response.json()
+    assert body["llm"] is False
+    assert body["configured"] is False
+
+
+def test_cpa_base_url_from_management_page(monkeypatch):
+    monkeypatch.setenv("CPA_BASE_URL", "http://192.168.52.81:8317/management.html")
+    assert llm_base_url() == "http://192.168.52.81:8317/v1"
+
+
+def test_cpa_api_key_marks_llm_configured(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("CPA_API_KEY", "cpa-test")
+    monkeypatch.setenv("CPA_BASE_URL", "http://127.0.0.1:9")
+    probed = probe_llm(ping_chat=False)
+    assert probed["configured"] is True
+    assert probed["reachable"] is False
+    assert "127.0.0.1:9/v1" in probed["base_url"]

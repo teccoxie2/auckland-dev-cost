@@ -13,7 +13,7 @@ from .advise import build_advice
 from .data_loader import council_fees, pricebook
 from .drawing_flow import parse_files, run_drawings
 from .drawing_parse import MAX_PDF_BYTES
-from .drawing_llm import llm_configured, llm_model_name
+from .drawing_llm import probe_llm
 from .drawing_verify import verify_drawing_parts
 from .gis import (
     ADDRESS_SOURCE_NAME,
@@ -327,16 +327,18 @@ async def post_drawings(
 
 
 @app.get("/drawings/verify/ready")
-def drawings_verify_ready() -> dict[str, Any]:
-    ready = llm_configured()
+def drawings_verify_ready(chat: bool = False) -> dict[str, Any]:
+    probed = probe_llm(ping_chat=chat)
+    ready = bool(probed.get("configured") and probed.get("reachable"))
     return {
         "llm": ready,
-        "model": llm_model_name() if ready else None,
-        "note": (
-            "已配置密钥。本页用大模型读文字层选 SKU，数量按公式或门窗表重算，单价只走价库。"
-            if ready
-            else "未配置 OPENAI_API_KEY，图纸物料验证无法调用大模型，也不会编造材料清单。"
-        ),
+        "configured": probed.get("configured"),
+        "reachable": probed.get("reachable"),
+        "model": probed.get("model"),
+        "models": probed.get("models") or [],
+        "base_url": probed.get("base_url"),
+        "chat_ok": probed.get("chat_ok"),
+        "note": probed.get("note"),
     }
 
 

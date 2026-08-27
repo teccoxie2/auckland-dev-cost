@@ -192,6 +192,8 @@ export default function DrawingVerify() {
       .then(async (response) => {
         const payload = (await response.json().catch(() => ({}))) as {
           llm?: boolean;
+          configured?: boolean;
+          reachable?: boolean;
           note?: string;
         };
         if (cancelled) return;
