@@ -67,7 +67,7 @@ def _run_job(job_id: str, saved: list[dict[str, Any]], workdir: Path) -> None:
     try:
         _set_job(job_id, status="running", note="正在读取 PDF 文字层…")
         parts = parse_files(saved)
-        _set_job(job_id, note="正在调用大模型读文字层，请稍候…")
+        _set_job(job_id, note="正在调用大模型读文字层，可能需要几分钟…")
         payload = verify_drawing_parts(parts)
         if payload.get("error"):
             _set_job(

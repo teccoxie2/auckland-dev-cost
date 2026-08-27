@@ -54,10 +54,13 @@ INT_FIELDS = {
 
 
 DEFAULT_DRAWING_MODEL = "gpt-5.6-luna"
-CHAT_TIMEOUT = httpx.Timeout(connect=8.0, read=120.0, write=30.0, pool=8.0)
+CHAT_TIMEOUT = httpx.Timeout(connect=8.0, read=210.0, write=30.0, pool=8.0)
+RETRY_CHAT_TIMEOUT = httpx.Timeout(connect=8.0, read=180.0, write=30.0, pool=8.0)
 PROBE_TIMEOUT = httpx.Timeout(connect=5.0, read=8.0, write=8.0, pool=5.0)
 PAGE_CHUNK = 3_500
 FIRST_PAGE_CAP = 6_000
+PACKED_TEXT_LIMIT = 36_000
+RETRY_TEXT_LIMIT = 18_000
 HINT_RE = re.compile(
     r"schedule|window|door|joinery|gfa|gross\s*floor|floor\s*area|m²|m2|"
     r"kitchen|bath|ensuite|\bens\b|bedroom|coverage|eaves|retain|cladding|stud|"
@@ -115,7 +118,6 @@ def catalog_for_prompt() -> list[dict[str, Any]]:
                 "name_zh": item.get("name_zh"),
                 "unit": item.get("unit"),
                 "trade": item.get("trade"),
-                "notes": item.get("notes"),
             }
         )
     for item in book.get("missing_on_purpose") or []:
@@ -125,7 +127,6 @@ def catalog_for_prompt() -> list[dict[str, Any]]:
                 "name_zh": item.get("name_zh"),
                 "unit": None,
                 "priced": False,
-                "notes": item.get("reason"),
             }
         )
     return rows
@@ -162,7 +163,7 @@ def _chunk_score(text: str) -> int:
     return len(HINT_RE.findall(text))
 
 
-def combined_drawing_text(parts: list[dict[str, Any]], *, limit: int = 120_000) -> str:
+def combined_drawing_text(parts: list[dict[str, Any]], *, limit: int = PACKED_TEXT_LIMIT) -> str:
     first_pages: list[dict[str, Any]] = []
     ranked: list[dict[str, Any]] = []
     for part in parts:
@@ -207,6 +208,47 @@ def combined_drawing_text(parts: list[dict[str, Any]], *, limit: int = 120_000) 
         if remaining <= 0:
             break
     return "\n\n".join(chunks)
+
+
+def shrink_packed_text(text: str, limit: int) -> str:
+    blob = (text or "").strip()
+    if len(blob) <= limit:
+        return blob
+    pieces = blob.split("===== FILE ")
+    chunks: list[str] = []
+    for index, piece in enumerate(pieces):
+        if index == 0:
+            if piece.strip():
+                chunks.append(piece)
+            continue
+        chunks.append("===== FILE " + piece)
+    if len(chunks) <= 1:
+        return blob[:limit]
+    ranked = sorted(chunks, key=lambda item: (-_chunk_score(item), -len(item)))
+    out: list[str] = []
+    remaining = limit
+    for chunk in ranked:
+        extra = 2 if out else 0
+        take = remaining - extra
+        if take <= 80:
+            break
+        body = chunk[:take].strip()
+        if not body:
+            break
+        out.append(body)
+        remaining -= len(body) + extra
+        if remaining <= 80:
+            break
+    return "\n\n".join(out) or blob[:limit]
+
+
+def _is_timeout(exc: BaseException) -> bool:
+    if isinstance(exc, (httpx.TimeoutException, TimeoutError)):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None and exc.response.status_code in {408, 504, 524}:
+        return True
+    text = str(exc).lower()
+    return "timed out" in text or "timeout" in text
 
 
 def full_drawing_text(parts: list[dict[str, Any]]) -> str:
@@ -419,32 +461,14 @@ def charts_prompt_block(charts: list[dict[str, Any]] | None) -> str:
     if not compact:
         return "服务器未从文字层抽出可识别的表格行。仍须逐页读正文，不要猜扫描图上的毫米。"
     blob = json.dumps(compact, ensure_ascii=False)
-    if len(blob) > 40_000:
-        blob = blob[:40_000]
+    if len(blob) > 20_000:
+        blob = blob[:20_000]
     return blob
 
 
-def call_drawing_llm(source_text: str, charts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    if not llm_configured():
-        return {
-            "ok": False,
-            "error": {
-                "code": "llm_unavailable",
-                "message": "未配置 CPA_API_KEY / OPENAI_API_KEY，无法用大模型读图纸文字层。数量与金额都不会编造；请设置密钥后再验证。",
-            },
-        }
-    if not source_text.strip():
-        return {
-            "ok": False,
-            "error": {
-                "code": "drawing_empty",
-                "message": "图纸没有可送给模型的文字层。",
-            },
-        }
+def _drawing_prompt(source_text: str, charts: list[dict[str, Any]] | None) -> str:
     catalog = catalog_for_prompt()
-    models, _list_error, _status = list_llm_models()
-    model = llm_model_name(models)
-    prompt = (
+    return (
         "你在读新西兰奥克兰住宅 Resource Consent / Building Consent PDF 的文字层。"
         "正文按 FILE/PAGE 分段，门窗表、面积表、厨卫标注可能在靠后的 PAGE，必须逐段读完，不要只看封面。"
         "只根据图纸正文和服务器抽出的表格行做穷尽抽取：每一行门窗表、每一处面积/覆盖率/层数/厨卫/卧室、以及正文提到的材料。"
@@ -469,14 +493,61 @@ def call_drawing_llm(source_text: str, charts: list[dict[str, Any]] | None = Non
         f"文字层图表：\n{charts_prompt_block(charts)}\n"
         f"图纸文字：\n{source_text}"
     )
-    try:
-        raw, used_model = _chat_completion(model, [{"role": "user", "content": prompt}])
-    except Exception as exc:  # noqa: BLE001
+
+
+def call_drawing_llm(source_text: str, charts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    if not llm_configured():
         return {
             "ok": False,
             "error": {
-                "code": "llm_failed",
-                "message": f"大模型读取图纸失败：{exc}。未编造材料或金额。",
+                "code": "llm_unavailable",
+                "message": "未配置 CPA_API_KEY / OPENAI_API_KEY，无法用大模型读图纸文字层。数量与金额都不会编造；请设置密钥后再验证。",
+            },
+        }
+    if not source_text.strip():
+        return {
+            "ok": False,
+            "error": {
+                "code": "drawing_empty",
+                "message": "图纸没有可送给模型的文字层。",
+            },
+        }
+    model = llm_model_name()
+    packed = source_text
+    last_error: BaseException | None = None
+    used_model = model
+    raw = ""
+    for attempt in range(2):
+        timeout = CHAT_TIMEOUT if attempt == 0 else RETRY_CHAT_TIMEOUT
+        prompt = _drawing_prompt(packed, charts)
+        try:
+            raw, used_model = _chat_completion(model, [{"role": "user", "content": prompt}], timeout=timeout)
+            last_error = None
+            break
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            if not _is_timeout(exc):
+                return {
+                    "ok": False,
+                    "error": {
+                        "code": "llm_failed",
+                        "message": f"大模型读取图纸失败：{exc}。未编造材料或金额。",
+                    },
+                }
+            shrunk = shrink_packed_text(packed, RETRY_TEXT_LIMIT)
+            if attempt == 0 and shrunk and shrunk != packed:
+                packed = shrunk
+                continue
+            if attempt == 0:
+                packed = packed[:RETRY_TEXT_LIMIT]
+                continue
+            break
+    if last_error is not None:
+        return {
+            "ok": False,
+            "error": {
+                "code": "llm_timeout",
+                "message": "大模型读取图纸超时，限定时间内没有返回。未编造材料或金额。请确认 CPA 隧道仍开着后重试。",
             },
         }
     parsed = parse_llm_json(raw)

@@ -4,7 +4,7 @@ import time
 
 from fastapi.testclient import TestClient
 
-from app.drawing_llm import evidence_in_source, parse_llm_json, combined_drawing_text, charts_prompt_block
+from app.drawing_llm import evidence_in_source, parse_llm_json, combined_drawing_text, charts_prompt_block, call_drawing_llm, shrink_packed_text
 from app.drawing_llm import llm_base_url, probe_llm
 from app.drawing_parse import extract_from_text
 from app.drawing_verify import group_lines_by_zone, verify_drawing_parts, verify_drawing_parts_rules, zone_for_line
@@ -381,3 +381,31 @@ def test_charts_prompt_includes_every_window_row():
     blob = charts_prompt_block(charts)
     assert "W1" in blob
     assert "1800" in blob
+
+
+def test_shrink_packed_text_keeps_schedule_page():
+    cover = "===== FILE a.pdf KIND bc PAGE 1 =====\n" + ("cover sheet legend " * 2000)
+    schedule = "===== FILE a.pdf KIND bc PAGE 8 =====\nWindow schedule\nW1 1800 x 1200 Qty 4\nGross floor area: 186.4 m2"
+    shrunk = shrink_packed_text(cover + "\n\n" + schedule, 1_200)
+    assert "W1 1800 x 1200" in shrunk
+    assert len(shrunk) <= 1_200
+
+
+def test_call_drawing_llm_retries_after_read_timeout(monkeypatch):
+    monkeypatch.setenv("CPA_API_KEY", "test-key")
+    monkeypatch.setenv("CPA_BASE_URL", "http://127.0.0.1:9")
+    prompts: list[str] = []
+
+    def fake_chat(model, messages, timeout=None):
+        prompts.append(messages[0]["content"])
+        if len(prompts) == 1:
+            raise TimeoutError("The read operation timed out")
+        return '{"summary_zh":"ok","fields":[],"windows":[],"lines":[]}', "test-model"
+
+    monkeypatch.setattr("app.drawing_llm._chat_completion", fake_chat)
+    cover = "===== FILE a.pdf KIND bc PAGE 1 =====\n" + ("cover sheet legend " * 800)
+    schedule = "===== FILE a.pdf KIND bc PAGE 8 =====\nWindow schedule W1 1800 x 1200 Qty 4"
+    result = call_drawing_llm(cover + "\n\n" + schedule)
+    assert result["ok"] is True
+    assert len(prompts) == 2
+    assert "W1 1800 x 1200" in prompts[1]

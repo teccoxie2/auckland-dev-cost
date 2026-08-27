@@ -56,7 +56,7 @@ function networkErrorMessage(caught: unknown, fallback: string) {
 }
 
 async function waitForVerifyJob(jobId: string, onNote: (note: string) => void) {
-  const deadline = Date.now() + 170_000;
+  const deadline = Date.now() + 420_000;
   let failures = 0;
   while (Date.now() < deadline) {
     try {
@@ -94,7 +94,7 @@ async function waitForVerifyJob(jobId: string, onNote: (note: string) => void) {
     }
     await new Promise((resolve) => window.setTimeout(resolve, 2000));
   }
-  throw new Error("核对超时（约 3 分钟）。请确认 CPA 隧道仍可用后重试。");
+  throw new Error("核对超时（约 7 分钟）。大模型仍未返回，请确认 CPA 隧道仍开着后重试。");
 }
 
 function ZoneTable({ zone }: { zone: DrawingVerifyZone }) {
@@ -572,7 +572,7 @@ export default function DrawingVerify() {
 
       {busy ? (
         <p className="mt-6 rounded-lg bg-[#eef3ea] px-3 py-2 text-sm text-[#2f4a32]" role="status">
-          {busyNote || "正在读取 PDF 文字层并调用大模型。没有文字层或未配置密钥会失败，请不要关闭页面。"}
+          {busyNote || "正在读取 PDF 文字层并调用大模型，可能需要几分钟。没有文字层或未配置密钥会失败，请不要关闭页面。"}
         </p>
       ) : null}
 
