@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 
 const ENGINE_URL = process.env.ENGINE_URL || "http://127.0.0.1:8764";
 
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 export async function POST(request: NextRequest) {
   const body = await request.formData();

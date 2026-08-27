@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Tabs } from "@/components/ui/tabs";
 import type { DrawingVerifyResult, DrawingVerifyZone } from "@/lib/api";
 import { nzdExact } from "@/lib/money";
 
@@ -58,6 +59,9 @@ function ZoneTable({ zone }: { zone: DrawingVerifyZone }) {
               <tr key={line.id} className="border-b border-[#f3eee4] align-top">
                 <td className="py-2 pr-3">
                   <p className="font-medium">{line.name_zh || line.id}</p>
+                  {line.llm_reason_zh ? (
+                    <p className="mt-0.5 text-xs text-[#2f4a32]">{line.llm_reason_zh}</p>
+                  ) : null}
                   {line.formula ? <p className="mt-0.5 text-xs text-[#7b8474]">{line.formula}</p> : null}
                   {line.notes ? <p className="mt-0.5 text-xs text-[#7b8474]">{line.notes}</p> : null}
                 </td>
@@ -85,10 +89,125 @@ function ZoneTable({ zone }: { zone: DrawingVerifyZone }) {
   );
 }
 
+function FieldsAndWindows({
+  result,
+}: {
+  result: Pick<DrawingVerifyResult, "fields" | "windows" | "warnings" | "explanation">;
+}) {
+  return (
+    <>
+      <section>
+        <h2 className="text-xl font-semibold">读到的图纸字段</h2>
+        <p className="mt-2 text-sm leading-6 text-[#5c6754]">{result.explanation}</p>
+        {result.warnings?.length ? (
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[#9a6b12]">
+            {result.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        ) : null}
+        {result.fields?.length ? (
+          <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {result.fields.map((field) => (
+              <div key={`${field.key}-${field.source_file}-${String(field.value)}`} className="rounded-xl bg-[#f3eee4] px-3 py-3">
+                <dt className="text-xs text-[#7b8474]">{FIELD_LABELS[field.key] || field.key}</dt>
+                <dd className="mt-1 text-sm font-medium">{String(field.value)}</dd>
+                {field.evidence ? <p className="mt-1 text-xs text-[#7b8474]">{field.evidence}</p> : null}
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="mt-3 text-sm text-[#9a6b12]">没有对得上原文的面积或户型字段。</p>
+        )}
+      </section>
+      {result.windows?.length ? (
+        <section>
+          <h2 className="text-xl font-semibold">门窗表</h2>
+          <div className="mt-3 overflow-x-auto rounded-2xl border border-[#d9d0c0] bg-white">
+            <table className="w-full min-w-[28rem] text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#eee6d8] text-xs text-[#7b8474]">
+                  <th className="px-3 py-2 font-medium">代码</th>
+                  <th className="px-3 py-2 font-medium">宽 × 高 mm</th>
+                  <th className="px-3 py-2 font-medium">数量</th>
+                  <th className="px-3 py-2 font-medium">出处</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.windows.map((opening) => (
+                  <tr key={`${opening.code}-${opening.w_mm}-${opening.h_mm}`} className="border-b border-[#f3eee4]">
+                    <td className="px-3 py-2 font-medium">{opening.code}</td>
+                    <td className="px-3 py-2">
+                      {opening.w_mm} × {opening.h_mm}
+                    </td>
+                    <td className="px-3 py-2">{opening.count}</td>
+                    <td className="px-3 py-2 text-xs text-[#7b8474]">{opening.evidence || opening.source_file}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function ZoneList({
+  zones,
+  totals,
+}: {
+  zones?: DrawingVerifyZone[];
+  totals?: DrawingVerifyResult["totals"];
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 className="text-xl font-semibold">按区域列出的材料</h2>
+        <p className="text-sm text-[#5c6754]">
+          已确认 {nzdExact(totals?.confirmed_total_incl_gst)}
+          {totals?.missing_count ? ` · ${totals.missing_count} 项缺价` : ""}
+        </p>
+      </div>
+      {zones?.length ? (
+        zones.map((zone) => <ZoneTable key={zone.id} zone={zone} />)
+      ) : (
+        <p className="text-sm text-[#9a6b12]">没有可列出的材料行。</p>
+      )}
+    </section>
+  );
+}
+
 export default function DrawingVerify() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<DrawingVerifyResult | null>(null);
+  const [tab, setTab] = useState("llm");
+  const [llmReady, setLlmReady] = useState<boolean | null>(null);
+  const [llmNote, setLlmNote] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/drawings/verify/ready", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as {
+          llm?: boolean;
+          note?: string;
+        };
+        if (cancelled) return;
+        setLlmReady(Boolean(payload.llm));
+        setLlmNote(payload.note || "");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLlmReady(false);
+          setLlmNote("无法确认大模型是否已配置。");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -120,6 +239,7 @@ export default function DrawingVerify() {
     setBusy(true);
     setError("");
     setResult(null);
+    setTab("llm");
     try {
       const response = await fetch("/api/drawings/verify", {
         method: "POST",
@@ -138,13 +258,27 @@ export default function DrawingVerify() {
     }
   };
 
+  const compare = result?.rule_compare;
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
       <p className="text-sm tracking-[0.18em] text-[#7a5a2b]">VERIFY</p>
       <h1 className="mt-2 text-3xl font-semibold">RC / BC 图纸物料验证</h1>
       <p className="mt-3 max-w-3xl text-[15px] leading-7 text-[#5c6754]">
-        上传可选中文字的 Resource Consent 或 Building Consent PDF。系统只读文字层里的面积、层高、厨卫套数和门窗表，按施工区域列出材料。扫描件没有文字层会失败，不会用图像识别猜毫米，也不会编单价。
+        上传可选中文字的 Resource Consent 或 Building Consent PDF。本页调用大模型读文字层，抽出带原文证据的面积、厨卫和门窗表，并选择价库
+        SKU。数量由服务器按公式或窗表重算，单价只走公开价库。扫描件没有文字层会失败，不会用图像识别猜毫米，也不会采用模型写的金额。
       </p>
+
+      {llmReady === false ? (
+        <p className="mt-4 rounded-lg bg-[#f8e7dc] px-3 py-2 text-sm text-[#8a3b1d]" role="status">
+          {llmNote || "未配置 OPENAI_API_KEY，无法调用大模型做本页推导。"}
+        </p>
+      ) : null}
+      {llmReady === true && llmNote ? (
+        <p className="mt-4 rounded-lg bg-[#eef3ea] px-3 py-2 text-sm text-[#2f4a32]" role="status">
+          {llmNote}
+        </p>
+      ) : null}
 
       <form
         onSubmit={handleSubmit}
@@ -188,7 +322,7 @@ export default function DrawingVerify() {
         </p>
         <div className="mt-4">
           <Button type="submit" disabled={busy} aria-busy={busy}>
-            {busy ? "正在读文字层并按区域套料…" : "按图纸列出材料"}
+            {busy ? "正在调用大模型读文字层…" : "用大模型推导材料"}
           </Button>
         </div>
         {error ? (
@@ -200,81 +334,55 @@ export default function DrawingVerify() {
 
       {busy ? (
         <p className="mt-6 rounded-lg bg-[#eef3ea] px-3 py-2 text-sm text-[#2f4a32]" role="status">
-          正在读取 PDF 文字层。没有文字层会失败，请不要关闭页面。
+          正在读取 PDF 文字层并调用大模型。没有文字层或未配置密钥会失败，请不要关闭页面。
         </p>
       ) : null}
 
       {result ? (
         <div className="mt-8 space-y-6">
-          <section>
-            <h2 className="text-xl font-semibold">读到的图纸字段</h2>
-            <p className="mt-2 text-sm leading-6 text-[#5c6754]">{result.explanation}</p>
-            {result.warnings?.length ? (
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[#9a6b12]">
-                {result.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            ) : null}
-            {result.fields?.length ? (
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {result.fields.map((field) => (
-                  <div key={`${field.key}-${field.source_file}`} className="rounded-xl bg-[#f3eee4] px-3 py-3">
-                    <dt className="text-xs text-[#7b8474]">{FIELD_LABELS[field.key] || field.key}</dt>
-                    <dd className="mt-1 text-sm font-medium">{String(field.value)}</dd>
-                    {field.evidence ? <p className="mt-1 text-xs text-[#7b8474]">{field.evidence}</p> : null}
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className="mt-3 text-sm text-[#9a6b12]">文字层没有读到面积或户型字段，仅可能有门窗表。</p>
-            )}
-          </section>
-
-          {result.windows?.length ? (
-            <section>
-              <h2 className="text-xl font-semibold">门窗表</h2>
-              <div className="mt-3 overflow-x-auto rounded-2xl border border-[#d9d0c0] bg-white">
-                <table className="w-full min-w-[28rem] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-[#eee6d8] text-xs text-[#7b8474]">
-                      <th className="px-3 py-2 font-medium">代码</th>
-                      <th className="px-3 py-2 font-medium">宽 × 高 mm</th>
-                      <th className="px-3 py-2 font-medium">数量</th>
-                      <th className="px-3 py-2 font-medium">出处</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.windows.map((opening) => (
-                      <tr key={`${opening.code}-${opening.w_mm}-${opening.h_mm}`} className="border-b border-[#f3eee4]">
-                        <td className="px-3 py-2 font-medium">{opening.code}</td>
-                        <td className="px-3 py-2">
-                          {opening.w_mm} × {opening.h_mm}
-                        </td>
-                        <td className="px-3 py-2">{opening.count}</td>
-                        <td className="px-3 py-2 text-xs text-[#7b8474]">{opening.source_file}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {result.llm ? (
+            <section className="rounded-2xl border border-[#d9d0c0] bg-white p-4 sm:p-5">
+              <h2 className="text-xl font-semibold">大模型推导</h2>
+              <p className="mt-2 text-sm leading-6 text-[#5c6754]">
+                {result.llm.model ? `模型 ${result.llm.model}。` : ""}
+                {result.llm.note || ""}
+              </p>
+              {result.llm.rejected?.length ? (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-[#9a6b12]">
+                  {result.llm.rejected.map((item, index) => (
+                    <li key={`${item.item_id}-${index}`}>
+                      {item.item_id}：{item.reason_zh}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </section>
           ) : null}
 
-          <section className="space-y-4">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <h2 className="text-xl font-semibold">按区域列出的材料</h2>
-              <p className="text-sm text-[#5c6754]">
-                已确认 {nzdExact(result.totals?.confirmed_total_incl_gst)}
-                {result.totals?.missing_count ? ` · ${result.totals.missing_count} 项缺价` : ""}
-              </p>
+          {compare ? (
+            <Tabs
+              tabs={[
+                { id: "llm", label: "大模型推导" },
+                { id: "rules", label: "公式对照" },
+              ]}
+              value={tab}
+              onChange={setTab}
+            />
+          ) : null}
+
+          {tab === "rules" && compare && !compare.error ? (
+            <div className="space-y-6">
+              <FieldsAndWindows result={compare} />
+              <ZoneList zones={compare.zones} totals={compare.totals} />
             </div>
-            {result.zones?.length ? (
-              result.zones.map((zone) => <ZoneTable key={zone.id} zone={zone} />)
-            ) : (
-              <p className="text-sm text-[#9a6b12]">没有可列出的材料行。</p>
-            )}
-          </section>
+          ) : tab === "rules" && compare?.error ? (
+            <p className="text-sm text-[#9a6b12]">{compare.error.message}</p>
+          ) : (
+            <div className="space-y-6">
+              <FieldsAndWindows result={result} />
+              <ZoneList zones={result.zones} totals={result.totals} />
+            </div>
+          )}
         </div>
       ) : null}
     </div>

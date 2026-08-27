@@ -98,6 +98,7 @@ def _empty_parse(kind: str, filename: str, error: str, warning: str) -> dict[str
         "error": error,
         "char_count": 0,
         "page_count": 0,
+        "text": "",
         "fields": {},
         "windows": [],
         "warnings": [warning],
@@ -139,6 +140,7 @@ def extract_pdf(path: Path, *, kind: str, filename: str) -> dict[str, Any]:
         parsed = extract_from_text(text, kind=kind, filename=filename)
         parsed["page_count"] = len(pages)
         parsed["char_count"] = len(text.strip())
+        parsed["text"] = text
         parsed["warnings"] = list(dict.fromkeys([*(parsed.get("warnings") or []), *page_warnings]))
         if parsed["char_count"] < 80 and not parsed["fields"] and not parsed["windows"]:
             parsed["warnings"].append("scanned_or_empty_text")
@@ -287,6 +289,8 @@ def extract_from_text(text: str, *, kind: str, filename: str) -> dict[str, Any]:
         "kind": kind,
         "filename": filename,
         "error": None,
+        "text": text,
+        "char_count": len(text.strip()),
         "fields": fields,
         "windows": windows,
         "warnings": warnings,

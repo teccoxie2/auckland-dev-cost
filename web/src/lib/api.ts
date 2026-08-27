@@ -339,6 +339,7 @@ export interface ConfigureSpec {
 export interface DrawingVerifyLine extends CostLine {
   zone?: string;
   zone_name_zh?: string;
+  llm_reason_zh?: string | null;
 }
 
 export interface DrawingVerifyZone {
@@ -349,8 +350,27 @@ export interface DrawingVerifyZone {
   lines: DrawingVerifyLine[];
 }
 
+export interface DrawingVerifyLlm {
+  status?: string;
+  model?: string | null;
+  summary_zh?: string | null;
+  note?: string;
+  rejected?: Array<{ item_id?: string; reason_zh?: string }>;
+}
+
+export interface DrawingVerifyCompare {
+  error?: { code: string; message: string } | null;
+  explanation?: string;
+  fields?: DrawingVerifyResult["fields"];
+  windows?: DrawingVerifyResult["windows"];
+  zones?: DrawingVerifyZone[];
+  totals?: DrawingVerifyResult["totals"];
+  template?: DrawingVerifyResult["template"];
+}
+
 export interface DrawingVerifyResult {
   error?: { code: string; message: string } | null;
+  derivation?: string;
   explanation?: string;
   documents?: Array<{
     kind?: string | null;
@@ -391,4 +411,6 @@ export interface DrawingVerifyResult {
     bathrooms?: number;
     dwellings?: number;
   };
+  llm?: DrawingVerifyLlm;
+  rule_compare?: DrawingVerifyCompare;
 }
