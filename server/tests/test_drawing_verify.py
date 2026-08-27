@@ -234,4 +234,5 @@ def test_cpa_api_key_marks_llm_configured(monkeypatch):
     probed = probe_llm(ping_chat=False)
     assert probed["configured"] is True
     assert probed["reachable"] is False
+    assert probed["authorized"] is False
     assert "127.0.0.1:9/v1" in probed["base_url"]

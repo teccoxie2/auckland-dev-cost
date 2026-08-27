@@ -329,11 +329,12 @@ async def post_drawings(
 @app.get("/drawings/verify/ready")
 def drawings_verify_ready(chat: bool = False) -> dict[str, Any]:
     probed = probe_llm(ping_chat=chat)
-    ready = bool(probed.get("configured") and probed.get("reachable"))
+    ready = bool(probed.get("configured") and probed.get("reachable") and probed.get("authorized"))
     return {
         "llm": ready,
         "configured": probed.get("configured"),
         "reachable": probed.get("reachable"),
+        "authorized": probed.get("authorized"),
         "model": probed.get("model"),
         "models": probed.get("models") or [],
         "base_url": probed.get("base_url"),

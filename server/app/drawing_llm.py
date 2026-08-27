@@ -191,20 +191,22 @@ def parse_llm_json(raw: str) -> dict[str, Any] | None:
     return None
 
 
-def list_llm_models() -> tuple[list[str], str | None]:
+def list_llm_models() -> tuple[list[str], str | None, int | None]:
     if not llm_configured():
-        return [], "未配置 CPA_API_KEY / OPENAI_API_KEY。"
+        return [], "未配置 CPA_API_KEY / OPENAI_API_KEY。", None
     base = llm_base_url()
     try:
         with httpx.Client(timeout=PROBE_TIMEOUT) as client:
             response = client.get(f"{base}/models", headers=llm_headers())
-            response.raise_for_status()
-            payload = response.json()
+        if response.status_code in {401, 403}:
+            return [], f"HTTP {response.status_code} 密钥无效或无权限", response.status_code
+        response.raise_for_status()
+        payload = response.json()
     except Exception as exc:  # noqa: BLE001
-        return [], str(exc)
+        return [], str(exc), None
     rows = payload.get("data") if isinstance(payload, dict) else payload
     if not isinstance(rows, list):
-        return [], "模型列表格式无法解析。"
+        return [], "模型列表格式无法解析。", None
     names: list[str] = []
     for item in rows:
         if isinstance(item, str) and item.strip():
@@ -213,7 +215,7 @@ def list_llm_models() -> tuple[list[str], str | None]:
             name = str(item.get("id") or item.get("name") or "").strip()
             if name:
                 names.append(name)
-    return list(dict.fromkeys(names)), None
+    return list(dict.fromkeys(names)), None, 200
 
 
 def probe_llm(*, ping_chat: bool = False) -> dict[str, Any]:
@@ -221,25 +223,39 @@ def probe_llm(*, ping_chat: bool = False) -> dict[str, Any]:
         return {
             "configured": False,
             "reachable": False,
+            "authorized": False,
             "base_url": None,
             "model": None,
             "models": [],
             "note": "未配置 CPA_API_KEY 或 OPENAI_API_KEY，无法调用本地 CPA / 大模型，也不会编造材料清单。",
         }
     base = llm_base_url()
-    models, list_error = list_llm_models()
+    models, list_error, status = list_llm_models()
     model = llm_model_name(models)
     result: dict[str, Any] = {
         "configured": True,
-        "reachable": list_error is None,
+        "reachable": status is not None or list_error is None,
+        "authorized": list_error is None,
         "base_url": base,
         "model": model,
         "models": models[:24],
         "note": "",
     }
+    if status in {401, 403}:
+        result["reachable"] = True
+        result["authorized"] = False
+        result["note"] = (
+            f"已连上 {base}，但密钥被 CPA 拒绝（HTTP {status}）。"
+            "请在本机管理页复制「API Keys / 客户端密钥」，不要用管理密钥或之前那串无效的 cpa- 值。"
+        )
+        return result
     if list_error:
+        result["reachable"] = False
+        result["authorized"] = False
         result["note"] = f"已配置密钥，但连不上 {base}：{list_error}"
         return result
+    result["reachable"] = True
+    result["authorized"] = True
     if not ping_chat:
         result["note"] = f"已连上 {base}，模型 {model}。本页用它读文字层选 SKU，数量按公式或门窗表重算，单价只走价库。"
         return result
@@ -316,7 +332,7 @@ def call_drawing_llm(source_text: str) -> dict[str, Any]:
     explicit = os.environ.get("DRAWING_LLM_MODEL", "").strip() or os.environ.get("SITE_VISION_MODEL", "").strip()
     models: list[str] = []
     if not explicit:
-        models, _list_error = list_llm_models()
+        models, _list_error, _status = list_llm_models()
     model = llm_model_name(models)
     prompt = (
         "你在读新西兰奥克兰住宅 Resource Consent / Building Consent PDF 的文字层。"
