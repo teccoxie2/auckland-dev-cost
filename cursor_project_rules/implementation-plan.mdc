@@ -129,3 +129,9 @@ Done
 Done
 
 认 `CPA_BASE_URL` / `CPA_API_KEY`（管理页 URL 会收成 `/v1`）。就绪检查会探测 `/v1/models`；Chat 在 CPA 不支持 `json_object` 时自动降级。密钥不入库。
+
+## 图纸验证页开发态报错浮层
+
+Done
+
+Next 开发浮层把 Bitdefender 注入的 `bis_*` 属性和扩展 `unhandledrejection`（`M_ID`）当成页面错误。在 `html`/`body` 上 `suppressHydrationWarning`，并用 `instrumentation-client` 在捕获阶段拦截扩展噪音，避免挡住上传表单。

@@ -23,8 +23,12 @@ export const maxDuration = 120;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="zh-CN" className={`${noto.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}>
-      <body className="flex min-h-full flex-col bg-background text-foreground">
+    <html
+      lang="zh-CN"
+      className={`${noto.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
+      suppressHydrationWarning
+    >
+      <body className="flex min-h-full flex-col bg-background text-foreground" suppressHydrationWarning>
         <AppHeader />
         <div className="flex-1">{children}</div>
         <footer className="border-t border-[#e4dccb] px-4 py-4 text-center text-xs leading-5 text-[#7b8474] sm:px-8">

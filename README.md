@@ -104,7 +104,7 @@ pnpm dev
 - `CPA_BASE_URL` / `CPA_API_KEY`：本地 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)（管理页如 `http://192.168.52.81:8317/management.html`）。核算台会改写成 OpenAI 兼容入口 `…/v1`，用客户端密钥调 `/v1/models` 与 `/v1/chat/completions`。管理页登录密码不要当成模型密钥。图纸推导默认模型为 `gpt-5.6-luna`。
 - `OPENAI_BASE_URL` / `SITE_VISION_MODEL` / `DRAWING_LLM_MODEL`：接口与模型名。`DRAWING_LLM_MODEL` 可覆盖默认的 `gpt-5.6-luna`。未走 CPA 时视觉默认 `https://api.openai.com/v1` 与 `gpt-4o-mini`。
 
-浏览器打开 `http://127.0.0.1:43124`。输入 `55 Nelson Street` 会列出 Howick 与 Auckland Central 等多条议会地址，必须点选一条。输入 `115 Bruce Road Glenfield` 时议会已无整宗 115，只会列出拆分后的 115A–F；点选其中一户后，页面只显示该户的议会地籍，并筛掉需要整宗地的方案。
+浏览器打开 `http://127.0.0.1:43124`。输入 `55 Nelson Street` 会列出 Howick 与 Auckland Central 等多条议会地址，必须点选一条。输入 `115 Bruce Road Glenfield` 时议会已无整宗 115，只会列出拆分后的 115A–F；点选其中一户后，页面只显示该户的议会地籍，并筛掉需要整宗地的方案。本机安全软件（如 Bitdefender）若给 DOM 注入属性，开发态错误浮层会被拦截，不影响核算。
 
 ## 生产部署
 
