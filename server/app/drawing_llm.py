@@ -53,17 +53,7 @@ INT_FIELDS = {
 }
 
 
-PREFERRED_MODELS = (
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-2.5-pro",
-    "gpt-4o-mini",
-    "gpt-4o",
-    "gpt-5.4-mini",
-    "gpt-5.4",
-    "claude-sonnet-4-5",
-    "claude-3-5-sonnet-latest",
-)
+DEFAULT_DRAWING_MODEL = "gpt-5.6-luna"
 CHAT_TIMEOUT = httpx.Timeout(connect=8.0, read=90.0, write=30.0, pool=8.0)
 PROBE_TIMEOUT = httpx.Timeout(connect=5.0, read=8.0, write=8.0, pool=5.0)
 
@@ -91,15 +81,12 @@ def llm_model_name(available: list[str] | None = None) -> str:
     requested = (
         os.environ.get("DRAWING_LLM_MODEL", "").strip()
         or os.environ.get("SITE_VISION_MODEL", "").strip()
+        or DEFAULT_DRAWING_MODEL
     )
-    if requested:
-        return requested
-    names = available or []
-    lookup = {item.lower(): item for item in names}
-    for name in PREFERRED_MODELS:
-        if name.lower() in lookup:
-            return lookup[name.lower()]
-    return names[0] if names else "gpt-4o-mini"
+    lookup = {item.lower(): item for item in (available or [])}
+    if requested.lower() in lookup:
+        return lookup[requested.lower()]
+    return requested
 
 
 def llm_headers() -> dict[str, str]:
@@ -329,10 +316,7 @@ def call_drawing_llm(source_text: str) -> dict[str, Any]:
             },
         }
     catalog = catalog_for_prompt()
-    explicit = os.environ.get("DRAWING_LLM_MODEL", "").strip() or os.environ.get("SITE_VISION_MODEL", "").strip()
-    models: list[str] = []
-    if not explicit:
-        models, _list_error, _status = list_llm_models()
+    models, _list_error, _status = list_llm_models()
     model = llm_model_name(models)
     prompt = (
         "你在读新西兰奥克兰住宅 Resource Consent / Building Consent PDF 的文字层。"

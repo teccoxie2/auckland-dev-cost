@@ -222,6 +222,15 @@ def test_ready_endpoint_reports_missing_key(monkeypatch):
     assert body["configured"] is False
 
 
+def test_default_drawing_model_is_gpt_56_luna(monkeypatch):
+    monkeypatch.delenv("DRAWING_LLM_MODEL", raising=False)
+    monkeypatch.delenv("SITE_VISION_MODEL", raising=False)
+    from app.drawing_llm import llm_model_name
+
+    assert llm_model_name() == "gpt-5.6-luna"
+    assert llm_model_name(["gpt-5.4-mini", "gpt-5.6-luna"]) == "gpt-5.6-luna"
+
+
 def test_cpa_base_url_from_management_page(monkeypatch):
     monkeypatch.setenv("CPA_BASE_URL", "http://192.168.52.81:8317/management.html")
     assert llm_base_url() == "http://192.168.52.81:8317/v1"
