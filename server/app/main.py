@@ -1,20 +1,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from tempfile import TemporaryDirectory
+import shutil
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from .advise import build_advice
 from .data_loader import council_fees, pricebook
 from .drawing_flow import parse_files, run_drawings
-from .drawing_parse import MAX_PDF_BYTES
+from .drawing_jobs import get_verify_job, save_upload_dir, submit_verify_job
 from .drawing_llm import probe_llm
-from .drawing_verify import verify_drawing_parts
+from .drawing_parse import MAX_PDF_BYTES
 from .gis import (
     ADDRESS_SOURCE_NAME,
     ADDRESS_SOURCE_URL,
@@ -343,6 +343,11 @@ def drawings_verify_ready(chat: bool = False) -> dict[str, Any]:
     }
 
 
+@app.get("/drawings/verify/jobs/{job_id}")
+def drawings_verify_job(job_id: str) -> dict[str, Any]:
+    return get_verify_job(job_id)
+
+
 @app.post("/drawings/verify")
 async def post_drawings_verify(
     files: list[UploadFile] = File(...),
@@ -354,9 +359,9 @@ async def post_drawings_verify(
     if len(uploads) > 6:
         raise HTTPException(status_code=400, detail="一次最多上传 6 份 PDF")
     kind_list = [item.strip().lower() for item in (kinds or "").split(",") if item.strip()]
-    with TemporaryDirectory(prefix="drawing-verify-") as tmp:
-        dest = Path(tmp)
-        saved: list[dict[str, Any]] = []
+    dest = save_upload_dir()
+    saved: list[dict[str, Any]] = []
+    try:
         for index, upload in enumerate(uploads):
             name = Path(upload.filename or f"drawing-{index}.pdf").name
             if not name.lower().endswith(".pdf"):
@@ -375,16 +380,14 @@ async def post_drawings_verify(
                     "kind": kind_list[index] if index < len(kind_list) else None,
                 }
             )
-        try:
-            parts = parse_files(saved)
-            payload = verify_drawing_parts(parts)
-        except HTTPException:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            raise HTTPException(status_code=400, detail=f"图纸解析失败：{exc}") from exc
-    if payload.get("error"):
-        raise HTTPException(status_code=400, detail=_http_detail(payload["error"]))
-    return payload
+    except HTTPException:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise
+    except Exception:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise
+    job = submit_verify_job(saved, dest)
+    return JSONResponse(job, status_code=202)
 
 
 @app.post("/projects/{project_id}/lim")

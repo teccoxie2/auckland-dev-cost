@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import time
 
 from fastapi.testclient import TestClient
 
@@ -237,14 +238,46 @@ def test_parse_llm_json_from_fence():
     assert parsed == {"summary_zh": "ok"}
 
 
+def wait_verify_http(client, *, files, data, timeout=8.0):
+    started = client.post("/drawings/verify", files=files, data=data)
+    if started.status_code != 202:
+        return started
+    job_id = started.json()["job_id"]
+    deadline = time.time() + timeout
+    last = None
+    while time.time() < deadline:
+        last = client.get(f"/drawings/verify/jobs/{job_id}")
+        body = last.json()
+        if body.get("status") == "ok":
+
+            class Done:
+                status_code = 200
+
+                def json(self):
+                    return body["result"]
+
+            return Done()
+        if body.get("status") == "error":
+
+            class Err:
+                status_code = 400
+
+                def json(self):
+                    return {"detail": body.get("detail")}
+
+            return Err()
+        time.sleep(0.05)
+    raise AssertionError(f"job did not finish: {last.json() if last is not None else None}")
+
+
 def test_http_verify_requires_llm_key(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("CPA_API_KEY", raising=False)
     rc = tmp_path / "rc-notes.pdf"
     write_text_pdf(rc, RC_TEXT)
     client = TestClient(app)
-    response = client.post(
-        "/drawings/verify",
+    response = wait_verify_http(
+        client,
         files=[("files", ("rc-notes.pdf", rc.read_bytes(), "application/pdf"))],
         data={"kinds": "rc"},
     )
@@ -263,8 +296,8 @@ def test_http_verify_reads_text_pdf(tmp_path, monkeypatch):
     write_text_pdf(rc, RC_TEXT)
     write_text_pdf(bc, BC_TEXT)
     client = TestClient(app)
-    response = client.post(
-        "/drawings/verify",
+    response = wait_verify_http(
+        client,
         files=[
             ("files", ("rc-notes.pdf", rc.read_bytes(), "application/pdf")),
             ("files", ("bc-plans.pdf", bc.read_bytes(), "application/pdf")),

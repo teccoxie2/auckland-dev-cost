@@ -40,6 +40,63 @@ function errorMessage(data: unknown, fallback: string) {
   return fallback;
 }
 
+function networkErrorMessage(caught: unknown, fallback: string) {
+  if (caught instanceof DOMException && (caught.name === "AbortError" || caught.name === "TimeoutError")) {
+    return "核对超时。请确认 CPA 隧道仍可用后重试。";
+  }
+  const name = caught instanceof Error ? caught.name : "";
+  const message = caught instanceof Error ? caught.message : "";
+  if (name === "AbortError" || name === "TimeoutError") {
+    return "核对超时。请确认 CPA 隧道仍可用后重试。";
+  }
+  if (/failed to fetch|networkerror|load failed|fetch failed/i.test(message)) {
+    return "无法连上核算服务（连接被中断）。请再试一次；若仍失败，请确认本页和 CPA 隧道都还开着。";
+  }
+  return message || fallback;
+}
+
+async function waitForVerifyJob(jobId: string, onNote: (note: string) => void) {
+  const deadline = Date.now() + 170_000;
+  let failures = 0;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`/api/drawings/verify/jobs/${encodeURIComponent(jobId)}`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(12_000),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        status?: string;
+        note?: string;
+        result?: DrawingVerifyResult;
+        detail?: unknown;
+      };
+      if (response.status === 404) {
+        throw new Error(errorMessage(payload, "核对任务已过期，请重新上传。"));
+      }
+      if (!response.ok) {
+        throw new Error(errorMessage(payload, "查询核对进度失败"));
+      }
+      failures = 0;
+      if (payload.note) onNote(payload.note);
+      if (payload.status === "ok" && payload.result) return payload.result;
+      if (payload.status === "error") {
+        throw new Error(
+          typeof payload.detail === "string" ? payload.detail : errorMessage(payload, "图纸物料核算失败"),
+        );
+      }
+    } catch (caught) {
+      const name = caught instanceof Error ? caught.name : "";
+      const message = caught instanceof Error ? caught.message : "";
+      const transient = name === "AbortError" || name === "TimeoutError" || /failed to fetch|networkerror|load failed|fetch failed/i.test(message);
+      if (!transient) throw caught;
+      failures += 1;
+      if (failures >= 4) throw new Error(networkErrorMessage(caught, "无法连上核算服务"));
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 2000));
+  }
+  throw new Error("核对超时（约 3 分钟）。请确认 CPA 隧道仍可用后重试。");
+}
+
 function ZoneTable({ zone }: { zone: DrawingVerifyZone }) {
   return (
     <section className="rounded-2xl border border-[#d9d0c0] bg-[#fffaf3] p-4 sm:p-5">
@@ -344,6 +401,7 @@ function ZoneList({
 
 export default function DrawingVerify() {
   const [busy, setBusy] = useState(false);
+  const [busyNote, setBusyNote] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<DrawingVerifyResult | null>(null);
   const [tab, setTab] = useState("llm");
@@ -352,7 +410,7 @@ export default function DrawingVerify() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/drawings/verify/ready", { cache: "no-store" })
+    fetch("/api/drawings/verify/ready", { cache: "no-store", signal: AbortSignal.timeout(12_000) })
       .then(async (response) => {
         const payload = (await response.json().catch(() => ({}))) as {
           llm?: boolean;
@@ -403,6 +461,7 @@ export default function DrawingVerify() {
     }
     forward.append("kinds", kinds.join(","));
     setBusy(true);
+    setBusyNote("正在上传图纸并排队核对…");
     setError("");
     setResult(null);
     setTab("llm");
@@ -411,16 +470,30 @@ export default function DrawingVerify() {
         method: "POST",
         body: forward,
         cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
       });
-      const payload = (await response.json().catch(() => ({}))) as DrawingVerifyResult & { detail?: unknown };
+      const payload = (await response.json().catch(() => ({}))) as DrawingVerifyResult & {
+        detail?: unknown;
+        job_id?: string;
+        status?: string;
+        note?: string;
+        result?: DrawingVerifyResult;
+      };
+      if (response.status === 202 && payload.job_id) {
+        if (payload.note) setBusyNote(payload.note);
+        const finished = await waitForVerifyJob(payload.job_id, setBusyNote);
+        setResult(finished);
+        return;
+      }
       if (!response.ok) {
         throw new Error(errorMessage(payload, "图纸物料核算失败"));
       }
       setResult(payload);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "图纸物料核算失败");
+      setError(networkErrorMessage(caught, "图纸物料核算失败"));
     } finally {
       setBusy(false);
+      setBusyNote("");
     }
   };
 
@@ -487,7 +560,7 @@ export default function DrawingVerify() {
         </p>
         <div className="mt-4">
           <Button type="submit" disabled={busy} aria-busy={busy}>
-            {busy ? "正在调用大模型读文字层…" : "用大模型推导材料"}
+            {busy ? "正在核对图纸…" : "用大模型推导材料"}
           </Button>
         </div>
         {error ? (
@@ -499,7 +572,7 @@ export default function DrawingVerify() {
 
       {busy ? (
         <p className="mt-6 rounded-lg bg-[#eef3ea] px-3 py-2 text-sm text-[#2f4a32]" role="status">
-          正在读取 PDF 文字层并调用大模型。没有文字层或未配置密钥会失败，请不要关闭页面。
+          {busyNote || "正在读取 PDF 文字层并调用大模型。没有文字层或未配置密钥会失败，请不要关闭页面。"}
         </p>
       ) : null}
 
