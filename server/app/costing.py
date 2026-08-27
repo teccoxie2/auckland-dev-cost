@@ -30,6 +30,8 @@ def cost_option(
     filter_result: dict[str, Any],
     existing_dwellings: int = 1,
     site: dict[str, Any] | None = None,
+    *,
+    include_overheads: bool = True,
 ) -> dict[str, Any]:
     qty = takeoff(template, site)
     lines: list[dict[str, Any]] = []
@@ -390,6 +392,24 @@ def cost_option(
             )
 
     construction = _sum_priced(lines, categories={"materials", "labour"})
+    if not include_overheads:
+        missing = [item for item in lines if item.get("status") == "missing"]
+        book_meta = pricebook_meta()
+        return {
+            "quantities": qty,
+            "lines": lines,
+            "totals": {
+                "construction_confirmed_incl_gst": construction,
+                "confirmed_total_incl_gst": construction,
+                "missing_count": len(missing),
+                "pricebook_version": book_meta.get("version"),
+                "price_as_of": book_meta.get("as_of"),
+            },
+            "rebuild_new_units": 0,
+            "intensity_note": "验证页只计从图纸文字层套出的材料与人工，不含法定费用与预备费。",
+            "project_value_for_bc": construction,
+        }
+
     prelim = round(construction * PRELIM_PCT, 2)
     lines.append(
         {

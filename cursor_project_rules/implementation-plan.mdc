@@ -111,3 +111,9 @@ Done
 Done
 
 停服务后删除本机 SQLite、LIM、图纸和 LangGraph checkpoint。`GET /projects` 固定返回空列表；首页「本机最近查询」只读当前浏览器 localStorage，别人打开同一站点看不到你查过的地址。
+
+## RC/BC 图纸物料验证页
+
+Done
+
+单独页面 `/drawing-takeoff` 上传 RC/BC PDF，只读文字层后按施工区域列出材料（厨房、卫生间、门窗、屋面等）。不写入项目库，不含法定费用。扫描件无文字层报错，不对不上的 SKU 编价。

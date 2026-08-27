@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -12,6 +13,7 @@ from .advise import build_advice
 from .data_loader import council_fees, pricebook
 from .drawing_flow import parse_files, run_drawings
 from .drawing_parse import MAX_PDF_BYTES
+from .drawing_verify import verify_drawing_parts
 from .gis import (
     ADDRESS_SOURCE_NAME,
     ADDRESS_SOURCE_URL,
@@ -321,6 +323,50 @@ async def post_drawings(
     if not updated:
         raise HTTPException(status_code=404, detail="项目不存在")
     return updated
+
+
+@app.post("/drawings/verify")
+async def post_drawings_verify(
+    files: list[UploadFile] = File(...),
+    kinds: str | None = Form(default=None),
+) -> dict[str, Any]:
+    uploads = [item for item in files if item.filename]
+    if not uploads:
+        raise HTTPException(status_code=400, detail="请至少上传一份 PDF")
+    if len(uploads) > 6:
+        raise HTTPException(status_code=400, detail="一次最多上传 6 份 PDF")
+    kind_list = [item.strip().lower() for item in (kinds or "").split(",") if item.strip()]
+    with TemporaryDirectory(prefix="drawing-verify-") as tmp:
+        dest = Path(tmp)
+        saved: list[dict[str, Any]] = []
+        for index, upload in enumerate(uploads):
+            name = Path(upload.filename or f"drawing-{index}.pdf").name
+            if not name.lower().endswith(".pdf"):
+                raise HTTPException(status_code=400, detail=f"{name} 不是 PDF")
+            blob = await upload.read()
+            if not blob:
+                raise HTTPException(status_code=400, detail=f"{name} 是空文件")
+            if len(blob) > MAX_PDF_BYTES:
+                raise HTTPException(status_code=400, detail=f"{name} 超过 15MB")
+            path = dest / f"{index}-{name}"
+            path.write_bytes(blob)
+            saved.append(
+                {
+                    "path": str(path),
+                    "filename": name,
+                    "kind": kind_list[index] if index < len(kind_list) else None,
+                }
+            )
+        try:
+            parts = parse_files(saved)
+            payload = verify_drawing_parts(parts)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail=f"图纸解析失败：{exc}") from exc
+    if payload.get("error"):
+        raise HTTPException(status_code=400, detail=_http_detail(payload["error"]))
+    return payload
 
 
 @app.post("/projects/{project_id}/lim")

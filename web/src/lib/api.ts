@@ -335,3 +335,60 @@ export interface ConfigureSpec {
   kitchens: number;
   gfa_m2: number;
 }
+
+export interface DrawingVerifyLine extends CostLine {
+  zone?: string;
+  zone_name_zh?: string;
+}
+
+export interface DrawingVerifyZone {
+  id: string;
+  name_zh: string;
+  priced_incl_gst: number;
+  missing_count: number;
+  lines: DrawingVerifyLine[];
+}
+
+export interface DrawingVerifyResult {
+  error?: { code: string; message: string } | null;
+  explanation?: string;
+  documents?: Array<{
+    kind?: string | null;
+    filename?: string;
+    page_count?: number;
+    char_count?: number;
+    error?: string | null;
+  }>;
+  fields?: Array<{
+    key: string;
+    value: unknown;
+    evidence?: string;
+    source_file?: string;
+  }>;
+  windows?: Array<{
+    code: string;
+    w_mm: number;
+    h_mm: number;
+    count: number;
+    evidence?: string;
+    source_file?: string;
+  }>;
+  warnings?: string[];
+  zones?: DrawingVerifyZone[];
+  totals?: {
+    construction_confirmed_incl_gst?: number;
+    confirmed_total_incl_gst?: number;
+    missing_count?: number;
+    pricebook_version?: string;
+    price_as_of?: string;
+  };
+  template?: {
+    name_zh?: string;
+    gfa_m2?: number;
+    gfa_missing?: boolean;
+    storeys?: number;
+    kitchens?: number;
+    bathrooms?: number;
+    dwellings?: number;
+  };
+}
