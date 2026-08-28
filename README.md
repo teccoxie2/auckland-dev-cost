@@ -108,13 +108,10 @@ pnpm dev
 
 ## 生产部署
 
-演示入口（本机隧道，无需 Cloudflare 账号）：[https://nut-contracts-government-renew.trycloudflare.com](https://nut-contracts-government-renew.trycloudflare.com)。`www.vsense.co.nz` 带 `HSTS includeSubDomains`，因此 `demo-cost.vsense.co.nz` 不能 CNAME 到 `*.trycloudflare.com`（证书主机名对不上，浏览器会拦截）。固定子域走与官网相同的 Vercel：把项目 `demo-gateway/` 部署后，在 Microsoft 365 DNS 添加：
+演示入口：[https://demo-cost.vsense.co.nz](https://demo-cost.vsense.co.nz)。`www.vsense.co.nz` 带 `HSTS includeSubDomains`，子域必须走 Vercel 证书，不能 CNAME 到 `*.trycloudflare.com`。网关在 `demo-gateway/`，Microsoft 365 DNS（不要改 nameserver）：
 
-- 类型：CNAME
-- 主机名：`demo-cost`
-- 目标：`cname.vercel-dns.com`
-
-不要改 `vsense.co.nz` 的 nameserver。
+- CNAME `demo-cost` → Vercel 项目给出的 `*.vercel-dns-013.com`（或 `cname.vercel-dns.com`）
+- 若控制台要求验证：TXT `_vercel` → `vc-domain-verify=…`
 
 先构建前端，再同时拉起 API 与 Next：
 
