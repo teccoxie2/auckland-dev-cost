@@ -1,0 +1,5 @@
+{
+  "name": "auckland-demo-cost-gateway",
+  "private": true,
+  "description": "Vercel custom-domain gateway for demo-cost.vsense.co.nz"
+}

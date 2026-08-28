@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [
     "127.0.0.1",
     "localhost",
+    "demo-cost.vsense.co.nz",
+    "*.vsense.co.nz",
     "*.cursor.com",
     "*.cursor.sh",
     "*.cursorusercontent.com",
