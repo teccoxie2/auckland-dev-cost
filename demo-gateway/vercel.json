@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "https://nut-contracts-government-renew.trycloudflare.com/$1"
+      "destination": "https://rug-penetration-shoot-sealed.trycloudflare.com/$1"
     }
   ],
   "headers": [
