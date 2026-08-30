@@ -1,9 +1,12 @@
 {
-  "framework": null,
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "https://rug-penetration-shoot-sealed.trycloudflare.com/$1"
+      "source": "/",
+      "destination": "https://rug-penetration-shoot-sealed.trycloudflare.com/"
+    },
+    {
+      "source": "/:path*",
+      "destination": "https://rug-penetration-shoot-sealed.trycloudflare.com/:path*"
     }
   ],
   "headers": [
