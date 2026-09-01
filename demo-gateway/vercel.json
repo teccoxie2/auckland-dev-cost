@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "https://rug-penetration-shoot-sealed.trycloudflare.com/"
+      "destination": "https://gnome-pioneer-pts-flu.trycloudflare.com/"
     },
     {
       "source": "/:path*",
-      "destination": "https://rug-penetration-shoot-sealed.trycloudflare.com/:path*"
+      "destination": "https://gnome-pioneer-pts-flu.trycloudflare.com/:path*"
     }
   ],
   "headers": [
