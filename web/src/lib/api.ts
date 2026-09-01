@@ -23,6 +23,7 @@ export interface CostLine {
   id: string;
   status: "priced" | "missing" | "rule" | "zero";
   category?: string;
+  wbs_group?: string;
   name_zh?: string;
   unit?: string;
   quantity?: number;

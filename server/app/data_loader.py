@@ -41,3 +41,8 @@ def design_rules() -> dict:
 @lru_cache(maxsize=8)
 def gis_layers() -> dict:
     return load_json("gis_layers.json")
+
+
+@lru_cache(maxsize=8)
+def full_contract_wbs() -> dict:
+    return load_json("full_contract_wbs.json")

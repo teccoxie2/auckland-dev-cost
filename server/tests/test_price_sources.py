@@ -60,6 +60,27 @@ def test_priced_catalog_lines_use_public_skus():
     assert "lim_report_fee" not in by_id
 
 
+def test_full_contract_wbs_reads_out_unpriced_trades():
+    result = cost_option(_compact(), {"needs_resource_consent": False, "reasons": []})
+    by_id = {item["id"]: item for item in result["lines"]}
+    assert by_id["ccc_base_fee"]["status"] == "priced"
+    assert by_id["ccc_base_fee"]["amount_incl_gst"] == 722
+    assert by_id["street_damage_inspection"]["amount_incl_gst"] == 124
+    assert by_id["wbs_demolition"]["status"] == "missing"
+    assert by_id["wbs_electrician"]["status"] == "missing"
+    assert by_id["wbs_hvac_hrv"]["status"] == "missing"
+    assert by_id["wbs_cladding_system"]["status"] == "missing"
+    assert by_id["wbs_driveway"]["status"] == "missing"
+    assert by_id["wbs_electrician"]["amount_incl_gst"] == 0
+    assert by_id["wbs_electrician"]["wbs_group"] == "interior"
+    assert by_id["timber_sg8_90x45_h12"]["wbs_group"] == "structure"
+    assert by_id["ccc_base_fee"]["wbs_group"] == "fees"
+    verify = cost_option(_compact(), {"needs_resource_consent": False, "reasons": []}, include_overheads=False)
+    verify_ids = {item["id"] for item in verify["lines"]}
+    assert "wbs_electrician" not in verify_ids
+    assert "ccc_base_fee" not in verify_ids
+
+
 def test_resource_consent_deposit_is_official_lodgement():
     result = cost_option(_compact(), {"needs_resource_consent": True, "reasons": ["覆盖率"]})
     rc = next(item for item in result["lines"] if item["id"] == "resource_consent_deposit")

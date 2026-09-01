@@ -61,8 +61,17 @@ def line(
     }
 
 
-def missing_line(item_id: str, name_zh: str, reason: str, quantity: float = 0, unit: str = "") -> dict[str, Any]:
-    return {
+def missing_line(
+    item_id: str,
+    name_zh: str,
+    reason: str,
+    quantity: float = 0,
+    unit: str = "",
+    *,
+    wbs_group: str | None = None,
+    category: str | None = None,
+) -> dict[str, Any]:
+    row: dict[str, Any] = {
         "id": item_id,
         "status": "missing",
         "name_zh": name_zh,
@@ -73,6 +82,11 @@ def missing_line(item_id: str, name_zh: str, reason: str, quantity: float = 0, u
         "source_name": "未采用公开可核对单价，故不计金额",
         "source_url": None,
     }
+    if wbs_group:
+        row["wbs_group"] = wbs_group
+    if category:
+        row["category"] = category
+    return row
 
 
 def building_consent_deposit(project_value_incl: float) -> dict[str, Any]:
@@ -141,6 +155,31 @@ def lim_report_fee() -> dict[str, Any]:
         "source_name": table["source_name"],
         "source_url": table["source_url"],
         "about_url": table.get("about_url"),
+        "retrieved_at": table["retrieved_at"],
+        "notes": table["notes"],
+    }
+
+
+def ccc_base_fee(project_value_incl: float) -> dict[str, Any]:
+    table = council_fees()["ccc"]
+    amount = float(table["from_20000"] if project_value_incl >= 20000 else table["up_to_19999"])
+    return {
+        "amount_incl_gst": amount,
+        "source_name": table["source_name"],
+        "source_url": table["source_url"],
+        "retrieved_at": table["retrieved_at"],
+        "notes": table["notes"],
+    }
+
+
+def street_damage_inspection_fee(project_value_incl: float) -> dict[str, Any]:
+    table = council_fees()["street_damage_inspection"]
+    exempt_below = float(table["exempt_below"])
+    amount = 0.0 if project_value_incl < exempt_below else float(table["fee"])
+    return {
+        "amount_incl_gst": amount,
+        "source_name": table["source_name"],
+        "source_url": table["source_url"],
         "retrieved_at": table["retrieved_at"],
         "notes": table["notes"],
     }

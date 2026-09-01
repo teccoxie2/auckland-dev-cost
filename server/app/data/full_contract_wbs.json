@@ -1,0 +1,276 @@
+{
+  "version": "2026-09-01",
+  "source_name": "对照全包合同报价科目结构。参考图中的金额、百分比、客户与日期不是价源，只用来核对本系统有没有把该科目读出来。",
+  "groups": [
+    {
+      "id": "prelim",
+      "name_zh": "前期准备",
+      "items": [
+        {
+          "id": "wbs_demolition",
+          "name_zh": "拆除旧房与车道",
+          "name_en": "Remove House & Driveway",
+          "reason": "拆除、破碎与清运按现场承包商报价。无全国公开统一单价。"
+        },
+        {
+          "id": "wbs_temp_fencing",
+          "name_zh": "临时围栏与泥沙围栏",
+          "name_en": "Temp fencing and silt fencing",
+          "reason": "奥克兰工地围挡与 Erosion/Sediment 围栏按周租或米价现场报价，无全国统一零售。"
+        },
+        {
+          "id": "wbs_temp_services",
+          "name_zh": "临时水电、排水开挖回填与水箱",
+          "name_en": "Temporary power and water, drainage, tank",
+          "reason": "临电临水、雨污临时接管、scoria 回填与水箱按电力公司/水管工现场报价。骨料无全国吨价。"
+        },
+        {
+          "id": "wbs_health_safety",
+          "name_zh": "现场健康与安全管理",
+          "name_en": "Health and Safety",
+          "reason": "Site Safe / 安全计划与监理工时无公开零售单价。10% 预备费不是本项报价。"
+        },
+        {
+          "id": "wbs_portaloo",
+          "name_zh": "工地临时厕所",
+          "name_en": "Portaloo",
+          "reason": "移动厕所按周租，租期未定价，无写入价库的公开周租 SKU。"
+        },
+        {
+          "id": "wbs_waste_skip",
+          "name_zh": "建筑垃圾箱与硬填清运",
+          "name_en": "General waste and hard-fill skip",
+          "reason": "跳箱按尺寸与倾倒次数报价，次数未定价。"
+        },
+        {
+          "id": "wbs_project_management",
+          "name_zh": "项目管理与行政",
+          "name_en": "Project management and administration",
+          "reason": "全包合同的 PM 费率无公开价目表。现有 10% 预备费是规则加项，不是签约管理费。"
+        }
+      ]
+    },
+    {
+      "id": "structure",
+      "name_zh": "建筑主体",
+      "items": [
+        {
+          "id": "wbs_excavation",
+          "name_zh": "场地开挖、回填与压实",
+          "name_en": "Site excavation, back-fill and compaction",
+          "reason": "土方按立方和运距报价。E12 门槛已提示，但无公开土方单价。"
+        },
+        {
+          "id": "wbs_slab_reinforcing",
+          "name_zh": "筏板钢筋网",
+          "name_en": "Slab reinforcing mesh",
+          "reason": "已计商品混凝土表层与 EPS 垫块。钢筋网无全国统一零售标价。"
+        },
+        {
+          "id": "wbs_timber_subfloor",
+          "name_zh": "木质底层/架空地板",
+          "name_en": "Timber sub-floor",
+          "reason": "默认按筏板口径。若户型是架空木龙骨，无公开整套龙骨价。"
+        },
+        {
+          "id": "wbs_fall_net",
+          "name_zh": "建筑安全网",
+          "name_en": "Fall net",
+          "reason": "外围脚手架已按立面计价。安全网另计，无公开租价。"
+        },
+        {
+          "id": "wbs_soffits_trim",
+          "name_zh": "檐底、踢脚线与门窗套",
+          "name_en": "Soffits, skirting and architraves",
+          "reason": "预钉杂项与装饰线条按延米贸易价，Bunnings 无稳定全套标价。"
+        },
+        {
+          "id": "wbs_fascia_gutter_flashings",
+          "name_zh": "屋檐饰板、天沟与泛水",
+          "name_en": "Fascia, gutter, roofing flashings",
+          "reason": "价库只有彩色波纹钢板延米。饰板、天沟、泛水需屋面商报价。"
+        },
+        {
+          "id": "wbs_skylights",
+          "name_zh": "天窗",
+          "name_en": "Roof lights",
+          "reason": "公开零售没有与户型绑定的天窗尺寸标价。"
+        },
+        {
+          "id": "wbs_garage_door",
+          "name_zh": "车库门",
+          "name_en": "Garage door",
+          "reason": "车库门按洞口定制。无与户型绑定的公开整樘价。"
+        },
+        {
+          "id": "wbs_cladding_system",
+          "name_zh": "外墙饰板/砖贴面及安装",
+          "name_en": "External claddings, brick veneer and labour",
+          "reason": "空腔垫条已计价。Linea/砖贴面整墙系统（含配件与人工）无写入价库的公开系统价。"
+        },
+        {
+          "id": "wbs_internal_doors",
+          "name_zh": "内门、移门、衣柜门与五金",
+          "name_en": "Internal doors, cavity sliders, wardrobe doors, hardware",
+          "reason": "仅当入户门扇命中 Hume 1980×860 才计价。内门、移门、衣柜门、门锁合页无整套公开价。"
+        },
+        {
+          "id": "wbs_gib_fix_stop",
+          "name_zh": "石膏板安装与批灰",
+          "name_en": "Internal linings fix and stop",
+          "reason": "GIB 板材已按零售计价。安装与批灰工时无公开单价。"
+        },
+        {
+          "id": "wbs_painting",
+          "name_zh": "室内外油漆",
+          "name_en": "Painting internal and external",
+          "reason": "涂料单罐零售不能换成整栋系统价。油漆工时无公开工时表。"
+        },
+        {
+          "id": "wbs_ceiling_insulation",
+          "name_zh": "天花/屋顶保温",
+          "name_en": "Ceiling and roof insulation",
+          "reason": "价库只有墙体 Pink Batts R2.2。天花 R 值按 H1 另选，无已核 SKU。"
+        }
+      ]
+    },
+    {
+      "id": "interior",
+      "name_zh": "内装",
+      "items": [
+        {
+          "id": "wbs_laundry_joinery",
+          "name_zh": "洗衣房柜体与水槽",
+          "name_en": "Laundry joinery",
+          "reason": "户型表没有洗衣房套数。Chambers 有洗衣槽 fit-off 示例，但不套用。"
+        },
+        {
+          "id": "wbs_wardrobe_shelving",
+          "name_zh": "衣柜层板与储物",
+          "name_en": "Wardrobe shelving and store",
+          "reason": "衣柜按房间定制，无公开整房 SKU。"
+        },
+        {
+          "id": "wbs_stone_benchtop",
+          "name_zh": "厨房石材台面",
+          "name_en": "Stone benchtop",
+          "reason": "已计 Kaboodle 层压台面。石材按板料与加工报价，无全国统一标价。"
+        },
+        {
+          "id": "wbs_stairs_balustrade",
+          "name_zh": "室内楼梯、阳台与栏杆",
+          "name_en": "Internal stairs, balconies and balustrades",
+          "reason": "楼梯为专项木作。TradieTools 有区间，但不是可核对 SKU，不编中位价。"
+        },
+        {
+          "id": "wbs_electrician",
+          "name_zh": "电工（配电、照明、灶具接线）",
+          "name_en": "Electrician",
+          "reason": "Bellini 灶具需 30A 硬接线。电工工时与配电箱无公开价目表。"
+        },
+        {
+          "id": "wbs_gas_hwc",
+          "name_zh": "煤气管与热水器",
+          "name_en": "Gas piping and hot water cylinder",
+          "reason": "Chambers 对热水器安装有示例，但户型没有热水器数量，不套用。"
+        },
+        {
+          "id": "wbs_hvac_hrv",
+          "name_zh": "空调、地暖与新风/HRV",
+          "name_en": "Air-conditioning, underfloor heating, HRV",
+          "reason": "H1 新风与暖通按负荷选型。无公开整栋系统价。"
+        },
+        {
+          "id": "wbs_tiling",
+          "name_zh": "室内瓷砖及铺贴",
+          "name_en": "Tiling including labour",
+          "reason": "卫生间防水涂料已计价。瓷砖规格与铺贴工时无公开系统价。"
+        },
+        {
+          "id": "wbs_flooring",
+          "name_zh": "木地板与地毯",
+          "name_en": "Timber laminate floor and carpet",
+          "reason": "地面饰面按房间选材，无默认公开 SKU。"
+        }
+      ]
+    },
+    {
+      "id": "outdoor",
+      "name_zh": "室外场地工程",
+      "items": [
+        {
+          "id": "wbs_keystone_retaining",
+          "name_zh": "砌块挡土墙（Keystone 等）",
+          "name_en": "Keystone retaining walls",
+          "reason": "仅墙高≤1.2m 的零售枕木墙可计价。砌块墙须工程师设计，无整墙公开总价。"
+        },
+        {
+          "id": "wbs_pool_safety_fence",
+          "name_zh": "安全围栏",
+          "name_en": "Safety fence",
+          "reason": "泳池/高差安全围栏按延米定制，无默认长度。"
+        },
+        {
+          "id": "wbs_driveway",
+          "name_zh": "私家车道",
+          "name_en": "Private driveway",
+          "reason": "混凝土/沥青车道按面积与基层报价。Firth 不公布立方价。"
+        },
+        {
+          "id": "wbs_boundary_fence",
+          "name_zh": "地界木围栏",
+          "name_en": "Private timber fence",
+          "reason": "围栏按延米和样式报价。地界长度未从地籍自动抽出为可核对工程量。"
+        },
+        {
+          "id": "wbs_house_cleaning",
+          "name_zh": "交房保洁",
+          "name_en": "House cleaning",
+          "reason": "竣工保洁按次报价，无公开固定价。"
+        },
+        {
+          "id": "wbs_landscaping",
+          "name_zh": "园林绿化",
+          "name_en": "Landscape",
+          "reason": "软景硬景按设计图报价，无默认公开总价。"
+        }
+      ]
+    },
+    {
+      "id": "fees",
+      "name_zh": "法定与专业费",
+      "items": [
+        {
+          "id": "wbs_extra_inspections",
+          "name_zh": "超出押金的议会检查与补检",
+          "name_en": "Extra council inspection",
+          "reason": "住宅检查公开工时 $201–$231/次，但次数未定价，不编检查次数。建工许可押金已含检查押金部分。"
+        },
+        {
+          "id": "wbs_ccc_extras",
+          "name_zh": "CCC 超出基础费的处理工时",
+          "name_en": "CCC additional processing",
+          "reason": "CCC 基础费已按公开表计入。官网写明可能另收处理费，工时未知。"
+        },
+        {
+          "id": "wbs_contract_insurance",
+          "name_zh": "工程一切险与责任险",
+          "name_en": "Insurances",
+          "reason": "承包商保险按合同额与工期报价，无公开费率表。"
+        },
+        {
+          "id": "wbs_builder_warranty",
+          "name_zh": "建商质保（Master Build 等）",
+          "name_en": "Warranty",
+          "reason": "质保按建商与合同额，无公开全国费率。"
+        },
+        {
+          "id": "wbs_civil_engineer",
+          "name_zh": "土木/结构工程师",
+          "name_en": "Civil engineer",
+          "reason": "建筑师/设计师百分比已计。结构与土木专项按书面聘书，无公开固定价。"
+        }
+      ]
+    }
+  ]
+}

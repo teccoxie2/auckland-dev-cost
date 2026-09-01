@@ -25,7 +25,23 @@
   },
   "source_name": "Auckland Council Building consent fees and charges（页面 2026-08-24 读取）",
   "source_url": "https://www.aucklandcouncil.govt.nz/en/building-and-consents/building-consents/building-control-fees.html",
-  "retrieved_at": "2026-08-24",
+    "retrieved_at": "2026-08-24",
+  "ccc": {
+    "up_to_19999": 258,
+    "from_20000": 722,
+    "source_name": "Auckland Council Building consent fees and charges — Code Compliance Certificate",
+    "source_url": "https://www.aucklandcouncil.govt.nz/en/building-and-consents/building-consents/building-control-fees.html",
+    "retrieved_at": "2026-09-01",
+    "notes": "含 GST。工程价值 $20,000 及以上基础费 $722，以下 $258，不可退。官网写明可能另收处理费；申请时不必当场付，超出另开发票。"
+  },
+  "street_damage_inspection": {
+    "fee": 124,
+    "exempt_below": 5000,
+    "source_name": "Auckland Council Building consent fees and charges — Street damage inspection",
+    "source_url": "https://www.aucklandcouncil.govt.nz/en/building-and-consents/building-consents/building-control-fees.html",
+    "retrieved_at": "2026-09-01",
+    "notes": "含 GST。代表 Auckland Transport 收取的固定费。工程价值低于 $5,000 以及部分小项工程免除；新住宅不适用免除。"
+  },
   "resource_consent": {
     "residential_land_use_deposit": 6500,
     "source_name": "Auckland Council resource consent fees and deposits：Land use — Residential",

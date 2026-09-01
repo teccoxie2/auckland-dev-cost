@@ -8,13 +8,16 @@ from .price_provider import official_fee_meta, pricebook_meta
 from .pricing import (
     GST,
     building_consent_deposit,
+    ccc_base_fee,
     dc_amount,
     igc_amount,
     line,
     missing_line,
     resource_consent_deposit,
+    street_damage_inspection_fee,
 )
 from .quantity import takeoff
+from .wbs import apply_full_contract_wbs
 
 PRELIM_PCT = 0.10
 CONTINGENCY_PCT = 0.08
@@ -422,7 +425,7 @@ def cost_option(
             "amount_incl_gst": prelim,
             "source_name": "项目经理第一期规则：已确认施工费的 10%",
             "source_url": None,
-            "notes": "不是供应商报价。缺项未包含在基数中。",
+            "notes": "不是供应商报价。缺项未包含在基数中。拆除、围栏、临水临电、跳箱等全包预备科目仍单独列为缺项，本行不能替代那些报价。",
             "formula": "已确认材料+人工 × 10%",
         }
     )
@@ -529,6 +532,36 @@ def cost_option(
     lines.append(_levy("branz_levy", "BRANZ 建筑研究征费 0.1%", bc["branz"], bc, "造价>$20,000 时 0.1%"))
     lines.append(_levy("mbie_levy", "MBIE 建工征费 $1.75/千元", bc["mbie"], bc, "造价>$64,999 时 $1.75 / $1,000"))
     lines.append(_levy("bca_accreditation_levy", "BCA 认证征费 $0.58/千元", bc["accreditation"], bc, "全部建工许可 58c / $1,000"))
+    ccc = ccc_base_fee(project_value_for_bc)
+    lines.append(
+        {
+            "id": "ccc_base_fee",
+            "status": "priced",
+            "category": "statutory",
+            "name_zh": "完工合规证书（CCC）基础费",
+            "amount_incl_gst": ccc["amount_incl_gst"],
+            "source_name": ccc["source_name"],
+            "source_url": ccc["source_url"],
+            "retrieved_at": ccc["retrieved_at"],
+            "notes": ccc["notes"],
+            "formula": "工程价值≥$20,000 取公开基础费 $722 含 GST",
+        }
+    )
+    street = street_damage_inspection_fee(project_value_for_bc)
+    lines.append(
+        {
+            "id": "street_damage_inspection",
+            "status": "priced" if street["amount_incl_gst"] else "zero",
+            "category": "statutory",
+            "name_zh": "占道/街道损坏检查费（Auckland Transport）",
+            "amount_incl_gst": street["amount_incl_gst"],
+            "source_name": street["source_name"],
+            "source_url": street["source_url"],
+            "retrieved_at": street["retrieved_at"],
+            "notes": street["notes"],
+            "formula": "建工许可固定费 $124 含 GST（工程价值≥$5,000）",
+        }
+    )
 
     rc_deposit = 0.0
     if filter_result.get("needs_resource_consent"):
@@ -569,6 +602,7 @@ def cost_option(
         }
     )
 
+    lines = apply_full_contract_wbs(lines)
     priced_total = round(sum(item.get("amount_incl_gst") or 0 for item in lines if item.get("status") in {"priced", "rule", "zero"}), 2)
     missing = [item for item in lines if item.get("status") == "missing"]
     gfa = float(template["gfa_m2"])
@@ -582,7 +616,14 @@ def cost_option(
             "preliminaries_incl_gst": prelim,
             "design_incl_gst": design_incl,
             "statutory_incl_gst": round(
-                statutory_before_bc + bc["deposit"] + bc["branz"] + bc["mbie"] + bc["accreditation"] + rc_deposit,
+                statutory_before_bc
+                + bc["deposit"]
+                + bc["branz"]
+                + bc["mbie"]
+                + bc["accreditation"]
+                + rc_deposit
+                + ccc["amount_incl_gst"]
+                + street["amount_incl_gst"],
                 2,
             ),
             "contingency_incl_gst": contingency,
@@ -611,6 +652,7 @@ def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
                 "official_lim_pdf",
                 "客户提供的正式 LIM PDF",
                 "开发核算需要客户上传已购买的议会 LIM。未上传则不读取污染、风区、地面径流和管网 LIR，也不计入订购费。",
+                wbs_group="fees",
             )
         ]
     lines: list[dict[str, Any]] = []
@@ -622,6 +664,7 @@ def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
                 "flood_hazard_assessment",
                 "洪水评估 / 抬高 FFL / 场地排水",
                 "正式 LIM 写明地面径流或洪水相关约束；注册工程师评估没有公开零售单价，故不计金额。",
+                wbs_group="fees",
             )
         )
     notices = parsed.get("drainage_notices") or []
@@ -642,6 +685,7 @@ def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
                 "official_lim_drainage_notices",
                 f"正式 LIM 管网通知 {lir}".strip(),
                 reason,
+                wbs_group="fees",
             )
         )
     if any(
@@ -653,6 +697,7 @@ def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
                 "public_drain_clash",
                 "公共雨污管避让 / 改线",
                 "LIM 显示已有工程跨越公共雨污管。改线或核管没有公开单价，故不计金额。",
+                wbs_group="fees",
             )
         )
     if constraints.get("contamination_data"):
@@ -661,6 +706,7 @@ def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
                 "nes_cs_psi",
                 "NES-CS 初步场地调查（PSI）",
                 "正式 LIM 写有污染监管记录。HAIL/污染调查没有公开零售单价，故不计金额。",
+                wbs_group="fees",
             )
         )
     if constraints.get("soil_issues"):
@@ -669,6 +715,7 @@ def lim_statutory_lines(site: dict[str, Any] | None) -> list[dict[str, Any]]:
                 "geotech_landslide",
                 "土壤/边坡岩土报告",
                 "正式 LIM 写有土壤问题。岩土报告没有公开零售单价，故不计金额。",
+                wbs_group="fees",
             )
         )
     return lines

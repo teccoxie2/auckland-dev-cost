@@ -9,8 +9,8 @@
 - 客户选装：套数、层数、卧室、卫生间、厨房、建筑面积，按已读地块重新套价
 - 坡地建议：分台、挡土墙、E12 土方门槛（500m² / 250m³）；支撑建筑平台的墙按 surcharge 提示建筑许可
 - 户型模板工程量（尺寸进入木材、空腔、屋面、石膏板、卫生间洁具数量）
-- 分项总账带报价源链接、SKU、取价日期
-- 能核对到公开 SKU 的厨房柜体/水槽/灶具包、部分铝窗、EPS 垫块、龙头防水、卫生间水管工时、外围脚手架按标价计入；对不上尺寸或没有工时的仍标缺项
+- 分项总账按全包合同科目分组（前期准备 / 建筑主体 / 内装 / 室外 / 法定与专业费）。能核对到公开 SKU 的计入金额；对照后仍无单价的科目列为缺项，不编价
+- 法定费用含建工许可押金、BRANZ/MBIE/BCA 征费、CCC 基础费、占道检查费；有资源许可时计入 RC 押金；IGC/DC 按净增单元
 - 第二阶段：在项目页上传 RC / BC PDF，按文字层门窗表和面积套同一价库（扫描件无文字层会失败）
 - 图纸物料验证页 `/drawing-takeoff`：不经过选址，上传 RC/BC 后按页读文字层。门窗表、面积表、覆盖率表按行列抽出并在页面上列出每一行；几乎无文字的图页会标出且**不做 OCR**。正则与大模型结果合并；送给模型时优先保留表页，证据核对应全文。数量由服务器按公式、窗表或原文件数重算，单价只走价库。扫描件没有文字层或未配置 `OPENAI_API_KEY` / `CPA_API_KEY` 会失败。
 
@@ -54,6 +54,8 @@
 法定费用：
 
 - [Auckland Council 建工许可押金与 levy](https://www.aucklandcouncil.govt.nz/en/building-and-consents/building-consents/building-control-fees.html)（2026-08-24 页面：$100k–$499k 档押金 $5,479）
+- [CCC 基础费](https://www.aucklandcouncil.govt.nz/en/building-and-consents/building-consents/building-control-fees.html)（2026-09-01 页面：工程价值 ≥$20,000 为 $722）
+- [街道损坏检查](https://www.aucklandcouncil.govt.nz/en/building-and-consents/building-consents/building-control-fees.html)（2026-09-01 页面：$124，代表 Auckland Transport）
 - [Auckland Council 资源许可押金](https://www.aucklandcouncil.govt.nz/en/building-and-consents/resource-consents/resource-consent-fees-deposits.html)：住宅土地使用 $6,500
 - [Watercare IGC 2026/27 都市区 $29,348.46 含 GST/单元](https://www.watercare.co.nz/builders-and-developers/tools-fees-and-resources/infrastructure-growth-charge)
 - [DC Policy 2025](https://ourauckland.aucklandcouncil.govt.nz/media-centre/2025/may/new-development-contributions-policy-approved/)：Rest of Auckland $20,000/HUE，自 2026-07-01 加 2%
