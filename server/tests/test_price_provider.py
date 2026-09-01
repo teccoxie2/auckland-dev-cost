@@ -6,7 +6,7 @@ def test_pricebook_provider_returns_versioned_public_rate():
     quote = PriceBookProvider().get_rate("timber_sg8_90x45_h12", 1.0)
     assert quote is not None
     assert quote["unit_price"] == 7.41
-    assert quote["version"] == "2026-08-24"
+    assert quote["version"] == "2026-09-01"
     assert quote["source_url"]
     assert quote["as_of"] == "2026-08-24"
 
@@ -29,5 +29,5 @@ def test_composite_prefers_pricebook():
 def test_line_records_pricebook_version():
     row = line("timber_sg8_90x45_h12", 1, formula="test")
     assert row["status"] == "priced"
-    assert row["pricebook_version"] == "2026-08-24"
+    assert row["pricebook_version"] == "2026-09-01"
     assert row["unit_price"] == 7.41

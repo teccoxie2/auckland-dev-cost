@@ -25,6 +25,7 @@ CONTINGENCY_PCT = 0.08
 WINDOW_ITEMS = {
     (1800, 1200): "window_alu_1800x1200_dg",
     (1200, 1200): "window_alu_1200x1200_dg",
+    (1800, 600): "window_alu_1800x600_dg",
 }
 
 
@@ -66,6 +67,17 @@ def cost_option(
                 )
             )
         lines.append(line("gib_std_10mm", qty["gib_m2"], formula="内衬面积 × 1.15 损耗，并扣门窗洞口"))
+        lines.append(
+            line(
+                "gib_std_10mm",
+                qty["gib_ceiling_m2"],
+                formula="GFA × 1.15 损耗（天花）",
+                extra_notes="墙板与天花分开计量，同一 10mm 标准板 SKU。",
+                line_id="gib_ceiling_10mm",
+                name_zh="GIB 10mm 天花",
+                wbs_item="wbs_i04_ceiling_gib",
+            )
+        )
         lines.append(line("pink_batts_r22_wall", qty["insulation_m2"], formula="外墙面积 × 1.08 损耗"))
         lines.append(
             line(
@@ -76,10 +88,19 @@ def cost_option(
         )
         lines.append(
             line(
+                "thermakraft_215_underlay",
+                qty["roof_underlay_m2"],
+                formula="屋面斜面积 × 1.10 损耗",
+                extra_notes="卷材覆盖按商品页 50m²/卷折算到每平方米。通风与 H1 保温不是本 SKU。",
+                wbs_item="wbs_f02_underlay",
+            )
+        )
+        lines.append(
+            line(
                 "concrete_readymix_20mpa",
                 qty["slab_m3"],
-                formula="底层占地 × 85mm 面层（Rib-raft 表层口径）× 1.05 损耗",
-                extra_notes="EPS 垫块本身未计价。",
+                formula="底层占地 × 85mm 面层 + 1100mm 垫块在 1200mm 网格上的 100mm 肋 + 周长 300mm 边梁（Firth RibRaft 手册）× 1.05 损耗",
+                extra_notes="面层 85mm、肋宽 100mm、边梁 300mm、垫块深 300mm 来自 Firth RibRaft Technical Manual CodeMark 2024。EPS 垫块另计。",
             )
         )
         lines.append(
@@ -128,6 +149,7 @@ def cost_option(
             bucket["count"] += count
             bucket["codes"].append(str(code))
         else:
+            wbs_item = "wbs_g02_sliding_doors" if width >= 2400 else "wbs_g01_alu_windows"
             lines.append(
                 missing_line(
                     f"joinery_{code}_{width}x{height}",
@@ -135,6 +157,8 @@ def cost_option(
                     "公开零售没有这一精确尺寸的新窗/推拉门标价，工程量已列出但不计价。",
                     quantity=count,
                     unit="樘",
+                    wbs_item=wbs_item,
+                    wbs_group="structure",
                 )
             )
     for bucket in joinery_priced.values():
@@ -602,7 +626,7 @@ def cost_option(
         }
     )
 
-    lines = apply_full_contract_wbs(lines)
+    lines = apply_full_contract_wbs(lines, template)
     priced_total = round(sum(item.get("amount_incl_gst") or 0 for item in lines if item.get("status") in {"priced", "rule", "zero"}), 2)
     missing = [item for item in lines if item.get("status") == "missing"]
     gfa = float(template["gfa_m2"])

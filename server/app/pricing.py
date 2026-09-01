@@ -23,6 +23,9 @@ def line(
     extra_notes: str = "",
     line_id: str | None = None,
     name_zh: str | None = None,
+    wbs_group: str | None = None,
+    wbs_item: str | None = None,
+    wbs_item_zh: str | None = None,
 ) -> dict[str, Any]:
     row_id = line_id or item_id
     quote = get_price_provider().get_rate(item_id, quantity, {"formula": formula})
@@ -38,7 +41,7 @@ def line(
     amount = round(float(quote["unit_price"]) * quantity, 2)
     if not quote.get("gst_included", True) and quote["unit"] != "percent":
         amount = round(amount * (1 + GST), 2)
-    return {
+    row = {
         "id": row_id,
         "status": "priced",
         "category": item.get("category"),
@@ -59,6 +62,13 @@ def line(
         "notes": " ".join(part for part in [item.get("notes"), extra_notes] if part),
         "formula": formula,
     }
+    if wbs_group:
+        row["wbs_group"] = wbs_group
+    if wbs_item:
+        row["wbs_item"] = wbs_item
+    if wbs_item_zh:
+        row["wbs_item_zh"] = wbs_item_zh
+    return row
 
 
 def missing_line(
@@ -69,6 +79,8 @@ def missing_line(
     unit: str = "",
     *,
     wbs_group: str | None = None,
+    wbs_item: str | None = None,
+    wbs_item_zh: str | None = None,
     category: str | None = None,
 ) -> dict[str, Any]:
     row: dict[str, Any] = {
@@ -84,6 +96,10 @@ def missing_line(
     }
     if wbs_group:
         row["wbs_group"] = wbs_group
+    if wbs_item:
+        row["wbs_item"] = wbs_item
+    if wbs_item_zh:
+        row["wbs_item_zh"] = wbs_item_zh
     if category:
         row["category"] = category
     return row

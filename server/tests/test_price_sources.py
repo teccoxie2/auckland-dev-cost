@@ -47,6 +47,12 @@ def test_priced_catalog_lines_use_public_skus():
     assert by_id["scaffolding_perimeter_erect"]["status"] == "priced"
     assert by_id["scaffolding_perimeter_erect"]["amount_incl_gst"] == round(18.0 * wall * (1 + GST), 2)
     assert by_id["scaffolding_perimeter_hire_week"]["amount_incl_gst"] == round(1.0 * wall * (1 + GST), 2)
+    topping = qty["slab_topping_m3"]
+    assert qty["slab_m3"] > topping
+    assert by_id["thermakraft_215_underlay"]["status"] == "priced"
+    assert by_id["thermakraft_215_underlay"]["amount_incl_gst"] == round(3.15 * qty["roof_underlay_m2"], 2)
+    assert by_id["gib_ceiling_10mm"]["status"] == "priced"
+    assert by_id["gib_ceiling_10mm"]["name_zh"] == "GIB 10mm 天花"
     assert "kitchen_package" not in by_id
     assert "scaffolding_mobile_3m_week" not in by_id
     missing_ids = [item["id"] for item in result["lines"] if item["status"] == "missing"]
@@ -73,12 +79,34 @@ def test_full_contract_wbs_reads_out_unpriced_trades():
     assert by_id["wbs_driveway"]["status"] == "missing"
     assert by_id["wbs_electrician"]["amount_incl_gst"] == 0
     assert by_id["wbs_electrician"]["wbs_group"] == "interior"
+    assert by_id["wbs_e02_internal_framing"]["status"] == "missing"
+    assert by_id["wbs_n01_switchboard"]["status"] == "missing"
+    assert by_id["wbs_o01_heatpump"]["status"] == "missing"
+    assert by_id["wbs_r04_power_connection"]["status"] == "missing"
+    assert by_id["wbs_q03_external_general"]["status"] == "missing"
+    assert by_id["wbs_j11_fireplace"]["status"] == "missing"
+    assert "wbs_p01_lift" not in by_id
     assert by_id["timber_sg8_90x45_h12"]["wbs_group"] == "structure"
     assert by_id["ccc_base_fee"]["wbs_group"] == "fees"
+    tall = {**_compact(), "storeys": 3}
+    tall_ids = {item["id"] for item in cost_option(tall, {"needs_resource_consent": False, "reasons": []})["lines"]}
+    assert "wbs_p01_lift" in tall_ids
     verify = cost_option(_compact(), {"needs_resource_consent": False, "reasons": []}, include_overheads=False)
     verify_ids = {item["id"] for item in verify["lines"]}
     assert "wbs_electrician" not in verify_ids
     assert "ccc_base_fee" not in verify_ids
+
+
+def test_1800x600_window_uses_public_sku():
+    template = {
+        **_compact(),
+        "windows": [{"code": "W3", "w_mm": 1800, "h_mm": 600, "count": 2}],
+    }
+    result = cost_option(template, {"needs_resource_consent": False, "reasons": []}, include_overheads=False)
+    by_id = {item["id"]: item for item in result["lines"]}
+    assert by_id["window_alu_1800x600_dg"]["status"] == "priced"
+    assert by_id["window_alu_1800x600_dg"]["quantity"] == 2
+    assert by_id["window_alu_1800x600_dg"]["amount_incl_gst"] == 1538.0
 
 
 def test_resource_consent_deposit_is_official_lodgement():

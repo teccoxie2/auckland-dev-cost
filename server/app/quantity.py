@@ -15,6 +15,11 @@ WASTAGE = {
 
 ROOF_COVER_M = 0.762
 POD_GRID_M = 1.2
+POD_FACE_M = 1.1
+POD_DEPTH_M = 0.3
+SLAB_TOPPING_M = 0.085
+INTERNAL_RIB_M = 0.1
+EDGE_BEAM_M = 0.3
 KITCHEN_BASE_600 = 5
 KITCHEN_WALL_600 = 5
 KITCHEN_DOOR_600 = 10
@@ -58,7 +63,13 @@ def takeoff(template: dict[str, Any], site: dict[str, Any] | None = None) -> dic
     batten_lm = (external_wall_m2 / 0.6) if cavity else 0.0
     roof_sheet_lm = roof_m2 / ROOF_COVER_M if roof_m2 else 0.0
     slab_m2 = footprint
-    slab_m3 = slab_m2 * 0.085
+    topping_m3 = slab_m2 * SLAB_TOPPING_M
+    rib_plan_fraction = 1.0 - (POD_FACE_M / POD_GRID_M) ** 2
+    ribs_m3 = slab_m2 * rib_plan_fraction * POD_DEPTH_M
+    edge_extra_m3 = perimeter * (EDGE_BEAM_M - INTERNAL_RIB_M) * POD_DEPTH_M if perimeter else 0.0
+    slab_m3 = topping_m3 + ribs_m3 + edge_extra_m3
+    gib_ceiling_m2 = gfa
+    roof_underlay_m2 = roof_m2
     wide_openings = [
         item
         for item in template.get("windows") or []
@@ -89,8 +100,12 @@ def takeoff(template: dict[str, Any], site: dict[str, Any] | None = None) -> dic
         "batten_lm": round(batten_lm * (1 + WASTAGE["batten"]), 2) if cavity else 0.0,
         "insulation_m2": round(external_wall_m2 * (1 + WASTAGE["insulation"]), 2),
         "gib_m2": round(lining_m2 * (1 + WASTAGE["gib"]), 2),
+        "gib_ceiling_m2": round(gib_ceiling_m2 * (1 + WASTAGE["gib"]), 2),
         "roof_sheet_lm": round(roof_sheet_lm * (1 + WASTAGE["roofing"]), 2),
+        "roof_underlay_m2": round(roof_underlay_m2 * (1 + WASTAGE["roofing"]), 2),
         "slab_m2": round(slab_m2, 2),
+        "slab_topping_m3": round(topping_m3 * (1 + WASTAGE["concrete"]), 2),
+        "slab_ribs_m3": round((ribs_m3 + edge_extra_m3) * (1 + WASTAGE["concrete"]), 2),
         "slab_m3": round(slab_m3 * (1 + WASTAGE["concrete"]), 2),
         "cavity_required": cavity,
         "e2": e2,

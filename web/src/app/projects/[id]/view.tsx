@@ -317,7 +317,7 @@ function CostPanel({ option }: { option: SchemeOption }) {
       ) : null}
       {option.totals?.rlb_benchmark_low ? (
         <p className="mt-3 rounded-lg bg-[#f3eee4] px-3 py-2 text-sm leading-6 text-[#5c6754]">
-          上方是已核对 SKU/官方费率的部分账单，不是整房交钥匙价。对照全包合同科目后，拆除、外墙饰面、电工、HRV、车道等已列入缺项，金额为 0。
+          上方是已核对 SKU/官方费率的部分账单，不是整房交钥匙价。对照全包合同和 184 项住宅总账科目后，拆除、桩基、钢构、外墙饰面、电工分项、热泵、车道、接驳等已列入缺项，金额为 0。华夫板肋梁混凝土、天花石膏板和屋面衬垫已按公开规格计入。
           完整施工公开基准（
           <a href={option.totals.rlb_source_url} target="_blank" rel="noreferrer" className="text-[#2f4a32] underline">
             RLB 2025 Auckland 独栋 $2,500–$3,800/m²

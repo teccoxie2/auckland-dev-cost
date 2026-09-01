@@ -29,7 +29,7 @@ ZONE_DEFS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("structure", "木结构", ("timber_sg8", "framing_labour")),
     ("interior", "室内衬板", ("gib_",)),
     ("envelope", "外墙保温与空腔", ("pink_batts", "cavity_")),
-    ("roof", "屋面", ("roofing_",)),
+    ("roof", "屋面", ("roofing_", "thermakraft_")),
     ("joinery", "门窗", ("window_", "door_", "joinery_")),
     ("kitchen", "厨房", ("kaboodle_", "sink_", "oven_", "tap_mondella", "plumber_prepipe_kitchen", "kitchen_")),
     (
@@ -59,6 +59,7 @@ ITEM_QTY_KEYS = {
     "gib_std_10mm": "gib_m2",
     "pink_batts_r22_wall": "insulation_m2",
     "roofing_corrugate_colour_845": "roof_sheet_lm",
+    "thermakraft_215_underlay": "roof_underlay_m2",
     "concrete_readymix_20mpa": "slab_m3",
     "framing_labour_gfa": "gfa_m2",
     "expol_tuffpod_1100x300": "pod_count",
@@ -93,7 +94,8 @@ ITEM_FORMULAS = {
     "gib_std_10mm": "内衬面积 × 1.15 损耗，并扣门窗洞口",
     "pink_batts_r22_wall": "外墙面积 × 1.08 损耗",
     "roofing_corrugate_colour_845": "屋面斜面积 / 0.762m 覆盖宽 × 1.10 损耗",
-    "concrete_readymix_20mpa": "底层占地 × 85mm 面层 × 1.05 损耗",
+    "thermakraft_215_underlay": "屋面斜面积 × 1.10 损耗",
+    "concrete_readymix_20mpa": "底层占地 × 85mm 面层 + 肋梁 + 边梁 × 1.05 损耗",
     "framing_labour_gfa": "GFA × 框架安装公开区间中位",
     "expol_tuffpod_1100x300": "占地长宽按 1.2m 网格取整格子数",
     "kaboodle_base_600": "每套厨房 5 个 600mm 地柜",
@@ -712,6 +714,7 @@ def resolve_quantity(
             "gib_std_10mm",
             "pink_batts_r22_wall",
             "roofing_corrugate_colour_845",
+            "thermakraft_215_underlay",
             "concrete_readymix_20mpa",
             "framing_labour_gfa",
             "expol_tuffpod_1100x300",
@@ -802,6 +805,7 @@ def joinery_from_windows(windows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             bucket["count"] += count
             bucket["codes"].append(code)
         else:
+            wbs_item = "wbs_g02_sliding_doors" if width >= 2400 else "wbs_g01_alu_windows"
             lines.append(
                 missing_line(
                     f"joinery_{code}_{width}x{height}",
@@ -809,6 +813,8 @@ def joinery_from_windows(windows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "公开零售没有这一精确尺寸的新窗/推拉门标价，工程量已列出但不计价。",
                     quantity=count,
                     unit="樘",
+                    wbs_item=wbs_item,
+                    wbs_group="structure",
                 )
             )
     for bucket in buckets.values():

@@ -1,275 +1,217 @@
 {
   "version": "2026-09-01",
-  "source_name": "对照全包合同报价科目结构。参考图中的金额、百分比、客户与日期不是价源，只用来核对本系统有没有把该科目读出来。",
+  "source_name": "对照全包合同报价结构，以及一份奥克兰住宅 184 项建筑成本逐行总账的科目名称。参考图中的金额、数量、客户与日期不是价源，只用来核对本系统有没有把该科目读出来。",
   "groups": [
     {
       "id": "prelim",
       "name_zh": "前期准备",
       "items": [
-        {
-          "id": "wbs_demolition",
-          "name_zh": "拆除旧房与车道",
-          "name_en": "Remove House & Driveway",
-          "reason": "拆除、破碎与清运按现场承包商报价。无全国公开统一单价。"
-        },
-        {
-          "id": "wbs_temp_fencing",
-          "name_zh": "临时围栏与泥沙围栏",
-          "name_en": "Temp fencing and silt fencing",
-          "reason": "奥克兰工地围挡与 Erosion/Sediment 围栏按周租或米价现场报价，无全国统一零售。"
-        },
-        {
-          "id": "wbs_temp_services",
-          "name_zh": "临时水电、排水开挖回填与水箱",
-          "name_en": "Temporary power and water, drainage, tank",
-          "reason": "临电临水、雨污临时接管、scoria 回填与水箱按电力公司/水管工现场报价。骨料无全国吨价。"
-        },
-        {
-          "id": "wbs_health_safety",
-          "name_zh": "现场健康与安全管理",
-          "name_en": "Health and Safety",
-          "reason": "Site Safe / 安全计划与监理工时无公开零售单价。10% 预备费不是本项报价。"
-        },
-        {
-          "id": "wbs_portaloo",
-          "name_zh": "工地临时厕所",
-          "name_en": "Portaloo",
-          "reason": "移动厕所按周租，租期未定价，无写入价库的公开周租 SKU。"
-        },
-        {
-          "id": "wbs_waste_skip",
-          "name_zh": "建筑垃圾箱与硬填清运",
-          "name_en": "General waste and hard-fill skip",
-          "reason": "跳箱按尺寸与倾倒次数报价，次数未定价。"
-        },
-        {
-          "id": "wbs_project_management",
-          "name_zh": "项目管理与行政",
-          "name_en": "Project management and administration",
-          "reason": "全包合同的 PM 费率无公开价目表。现有 10% 预备费是规则加项，不是签约管理费。"
-        }
+        {"id": "wbs_a01_insurance", "name_zh": "施工保险、保函及开工文件", "name_en": "Contract works insurance and start-up documents", "reason": "承包商保险按合同额与工期报价，无公开费率表。"},
+        {"id": "wbs_a02_hoarding", "name_zh": "现场围挡、大门及安全标识", "name_en": "Hoarding, site gate and safety signage", "reason": "奥克兰工地围挡与标识按周租或延米现场报价。"},
+        {"id": "wbs_a03_temp_facilities", "name_zh": "临时办公室、仓储和卫生设施", "name_en": "Site office, storage and portaloo", "reason": "临设与移动厕所按周租，租期未定价。"},
+        {"id": "wbs_a04_temp_services", "name_zh": "临时水电、照明和排水", "name_en": "Temporary power, water, lighting and drainage", "reason": "临电临水、临时照明与雨污接管按电力公司/水管工现场报价。"},
+        {"id": "wbs_a05_setout", "name_zh": "测量放线与施工复测", "name_en": "Set-out and construction resurvey", "reason": "持牌测量师按工时报价，无公开固定价。"},
+        {"id": "wbs_a06_site_management", "name_zh": "现场管理人员及项目经理", "name_en": "Site management and project manager", "reason": "全包合同的 PM 费率无公开价目表。现有 10% 预备费是规则加项，不是签约管理费。"},
+        {"id": "wbs_a07_scaffold", "name_zh": "脚手架、边缘防护及安全网", "name_en": "Scaffolding, edge protection and fall net", "reason": "外围脚手架已按立面计价。安全网与边缘防护另计。", "covered_by": ["scaffolding_perimeter_erect"]},
+        {"id": "wbs_fall_net", "name_zh": "建筑安全网", "name_en": "Fall net", "reason": "外围脚手架已按立面计价。安全网另计，无公开租价。"},
+        {"id": "wbs_a08_waste", "name_zh": "清洁、垃圾箱及日常外运", "name_en": "Skip bins and regular waste cartage", "reason": "跳箱按尺寸与倾倒次数报价，次数未定价。"},
+        {"id": "wbs_a09_handover_clean", "name_zh": "竣工清洁、调试协调与移交", "name_en": "Handover clean and commissioning", "reason": "竣工保洁与移交按次报价，无公开固定价。"},
+        {"id": "wbs_b01_clearing", "name_zh": "植被清理与表土剥离", "name_en": "Vegetation clearing and topsoil strip", "reason": "清表按面积和运距报价，无全国统一单价。"},
+        {"id": "wbs_demolition", "name_zh": "既有房屋、构筑物与车道拆除", "name_en": "Remove house, minor structures and driveway", "reason": "拆除、破碎与清运按现场承包商报价。"},
+        {"id": "wbs_b03_tipping", "name_zh": "建筑垃圾装运和倾倒费", "name_en": "Construction waste cartage and tipping", "reason": "倾倒费按重量与填埋场报价。"},
+        {"id": "wbs_b04_tree_neighbour", "name_zh": "树木保护及邻界保护", "name_en": "Tree and neighbour protection", "reason": "护树与邻界防护按现场方案报价。"},
+        {"id": "wbs_b05_site_access", "name_zh": "施工出入口及轮胎清洗", "name_en": "Site access and wheel wash", "reason": "出入口硬化与洗车设施无公开零售单价。"},
+        {"id": "wbs_health_safety", "name_zh": "现场健康与安全管理", "name_en": "Health and Safety", "reason": "Site Safe / 安全计划与监理工时无公开零售单价。"}
       ]
     },
     {
       "id": "structure",
       "name_zh": "建筑主体",
       "items": [
-        {
-          "id": "wbs_excavation",
-          "name_zh": "场地开挖、回填与压实",
-          "name_en": "Site excavation, back-fill and compaction",
-          "reason": "土方按立方和运距报价。E12 门槛已提示，但无公开土方单价。"
-        },
-        {
-          "id": "wbs_slab_reinforcing",
-          "name_zh": "筏板钢筋网",
-          "name_en": "Slab reinforcing mesh",
-          "reason": "已计商品混凝土表层与 EPS 垫块。钢筋网无全国统一零售标价。"
-        },
-        {
-          "id": "wbs_timber_subfloor",
-          "name_zh": "木质底层/架空地板",
-          "name_en": "Timber sub-floor",
-          "reason": "默认按筏板口径。若户型是架空木龙骨，无公开整套龙骨价。"
-        },
-        {
-          "id": "wbs_fall_net",
-          "name_zh": "建筑安全网",
-          "name_en": "Fall net",
-          "reason": "外围脚手架已按立面计价。安全网另计，无公开租价。"
-        },
-        {
-          "id": "wbs_soffits_trim",
-          "name_zh": "檐底、踢脚线与门窗套",
-          "name_en": "Soffits, skirting and architraves",
-          "reason": "预钉杂项与装饰线条按延米贸易价，Bunnings 无稳定全套标价。"
-        },
-        {
-          "id": "wbs_fascia_gutter_flashings",
-          "name_zh": "屋檐饰板、天沟与泛水",
-          "name_en": "Fascia, gutter, roofing flashings",
-          "reason": "价库只有彩色波纹钢板延米。饰板、天沟、泛水需屋面商报价。"
-        },
-        {
-          "id": "wbs_skylights",
-          "name_zh": "天窗",
-          "name_en": "Roof lights",
-          "reason": "公开零售没有与户型绑定的天窗尺寸标价。"
-        },
-        {
-          "id": "wbs_garage_door",
-          "name_zh": "车库门",
-          "name_en": "Garage door",
-          "reason": "车库门按洞口定制。无与户型绑定的公开整樘价。"
-        },
-        {
-          "id": "wbs_cladding_system",
-          "name_zh": "外墙饰板/砖贴面及安装",
-          "name_en": "External claddings, brick veneer and labour",
-          "reason": "空腔垫条已计价。Linea/砖贴面整墙系统（含配件与人工）无写入价库的公开系统价。"
-        },
-        {
-          "id": "wbs_internal_doors",
-          "name_zh": "内门、移门、衣柜门与五金",
-          "name_en": "Internal doors, cavity sliders, wardrobe doors, hardware",
-          "reason": "仅当入户门扇命中 Hume 1980×860 才计价。内门、移门、衣柜门、门锁合页无整套公开价。"
-        },
-        {
-          "id": "wbs_gib_fix_stop",
-          "name_zh": "石膏板安装与批灰",
-          "name_en": "Internal linings fix and stop",
-          "reason": "GIB 板材已按零售计价。安装与批灰工时无公开单价。"
-        },
-        {
-          "id": "wbs_painting",
-          "name_zh": "室内外油漆",
-          "name_en": "Painting internal and external",
-          "reason": "涂料单罐零售不能换成整栋系统价。油漆工时无公开工时表。"
-        },
-        {
-          "id": "wbs_ceiling_insulation",
-          "name_zh": "天花/屋顶保温",
-          "name_en": "Ceiling and roof insulation",
-          "reason": "价库只有墙体 Pink Batts R2.2。天花 R 值按 H1 另选，无已核 SKU。"
-        }
+        {"id": "wbs_excavation", "name_zh": "建筑基坑及台阶式开挖", "name_en": "Bulk excavation and stepped cut", "reason": "土方按立方和运距报价。E12 门槛已提示，但无公开土方单价。"},
+        {"id": "wbs_c02_trench", "name_zh": "沟槽及基础局部开挖", "name_en": "Trench and local foundation excavation", "reason": "沟槽开挖无公开立方单价。"},
+        {"id": "wbs_c03_cartaway", "name_zh": "普通土方装车外运", "name_en": "Cut-to-waste cartage", "reason": "外运按立方和运距，无全国统一价。"},
+        {"id": "wbs_c04_hardfill", "name_zh": "硬质填料供应与分层压实", "name_en": "Hardfill supply and compaction", "reason": "骨料无全国吨价。"},
+        {"id": "wbs_c05_geofoam", "name_zh": "轻质聚苯填充（Geofoam/Polyrock）", "name_en": "Geofoam or Polyrock fill", "reason": "若设计采用聚苯填充才发生。无写入价库的公开系统价。"},
+        {"id": "wbs_c06_shoring", "name_zh": "临时边坡、支护及排水", "name_en": "Temporary shoring and drainage", "reason": "支护按现场方案报价。"},
+        {"id": "wbs_c07_dewatering", "name_zh": "地下水抽排及雨季措施", "name_en": "Dewatering", "reason": "抽排按工期报价，工期未定价。"},
+        {"id": "wbs_c08_ground_test", "name_zh": "地基验槽、压实及地工检测", "name_en": "Bearing tests and compaction testing", "reason": "地工检测按次报价。"},
+        {"id": "wbs_c09_earthworks_ps", "name_zh": "土方风险暂定金额", "name_en": "Earthworks provisional sum", "reason": "未做地勘前不定金额。8% 预备费不能替代本项。"},
+        {"id": "wbs_d01_pile_450", "name_zh": "450mm 钻孔桩", "name_en": "450mm bored piles", "reason": "未做地勘。若需桩基按延米现场报价，无公开桩价。"},
+        {"id": "wbs_d02_pile_600", "name_zh": "600mm 钻孔桩", "name_en": "600mm bored piles", "reason": "未做地勘。若需大直径桩另计。"},
+        {"id": "wbs_d03_pile_rebar", "name_zh": "桩身钢筋（HD12/HD16）", "name_en": "Pile cage reinforcement", "reason": "钢筋按吨贸易价，无全国统一零售标价。"},
+        {"id": "wbs_d04_pile_cap", "name_zh": "桩头处理及承台连接", "name_en": "Pile trimming and pile caps", "reason": "承台按结构图报价。"},
+        {"id": "wbs_d05_ground_beam", "name_zh": "钢筋混凝土地梁", "name_en": "Ground beams", "reason": "地梁混凝土与钢筋无公开整梁价。华夫板肋梁混凝土已按 Firth 几何计入筏板行。"},
+        {"id": "wbs_d06_pad_thickening", "name_zh": "承台/独立基础/板加厚", "name_en": "Pads, thickenings and isolated footings", "reason": "加厚区按结构图，无默认公开工程量。"},
+        {"id": "wbs_d07_waffle", "name_zh": "华夫板混凝土及肋梁", "name_en": "Waffle raft topping and ribs", "reason": "面层与肋梁混凝土已按 Firth RibRaft 几何计价。", "covered_by": ["concrete_readymix_20mpa"]},
+        {"id": "wbs_d08_pods", "name_zh": "华夫板 Pods", "name_en": "Waffle raft pods", "reason": "Expol Tuff Pod 已按网格计价。", "covered_by": ["expol_tuffpod_1100x300"]},
+        {"id": "wbs_d08_sand_dpm", "name_zh": "砂垫层及 DPM 防潮膜", "name_en": "Sand blinding and DPM", "reason": "已计 EPS 垫块。砂垫层与防潮膜无写入价库的公开系统价。"},
+        {"id": "wbs_slab_reinforcing", "name_zh": "基础及地梁钢筋网", "name_en": "Slab and beam reinforcing", "reason": "钢筋网无全国统一零售标价。"},
+        {"id": "wbs_timber_subfloor", "name_zh": "木质底层/架空地板", "name_en": "Timber sub-floor", "reason": "默认按筏板口径。若户型是架空木龙骨，无公开整套龙骨价。"},
+        {"id": "wbs_d13_tanking", "name_zh": "地下墙外防水及保护层", "name_en": "Below-ground tanking", "reason": "若有地下墙才发生。无公开整墙系统价。"},
+        {"id": "wbs_d14_blind_drain", "name_zh": "100mm 盲沟、碎石及土工布", "name_en": "Blind drain, drainage metal and geotextile", "reason": "挡土墙土工布仅在≤1.2m 枕木墙时按卷计价。盲沟与碎石无全国标价。"},
+        {"id": "wbs_d15_concrete_testing", "name_zh": "混凝土泵送、试块和工程师检查", "name_en": "Pump, test cubes and engineer inspection", "reason": "泵送与试块按次报价。"},
+        {"id": "wbs_e01_ext_framing", "name_zh": "SG8 90×45 外墙/承重墙骨架", "name_en": "SG8 90x45 external / loadbearing framing", "reason": "外墙骨架木材已按周长公式计价。", "covered_by": ["timber_sg8_90x45_h12"]},
+        {"id": "wbs_e02_internal_framing", "name_zh": "内隔墙木骨架", "name_en": "Internal partition framing", "reason": "现有木材公式按外墙周长，不含内隔墙骨架。无公开整栋隔墙价。"},
+        {"id": "wbs_e03_thick_studs", "name_zh": "140/190 系列加厚木墙骨", "name_en": "140/190 thickened studs and lintels", "reason": "宽推拉门时已增加少量 140×45。190 系列与整栋加厚墙骨未计价。", "covered_by": ["timber_sg8_140x45_h12"]},
+        {"id": "wbs_e04_lvl", "name_zh": "LVL/Hyspan 工程木梁", "name_en": "LVL / Hyspan beams", "reason": "工程木梁按结构选型，无公开整栋 SKU。"},
+        {"id": "wbs_e05_floor_joists", "name_zh": "楼面木龙骨", "name_en": "Floor joists", "reason": "二层楼面龙骨无公开整套价。单层筏板户型通常不发生。"},
+        {"id": "wbs_e06_structural_ply", "name_zh": "结构胶合板/楼板基层", "name_en": "Structural plywood / floor substrate", "reason": "Bunnings 有单张胶合板零售，但不能在未读到楼面构造时把整栋按该 SKU 套完。"},
+        {"id": "wbs_e07_roof_framing", "name_zh": "屋架及屋面木结构", "name_en": "Roof trusses and roof framing", "reason": "屋架厂按图纸报价，无公开整栋桁架价。"},
+        {"id": "wbs_e08_pfc", "name_zh": "PFC 槽钢", "name_en": "PFC steel channels", "reason": "检索当日无公开 UB/PFC 零售标价。"},
+        {"id": "wbs_e09_ub", "name_zh": "UB 钢梁", "name_en": "UB steel beams", "reason": "Bunnings 无公开 UB 过梁标价。"},
+        {"id": "wbs_e10_uc", "name_zh": "UC 钢柱/重型梁", "name_en": "UC columns / heavy beams", "reason": "结构钢按钢材商报价。"},
+        {"id": "wbs_e11_shs", "name_zh": "SHS/RHS 钢柱及框架", "name_en": "SHS/RHS steel", "reason": "矩形钢管按结构图报价。"},
+        {"id": "wbs_e12_steel_coat", "name_zh": "钢构加工、底漆/镀锌及防火涂层", "name_en": "Steel fabrication, galvanising and fire coating", "reason": "加工与涂层按吨报价。"},
+        {"id": "wbs_e13_steel_erect", "name_zh": "钢构吊装、临时支撑及焊缝检测", "name_en": "Steel erection and weld inspection", "reason": "吊装与焊缝检测无公开工时表。"},
+        {"id": "wbs_f01_metal_roof", "name_zh": "长效金属屋面板", "name_en": "Long-run metal roofing", "reason": "彩色波纹钢板延米已计价。", "covered_by": ["roofing_corrugate_colour_845"]},
+        {"id": "wbs_f02_underlay", "name_zh": "屋面衬垫", "name_en": "Roof underlay", "reason": "Thermakraft 215 已按屋面斜面积计价。", "covered_by": ["thermakraft_215_underlay"]},
+        {"id": "wbs_ceiling_insulation", "name_zh": "屋面保温及通风层", "name_en": "Roof/ceiling insulation and ventilation", "reason": "H1/AS1 表方法屋顶构造 R 值 R6.6。Bunnings 能核到的天花棉多为 R3.6，不能拿来冒充达标系统。"},
+        {"id": "wbs_f03_membrane_roof", "name_zh": "低坡/平屋面膜防水", "name_en": "Low-slope membrane roof", "reason": "仅当屋面是膜防水才发生。无公开整屋面系统价。"},
+        {"id": "wbs_fascia_gutter_flashings", "name_zh": "封檐板、天沟、泛水及落水管", "name_en": "Fascia, gutter, flashings and downpipes", "reason": "价库只有波纹钢板延米与油毡衬垫。饰板、天沟、泛水、落水管需屋面商报价。"},
+        {"id": "wbs_skylights", "name_zh": "天窗及配套泛水", "name_en": "Roof lights / Velux and flashings", "reason": "公开零售没有与户型绑定的天窗尺寸标价。"},
+        {"id": "wbs_f07_roof_anchors", "name_zh": "屋面安全锚点及检修设施", "name_en": "Roof safety anchors", "reason": "锚点按屋面安全系统报价。"},
+        {"id": "wbs_g01_alu_windows", "name_zh": "标准铝合金固定/开启窗", "name_en": "Standard aluminium windows", "reason": "仅 Diy Supply 1800×1200、1200×1200、1800×600 有公开新窗标价。", "covered_by": ["window_"]},
+        {"id": "wbs_g02_sliding_doors", "name_zh": "大幅落地玻璃及推拉门", "name_en": "Sliding doors and large glazed units", "reason": "对不上公开尺寸的推拉门已按樘列为缺项。", "covered_by": ["joinery_"]},
+        {"id": "wbs_g03_entry_doors", "name_zh": "外部门及入口门系统", "name_en": "External and entry door systems", "reason": "仅当入户门扇命中 Hume 1980×860 才计价，不是整樘含框。", "covered_by": ["door_hume_nexus15_860"]},
+        {"id": "wbs_garage_door", "name_zh": "车库门及自动开启器", "name_en": "Garage door and opener", "reason": "车库门按洞口定制。"},
+        {"id": "wbs_g05_glazing_upgrade", "name_zh": "安全玻璃、低辐射及局部夹胶升级", "name_en": "Safety / Low-E / laminated glazing upgrade", "reason": "公开新窗标价不是 Low-E 或夹胶升级。"},
+        {"id": "wbs_g06_glass_balustrade", "name_zh": "玻璃阳台栏杆", "name_en": "Glass balcony balustrade", "reason": "玻璃栏杆按延米定制。"},
+        {"id": "wbs_g07_window_seals", "name_zh": "窗台、收口、密封和防水带", "name_en": "Sills, seals and flashing tape", "reason": "空腔 closer 与 flashing tape 无稳定公开 SKU。"},
+        {"id": "wbs_g08_joinery_install", "name_zh": "门窗吊装、测试及保修", "name_en": "Joinery install, test and warranty", "reason": "铝窗安装工时无公开价目表。"},
+        {"id": "wbs_g09_screens", "name_zh": "纱窗/百叶及限制器", "name_en": "Screens, blinds and restrictors", "reason": "配件按樘选配，无默认公开套装。"},
+        {"id": "wbs_h06_cavity", "name_zh": "空腔垫条", "name_en": "Cavity battens", "reason": "H3.1 空腔垫条已按外墙面积计价。", "covered_by": ["cavity_batten_h31_45x20"]},
+        {"id": "wbs_h07_wall_insulation", "name_zh": "外墙保温棉", "name_en": "Wall insulation", "reason": "墙体 Pink Batts R2.2 已计价。", "covered_by": ["pink_batts_r22_wall"]},
+        {"id": "wbs_cladding_system", "name_zh": "外墙饰面（铝板/纤维水泥/木饰面/砖贴面）及安装", "name_en": "External claddings, brick veneer and labour", "reason": "空腔垫条已计价。Linea/砖贴面/铝板整墙系统（含配件与人工）无写入价库的公开系统价，不能默认某一种饰面。"},
+        {"id": "wbs_i01_gib_wall", "name_zh": "10/13mm 标准 GIB 墙板", "name_en": "Standard GIB wall linings", "reason": "标准 10mm GIB 已按内衬面积计价。", "covered_by": ["gib_std_10mm"]},
+        {"id": "wbs_h05_wrap", "name_zh": "外墙包膜 / RAB 板", "name_en": "Wall wrap / RAB board", "reason": "Thermakraft 屋面衬垫不能拿来套外墙包膜。"},
+        {"id": "wbs_h08_cladding_seals", "name_zh": "外墙节点泛水及穿透密封", "name_en": "Cladding junctions and penetrations", "reason": "节点泛水按详图报价。"},
+        {"id": "wbs_h09_ext_coating", "name_zh": "外墙涂装/保护涂层", "name_en": "External coating", "reason": "涂料单罐零售不能换成整栋系统价。"},
+        {"id": "wbs_i02_aqualine", "name_zh": "Aqualine 湿区墙板", "name_en": "GIB Aqualine wet-area board", "reason": "价库只有标准 10mm GIB。湿区板无已核 SKU。"},
+        {"id": "wbs_i03_braceline", "name_zh": "Braceline/防火/隔音板升级", "name_en": "Braceline / fire / acoustic board", "reason": "结构与防火板按墙段选型，无默认公开面积。"},
+        {"id": "wbs_i04_ceiling_gib", "name_zh": "GIB 天花板", "name_en": "Ceiling plasterboard", "reason": "天花石膏板已按 GFA 用同一 10mm SKU 计价。", "covered_by": ["gib_ceiling_10mm"]},
+        {"id": "wbs_gib_fix_stop", "name_zh": "石膏板安装、批灰及 Level 4 处理", "name_en": "Internal linings fix, stop and Level 4", "reason": "GIB 板材已按零售计价。安装与批灰工时无公开单价。"},
+        {"id": "wbs_internal_doors", "name_zh": "室内实芯/空芯门、移门、衣柜门与五金", "name_en": "Internal doors, cavity sliders, wardrobe doors, hardware", "reason": "内门、移门、衣柜门、门锁合页无整套公开价。"},
+        {"id": "wbs_soffits_trim", "name_zh": "檐底、踢脚线与门窗套", "name_en": "Soffits, skirting and architraves", "reason": "预钉杂项与装饰线条按延米贸易价，Bunnings 无稳定全套标价。"},
+        {"id": "wbs_i09_access_panels", "name_zh": "检修口及隐蔽门", "name_en": "Access panels", "reason": "检修口按个数报价。"},
+        {"id": "wbs_i10_acoustic", "name_zh": "声学填充棉", "name_en": "Acoustic insulation", "reason": "隔墙声学棉无默认公开面积。"}
       ]
     },
     {
       "id": "interior",
       "name_zh": "内装",
       "items": [
-        {
-          "id": "wbs_laundry_joinery",
-          "name_zh": "洗衣房柜体与水槽",
-          "name_en": "Laundry joinery",
-          "reason": "户型表没有洗衣房套数。Chambers 有洗衣槽 fit-off 示例，但不套用。"
-        },
-        {
-          "id": "wbs_wardrobe_shelving",
-          "name_zh": "衣柜层板与储物",
-          "name_en": "Wardrobe shelving and store",
-          "reason": "衣柜按房间定制，无公开整房 SKU。"
-        },
-        {
-          "id": "wbs_stone_benchtop",
-          "name_zh": "厨房石材台面",
-          "name_en": "Stone benchtop",
-          "reason": "已计 Kaboodle 层压台面。石材按板料与加工报价，无全国统一标价。"
-        },
-        {
-          "id": "wbs_stairs_balustrade",
-          "name_zh": "室内楼梯、阳台与栏杆",
-          "name_en": "Internal stairs, balconies and balustrades",
-          "reason": "楼梯为专项木作。TradieTools 有区间，但不是可核对 SKU，不编中位价。"
-        },
-        {
-          "id": "wbs_electrician",
-          "name_zh": "电工（配电、照明、灶具接线）",
-          "name_en": "Electrician",
-          "reason": "Bellini 灶具需 30A 硬接线。电工工时与配电箱无公开价目表。"
-        },
-        {
-          "id": "wbs_gas_hwc",
-          "name_zh": "煤气管与热水器",
-          "name_en": "Gas piping and hot water cylinder",
-          "reason": "Chambers 对热水器安装有示例，但户型没有热水器数量，不套用。"
-        },
-        {
-          "id": "wbs_hvac_hrv",
-          "name_zh": "空调、地暖与新风/HRV",
-          "name_en": "Air-conditioning, underfloor heating, HRV",
-          "reason": "H1 新风与暖通按负荷选型。无公开整栋系统价。"
-        },
-        {
-          "id": "wbs_tiling",
-          "name_zh": "室内瓷砖及铺贴",
-          "name_en": "Tiling including labour",
-          "reason": "卫生间防水涂料已计价。瓷砖规格与铺贴工时无公开系统价。"
-        },
-        {
-          "id": "wbs_flooring",
-          "name_zh": "木地板与地毯",
-          "name_en": "Timber laminate floor and carpet",
-          "reason": "地面饰面按房间选材，无默认公开 SKU。"
-        }
+        {"id": "wbs_flooring", "name_zh": "工程木地板及基层", "name_en": "Engineered timber floor", "reason": "地面饰面按房间选材，无默认公开 SKU。"},
+        {"id": "wbs_j02_carpet", "name_zh": "地毯、衬垫及收边", "name_en": "Carpet, underlay and trims", "reason": "地毯按房间选材。"},
+        {"id": "wbs_j03_floor_tiles", "name_zh": "室内地砖", "name_en": "Internal floor tiles", "reason": "瓷砖规格与铺贴工时无公开系统价。"},
+        {"id": "wbs_tiling", "name_zh": "卫浴墙砖及铺贴", "name_en": "Bathroom wall tiling", "reason": "卫生间防水涂料已计价。墙砖规格与铺贴工时无公开系统价。"},
+        {"id": "wbs_stairs_balustrade", "name_zh": "楼梯踏步、栏杆和扶手", "name_en": "Stairs, balustrades and handrails", "reason": "楼梯为专项木作。TradieTools 有区间，但不是可核对 SKU。"},
+        {"id": "wbs_painting", "name_zh": "室内墙面底漆和面漆", "name_en": "Internal wall painting", "reason": "涂料单罐零售不能换成整栋系统价。"},
+        {"id": "wbs_j07_ceiling_paint", "name_zh": "天花油漆", "name_en": "Ceiling paint", "reason": "天花涂料工时无公开工时表。"},
+        {"id": "wbs_j09_floor_wp", "name_zh": "湿区地面防水", "name_en": "Wet-area floor waterproofing", "reason": "Crommelin 4L 按卫生间套数计的是砖下涂料，不是整间地面防水系统。"},
+        {"id": "wbs_j11_fireplace", "name_zh": "石材壁炉/特色墙饰面", "name_en": "Fireplace / feature wall", "reason": "壁炉按选型报价。"},
+        {"id": "wbs_j12_protection", "name_zh": "室内保护、修补及精保洁", "name_en": "Interior protection and final clean", "reason": "精保洁按次报价。"},
+        {"id": "wbs_k01_kitchen", "name_zh": "主厨房柜体", "name_en": "Kitchen joinery", "reason": "Kaboodle 600 柜体已按套数计价。", "covered_by": ["kaboodle_"]},
+        {"id": "wbs_k02_pantry", "name_zh": "备餐间 / Butler pantry 柜体", "name_en": "Butler pantry joinery", "reason": "户型表没有备餐间套数。"},
+        {"id": "wbs_stone_benchtop", "name_zh": "厨房石材台面及挡水板", "name_en": "Stone benchtop and upstand", "reason": "已计 Kaboodle 层压台面。石材按板料与加工报价。"},
+        {"id": "wbs_k04_sinks", "name_zh": "水槽、龙头及垃圾处理器", "name_en": "Sinks, taps and waste disposal", "reason": "厨房水槽与龙头已按 Bunnings SKU 计价。垃圾处理器未列入。", "covered_by": ["sink_mondella_concerto"]},
+        {"id": "wbs_k05_appliances", "name_zh": "烤箱、灶具及抽油烟机", "name_en": "Oven, cooktop and rangehood", "reason": "Bellini 烤箱电灶包已计价。烟机未列入该 SKU。", "covered_by": ["oven_bellini_60_pack"]},
+        {"id": "wbs_k06_whiteware", "name_zh": "冰箱/酒柜及洗碗机", "name_en": "Fridge, wine fridge and dishwasher", "reason": "品牌页曾列出洗碗机标价，但没有可核对的稳定商品页 SKU，不套用。"},
+        {"id": "wbs_wardrobe_shelving", "name_zh": "衣柜及步入式衣帽间", "name_en": "Wardrobes and walk-in robes", "reason": "衣柜按房间定制。"},
+        {"id": "wbs_laundry_joinery", "name_zh": "洗衣房柜体和台面", "name_en": "Laundry joinery", "reason": "户型表没有洗衣房套数。"},
+        {"id": "wbs_k09_media", "name_zh": "媒体柜/书柜/特色固定家具", "name_en": "Media / feature joinery", "reason": "特色柜体按设计图报价。"},
+        {"id": "wbs_k10_joinery_install", "name_zh": "柜体安装、收口及保护", "name_en": "Joinery install", "reason": "橱柜安装工时无公开工时表。", "covered_by": ["kitchen_install_other_trades"]},
+        {"id": "wbs_l01_wc", "name_zh": "坐便器及隐蔽水箱", "name_en": "WC suites", "reason": "Stein Ero 马桶套装已按卫生间数计价。", "covered_by": ["toilet_stein_ero"]},
+        {"id": "wbs_l02_vanity", "name_zh": "面盆柜/台盆", "name_en": "Vanity / basin", "reason": "面盆龙头已按 Caroma RRP 计价。面盆柜无公开整套 SKU。"},
+        {"id": "wbs_l03_shower_ware", "name_zh": "淋浴花洒、混水阀和地漏", "name_en": "Shower mixers and wastes", "reason": "整体淋浴房与混水阀已计价。", "covered_by": ["shower_stein_georgia_750"]},
+        {"id": "wbs_l04_shower_glass", "name_zh": "淋浴玻璃隔断/门", "name_en": "Shower glass screens", "reason": "贴砖淋浴的玻璃隔断不是 750mm 整体房 SKU。"},
+        {"id": "wbs_l05_bath", "name_zh": "独立浴缸及龙头", "name_en": "Freestanding bath", "reason": "户型没有浴缸数量，不套用。"},
+        {"id": "wbs_l06_mirrors", "name_zh": "镜柜、镜面及照明", "name_en": "Mirror cabinets", "reason": "镜柜无公开整套 SKU。"},
+        {"id": "wbs_l07_accessories", "name_zh": "毛巾架、纸巾架等配件", "name_en": "Bathroom accessories", "reason": "配件按套选配。"},
+        {"id": "wbs_l08_floor_waste", "name_zh": "地漏、线性排水及止水坎", "name_en": "Floor wastes and upstands", "reason": "线性排水按卫生间详图报价。"},
+        {"id": "wbs_electrician", "name_zh": "电工（配电、照明、插座、数据、安防）", "name_en": "Electrician", "reason": "Bellini 灶具需 30A 硬接线。电工工时与配电箱无公开价目表。"},
+        {"id": "wbs_n01_switchboard", "name_zh": "主配电箱、分户计量及保护", "name_en": "Switchboard and metering", "reason": "配电箱按负荷选型。"},
+        {"id": "wbs_n02_lighting", "name_zh": "照明回路及 LED 灯具", "name_en": "Lighting circuits and fittings", "reason": "灯具档次未定价。"},
+        {"id": "wbs_n03_power", "name_zh": "插座及专用电源点", "name_en": "Power outlets", "reason": "点位按图纸，无公开点单价。"},
+        {"id": "wbs_n04_switching", "name_zh": "开关、调光及控制面板", "name_en": "Switching and dimming", "reason": "控制面板按选型报价。"},
+        {"id": "wbs_n05_data", "name_zh": "数据、电视及 Wi-Fi 布线", "name_en": "Data, TV and Wi-Fi cabling", "reason": "弱电按点位报价。"},
+        {"id": "wbs_n06_intercom", "name_zh": "门铃、门禁及对讲系统", "name_en": "Door entry / intercom", "reason": "门禁按系统报价。"},
+        {"id": "wbs_n07_security", "name_zh": "报警、烟感和安防摄像", "name_en": "Alarm, smoke and CCTV", "reason": "烟感法定最低配置未拆成公开 SKU。"},
+        {"id": "wbs_n08_external_power", "name_zh": "室外照明及景观电源", "name_en": "External lighting and landscape power", "reason": "室外点位未从地籍抽出。"},
+        {"id": "wbs_n10_electrical_certs", "name_zh": "电气测试、认证及竣工资料", "name_en": "Electrical testing and certificates", "reason": "持牌电工认证按工时报。"},
+        {"id": "wbs_m02_hot_water_pipe", "name_zh": "室内热水管网及保温", "name_en": "Hot water pipework", "reason": "Chambers 预埋已计厨卫给排水点。独立热水管网保温未另报价。"},
+        {"id": "wbs_m04_stormwater", "name_zh": "雨水内外排水管连接", "name_en": "Stormwater connections", "reason": "雨水管按场地设计报价。"},
+        {"id": "wbs_gas_hwc", "name_zh": "热水器/热泵热水、煤气管与调压", "name_en": "Hot water cylinder / heat pump and gas piping", "reason": "Chambers 对热水器安装有示例，但户型没有热水器数量，不套用。"},
+        {"id": "wbs_m10_pressure_test", "name_zh": "管道压力/泄漏测试及竣工图", "name_en": "Pressure testing and as-built", "reason": "测试按次报价。"},
+        {"id": "wbs_m11_fire_ext", "name_zh": "消防软管/灭火器等小型设施", "name_en": "Fire extinguishers", "reason": "小型消防器材按规范配置。"},
+        {"id": "wbs_hvac_hrv", "name_zh": "热泵/空调、地暖与新风/HRV", "name_en": "Heat pump, underfloor heating, HRV", "reason": "H1 新风与暖通按负荷选型。无公开整栋系统价。"},
+        {"id": "wbs_o01_heatpump", "name_zh": "多联机/分体热泵室外机", "name_en": "Heat-pump outdoor units", "reason": "热泵按负荷选型。"},
+        {"id": "wbs_o02_indoor_units", "name_zh": "室内风管机/壁挂机", "name_en": "Indoor heat-pump units", "reason": "室内机按房间选型。"},
+        {"id": "wbs_o03_refrigerant", "name_zh": "冷媒管、冷凝水及控制线", "name_en": "Refrigerant and condensate pipework", "reason": "冷媒管按延米现场报价。"},
+        {"id": "wbs_o05_extract", "name_zh": "卫浴机械排风", "name_en": "Bathroom extract fans", "reason": "排风扇无与户型绑定的公开套装。"},
+        {"id": "wbs_o06_rangehood_duct", "name_zh": "厨房排烟管及屋面/墙面出口", "name_en": "Rangehood ducting", "reason": "排烟管按路径报价。"},
+        {"id": "wbs_o08_grilles", "name_zh": "风口、格栅及防火封堵", "name_en": "Grilles and fire stopping", "reason": "风口按个数报价。"},
+        {"id": "wbs_o09_commission", "name_zh": "暖通系统平衡、调试及保修", "name_en": "HVAC commissioning", "reason": "调试按系统报价。"},
+        {"id": "wbs_o10_controls", "name_zh": "智能温控和远程控制升级", "name_en": "Smart HVAC controls", "reason": "智能控制为选装。"}
       ]
     },
     {
       "id": "outdoor",
       "name_zh": "室外场地工程",
       "items": [
-        {
-          "id": "wbs_keystone_retaining",
-          "name_zh": "砌块挡土墙（Keystone 等）",
-          "name_en": "Keystone retaining walls",
-          "reason": "仅墙高≤1.2m 的零售枕木墙可计价。砌块墙须工程师设计，无整墙公开总价。"
-        },
-        {
-          "id": "wbs_pool_safety_fence",
-          "name_zh": "安全围栏",
-          "name_en": "Safety fence",
-          "reason": "泳池/高差安全围栏按延米定制，无默认长度。"
-        },
-        {
-          "id": "wbs_driveway",
-          "name_zh": "私家车道",
-          "name_en": "Private driveway",
-          "reason": "混凝土/沥青车道按面积与基层报价。Firth 不公布立方价。"
-        },
-        {
-          "id": "wbs_boundary_fence",
-          "name_zh": "地界木围栏",
-          "name_en": "Private timber fence",
-          "reason": "围栏按延米和样式报价。地界长度未从地籍自动抽出为可核对工程量。"
-        },
-        {
-          "id": "wbs_house_cleaning",
-          "name_zh": "交房保洁",
-          "name_en": "House cleaning",
-          "reason": "竣工保洁按次报价，无公开固定价。"
-        },
-        {
-          "id": "wbs_landscaping",
-          "name_zh": "园林绿化",
-          "name_en": "Landscape",
-          "reason": "软景硬景按设计图报价，无默认公开总价。"
-        }
+        {"id": "wbs_d12_timber_retaining", "name_zh": "木桩/木板挡土墙", "name_en": "Timber sleeper retaining", "reason": "仅墙高≤1.2m 的零售枕木墙可计价。", "covered_by": ["retaining_sleeper_h4_200x50"]},
+        {"id": "wbs_keystone_retaining", "name_zh": "砌块挡土墙（Keystone / 20 系砌块）", "name_en": "Keystone / grouted block retaining", "reason": "仅墙高≤1.2m 的零售枕木墙可计价。砌块墙须工程师设计。"},
+        {"id": "wbs_d11_retaining_rebar", "name_zh": "挡墙钢筋、灌浆和顶梁", "name_en": "Retaining wall rebar, grout and capping", "reason": "砌块墙配筋无公开整墙价。"},
+        {"id": "wbs_pool_safety_fence", "name_zh": "安全围栏", "name_en": "Safety fence", "reason": "泳池/高差安全围栏按延米定制，无默认长度。"},
+        {"id": "wbs_driveway", "name_zh": "混凝土车道及停车铺装", "name_en": "Concrete driveway and parking", "reason": "混凝土/沥青车道按面积与基层报价。Firth 不公布立方价。"},
+        {"id": "wbs_q02_paving", "name_zh": "透水铺装/步道", "name_en": "Permeable paving / paths", "reason": "步道按设计图报价。"},
+        {"id": "wbs_q03_external_general", "name_zh": "室外台阶、平台及小型挡边", "name_en": "External general works", "reason": "室外综合按场地设计报价。"},
+        {"id": "wbs_boundary_fence", "name_zh": "边界围栏及内部围栏", "name_en": "Boundary and internal timber fence", "reason": "围栏按延米和样式报价。地界长度未从地籍自动抽出。"},
+        {"id": "wbs_q05_auto_gate", "name_zh": "自动车行门及控制", "name_en": "Automatic vehicle gate", "reason": "电动门按洞口定制。"},
+        {"id": "wbs_q06_letterbox", "name_zh": "人行门、邮箱及门牌", "name_en": "Pedestrian gate, letterbox and number", "reason": "入口小品按选型报价。"},
+        {"id": "wbs_q07_lawn", "name_zh": "表土回铺及草坪", "name_en": "Topsoil and lawn", "reason": "软景按剩余场地报价。"},
+        {"id": "wbs_landscaping", "name_zh": "乔木、灌木和地被种植", "name_en": "Planting", "reason": "软景硬景按设计图报价。"},
+        {"id": "wbs_q09_irrigation", "name_zh": "灌溉系统", "name_en": "Irrigation", "reason": "灌溉为选装。"},
+        {"id": "wbs_q10_pits", "name_zh": "室外雨水口、集水井及线性排水", "name_en": "Catchpits and linear drains", "reason": "雨水口按场地排水图报价。"},
+        {"id": "wbs_q11_detention", "name_zh": "雨水调蓄/渗透设施", "name_en": "Stormwater detention / soakage", "reason": "SMA/渗透按工程师设计。"},
+        {"id": "wbs_q12_external_services", "name_zh": "户外水龙头、电源及照明配合", "name_en": "External taps and power", "reason": "室外龙头未计入 Chambers 厨卫点位。"},
+        {"id": "wbs_q13_landscape_furniture", "name_zh": "景观家具/垃圾箱位及收口", "name_en": "Landscape furniture", "reason": "小品按设计报价。"},
+        {"id": "wbs_house_cleaning", "name_zh": "交房保洁", "name_en": "House cleaning", "reason": "竣工保洁按次报价，无公开固定价。"}
       ]
     },
     {
       "id": "fees",
       "name_zh": "法定与专业费",
       "items": [
-        {
-          "id": "wbs_extra_inspections",
-          "name_zh": "超出押金的议会检查与补检",
-          "name_en": "Extra council inspection",
-          "reason": "住宅检查公开工时 $201–$231/次，但次数未定价，不编检查次数。建工许可押金已含检查押金部分。"
-        },
-        {
-          "id": "wbs_ccc_extras",
-          "name_zh": "CCC 超出基础费的处理工时",
-          "name_en": "CCC additional processing",
-          "reason": "CCC 基础费已按公开表计入。官网写明可能另收处理费，工时未知。"
-        },
-        {
-          "id": "wbs_contract_insurance",
-          "name_zh": "工程一切险与责任险",
-          "name_en": "Insurances",
-          "reason": "承包商保险按合同额与工期报价，无公开费率表。"
-        },
-        {
-          "id": "wbs_builder_warranty",
-          "name_zh": "建商质保（Master Build 等）",
-          "name_en": "Warranty",
-          "reason": "质保按建商与合同额，无公开全国费率。"
-        },
-        {
-          "id": "wbs_civil_engineer",
-          "name_zh": "土木/结构工程师",
-          "name_en": "Civil engineer",
-          "reason": "建筑师/设计师百分比已计。结构与土木专项按书面聘书，无公开固定价。"
-        }
+        {"id": "wbs_pre_construction", "name_zh": "开工前专业服务（超出设计师百分比的专项）", "name_en": "Pre-construction professional services", "reason": "设计师百分比已计。规划顾问、报批代办等专项按书面聘书。"},
+        {"id": "wbs_site_inspection_professional", "name_zh": "独立现场检查/监理巡检（非议会检查）", "name_en": "Independent site inspection", "reason": "与议会补检不是同一项。工时未定价。"},
+        {"id": "wbs_extra_inspections", "name_zh": "超出押金的议会检查与补检", "name_en": "Extra council inspection", "reason": "住宅检查公开工时 $201–$231/次，但次数未定价。建工许可押金已含检查押金部分。"},
+        {"id": "wbs_ccc_extras", "name_zh": "CCC 超出基础费的处理工时", "name_en": "CCC additional processing", "reason": "CCC 基础费已按公开表计入。官网写明可能另收处理费，工时未知。"},
+        {"id": "wbs_contract_insurance", "name_zh": "工程一切险与责任险（专业费口径）", "name_en": "Insurances", "reason": "若未包含在施工保险行内，按合同额另计。无公开费率表。"},
+        {"id": "wbs_builder_warranty", "name_zh": "建商质保（Master Build 等）", "name_en": "Warranty", "reason": "质保按建商与合同额，无公开全国费率。"},
+        {"id": "wbs_civil_engineer", "name_zh": "土木/结构工程师", "name_en": "Civil / structural engineer", "reason": "建筑师/设计师百分比已计。结构与土木专项按书面聘书。"},
+        {"id": "wbs_r01_sewer", "name_zh": "公共污水管接驳", "name_en": "Public sewer connection", "reason": "Watercare/Veolia 接驳按现场条件报价，不是 IGC。"},
+        {"id": "wbs_r02_sw_connection", "name_zh": "公共雨水管接驳", "name_en": "Public stormwater connection", "reason": "雨水管接驳无公开工程单价。"},
+        {"id": "wbs_r03_water_connection", "name_zh": "给水接驳及水表", "name_en": "Water connection and meter", "reason": "接驳费按网络公司报价，不是 IGC。"},
+        {"id": "wbs_r04_power_connection", "name_zh": "电力增容、接驳及电表", "name_en": "Power upgrade, connection and meter", "reason": "Vector 等线路公司按负荷报价。"},
+        {"id": "wbs_r05_fibre", "name_zh": "通信光纤接驳", "name_en": "Fibre connection", "reason": "光纤引入按运营商报价。"},
+        {"id": "wbs_r07_cctv", "name_zh": "管线探测、CCTV 及冲洗测试", "name_en": "Service locate, CCTV and flushing", "reason": "探管按次报价。"},
+        {"id": "wbs_r08_council_attend", "name_zh": "议会各阶段检查配合", "name_en": "Council inspection attendance", "reason": "建商配合工时未定价。"},
+        {"id": "wbs_r09_asbuilt", "name_zh": "竣工测量、as-built 和 CCC 资料", "name_en": "As-built survey and CCC documentation", "reason": "CCC 基础费已计。测量与 as-built 图另计。"}
+      ]
+    },
+    {
+      "id": "lift",
+      "name_zh": "电梯",
+      "include_when": {"storeys_gte": 3},
+      "items": [
+        {"id": "wbs_p01_lift", "name_zh": "住宅电梯设备", "name_en": "Residential lift equipment", "reason": "电梯按停站与井道报价，无公开整套零售价。", "include_when": {"storeys_gte": 3}},
+        {"id": "wbs_p02_lift_install", "name_zh": "电梯运输、吊装与安装", "name_en": "Lift delivery and install", "reason": "吊装按现场条件报价。", "include_when": {"storeys_gte": 3}},
+        {"id": "wbs_p03_lift_doors", "name_zh": "厅门/门套与控制面板", "name_en": "Lift landing doors", "reason": "厅门按停站数报价。", "include_when": {"storeys_gte": 3}},
+        {"id": "wbs_p04_lift_electrics", "name_zh": "井道电气、照明和插座", "name_en": "Lift shaft electrics", "reason": "井道电气按电梯厂界面报价。", "include_when": {"storeys_gte": 3}},
+        {"id": "wbs_p05_lift_certs", "name_zh": "电梯调试、检验及合规证书", "name_en": "Lift commissioning and certificates", "reason": "检验按部报价。", "include_when": {"storeys_gte": 3}},
+        {"id": "wbs_n09_lift_power", "name_zh": "电梯及机械设备专用供电", "name_en": "Dedicated lift power supply", "reason": "仅当方案有电梯或大型机械设备时发生。", "include_when": {"storeys_gte": 3}},
+        {"id": "wbs_o07_garage_vent", "name_zh": "车库/地下层通风", "name_en": "Garage / basement ventilation", "reason": "地下层通风按设计发生。", "include_when": {"storeys_gte": 3}}
       ]
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-24",
+  "version": "2026-09-01",
   "currency": "NZD",
   "region": "Auckland / New Zealand national retail list",
   "disclaimer": "材料单价取自检索当日公开标价，并标注 SKU 与链接。Bunnings 为全国零售价，奥克兰门店结账价可能不同，且不等于 PlaceMakers/ITM 贸易价。人工为公开市场收费区间中位，不是签约报价。缺项不编造数字。",
@@ -307,6 +307,38 @@
       "source_url": "https://diysupply.nz/product/new-1200w-x-1200h-ironsand-window-double-glazed/",
       "retrieved_at": "2026-08-24",
       "notes": "仅当户型窗表正好是 1200×1200 时套用。安装未含。"
+    },
+    {
+      "id": "window_alu_1800x600_dg",
+      "category": "materials",
+      "trade": "joinery",
+      "name_zh": "新铝窗 1800×600 双层中空（Ironsand）",
+      "name_en": "New 1800x600 Ironsand aluminium window",
+      "unit": "each",
+      "unit_price": 769.0,
+      "gst_included": true,
+      "sku": null,
+      "pack": "品牌新窗，含 GST $769",
+      "source_name": "Diy Supply Hamilton 公开零售",
+      "source_url": "https://diysupply.nz/product/new-1800w-x-600h-ironsand-aluminium-window/",
+      "retrieved_at": "2026-08-30",
+      "notes": "仅当户型窗表正好是 1800×600 时套用。安装未含。Hamilton 取货，运费未含。"
+    },
+    {
+      "id": "thermakraft_215_underlay",
+      "category": "materials",
+      "trade": "roofing",
+      "name_zh": "Thermakraft 215 屋面油毡衬垫",
+      "name_en": "Thermakraft 215 roof underlay 1250mm x 40m",
+      "unit": "m2",
+      "unit_price": 3.15,
+      "gst_included": true,
+      "sku": "0552872",
+      "pack": "1250mm×40m 约 50m² 卷 $157.50",
+      "source_name": "Bunnings New Zealand 零售标价",
+      "source_url": "https://www.bunnings.co.nz/thermakraft-roof-underlay-215-1250mmx40m-50m2_p0552872",
+      "retrieved_at": "2026-08-30",
+      "notes": "单价 = 157.50 / 50。通风层与 H1 屋顶保温不是本 SKU。"
     },
     {
       "id": "door_hume_nexus15_860",
@@ -638,7 +670,7 @@
     {
       "id": "window_joinery_unmatched",
       "name_zh": "未命中公开尺寸的铝窗/推拉门整樘",
-      "reason": "只有 Diy Supply 上 1800×1200 与 1200×1200 新窗有标价。1500、2100 窗和 2100/2400/3000 推拉门仍须厂商报价。"
+      "reason": "只有 Diy Supply 上 1800×1200、1200×1200 与 1800×600 新窗有标价。1500、2100 窗和 2100/2400/3000 推拉门仍须厂商报价。"
     },
     {
       "id": "steel_lintel_ub",

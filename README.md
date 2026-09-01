@@ -9,7 +9,7 @@
 - 客户选装：套数、层数、卧室、卫生间、厨房、建筑面积，按已读地块重新套价
 - 坡地建议：分台、挡土墙、E12 土方门槛（500m² / 250m³）；支撑建筑平台的墙按 surcharge 提示建筑许可
 - 户型模板工程量（尺寸进入木材、空腔、屋面、石膏板、卫生间洁具数量）
-- 分项总账按全包合同科目分组（前期准备 / 建筑主体 / 内装 / 室外 / 法定与专业费）。能核对到公开 SKU 的计入金额；对照后仍无单价的科目列为缺项，不编价
+- 分项总账按全包合同科目分组（前期准备 / 建筑主体 / 内装 / 室外 / 法定与专业费），并对照一份 184 项住宅逐行总账把未计价工种列成缺项。能核对到公开 SKU 的计入金额；无单价的科目列为缺项，不编价。华夫板混凝土按 Firth RibRaft 手册计入面层+肋梁+边梁；天花石膏板按 GFA 另计；屋面衬垫按 Thermakraft 215 公开零售。
 - 法定费用含建工许可押金、BRANZ/MBIE/BCA 征费、CCC 基础费、占道检查费；有资源许可时计入 RC 押金；IGC/DC 按净增单元
 - 第二阶段：在项目页上传 RC / BC PDF，按文字层门窗表和面积套同一价库（扫描件无文字层会失败）
 - 图纸物料验证页 `/drawing-takeoff`：不经过选址，上传 RC/BC 后按页读文字层。门窗表、面积表、覆盖率表按行列抽出并在页面上列出每一行；几乎无文字的图页会标出且**不做 OCR**。正则与大模型结果合并；送给模型时优先保留表页，证据核对应全文。数量由服务器按公式、窗表或原文件数重算，单价只走价库。扫描件没有文字层或未配置 `OPENAI_API_KEY` / `CPA_API_KEY` 会失败。
@@ -42,7 +42,8 @@
 - Bellini 60cm 烤箱+电灶包：[$549](https://www.bunnings.co.nz/bellini-60cm-5-function-electric-oven-and-cooktop_p0013228)
 - Mondella Resonance 厨房龙头：[$146](https://www.bunnings.co.nz/mondella-resonance-25mm-chrome-side-lever-dual-function-sink-mixer-wels-5-star-6l-min_p0717306)
 - 新铝窗 1800×1200 双层中空：[$999](https://diysupply.nz/product/new-ironsand-double-glazed-1800w-x-1200h/)
-- 新铝窗 1200×1200 双层中空：[$819](https://diysupply.nz/product/new-1200w-x-1200h-ironsand-window-double-glazed/)
+- 新铝窗 1800×600 双层中空：[$769](https://diysupply.nz/product/new-1800w-x-600h-ironsand-aluminium-window/)（2026-08-30）
+- Thermakraft 215 屋面衬垫：[$157.50/卷 ≈ $3.15/m²](https://www.bunnings.co.nz/thermakraft-roof-underlay-215-1250mmx40m-50m2_p0552872)（2026-08-30）
 
 人工与设计（公开区间或公司指引，不是签约报价）：
 
