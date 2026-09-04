@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export ENGINE_URL="${ENGINE_URL:-http://127.0.0.1:8764}"
 mkdir -p "$ROOT/server/data/lim" "$ROOT/server/data/drawings"
 
 wait_http() {
@@ -30,7 +31,9 @@ wait_http http://127.0.0.1:8764/health 40 0.25
 if ! curl -sf http://127.0.0.1:43124 >/dev/null; then
   (
     cd "$ROOT/web"
-    export ENGINE_URL="${ENGINE_URL:-http://127.0.0.1:8764}"
+    if [[ -x ./node_modules/.bin/next && -d .next ]]; then
+      exec ./node_modules/.bin/next start --hostname 0.0.0.0 --port 43124
+    fi
     exec ./node_modules/.bin/next dev --hostname 0.0.0.0 --port 43124
   ) >/tmp/auckland-web.log 2>&1 &
 fi
