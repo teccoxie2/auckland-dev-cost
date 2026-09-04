@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "https://gnome-pioneer-pts-flu.trycloudflare.com/"
+      "destination": "https://size-pipeline-vaccine-perfectly.trycloudflare.com/"
     },
     {
       "source": "/:path*",
-      "destination": "https://gnome-pioneer-pts-flu.trycloudflare.com/:path*"
+      "destination": "https://size-pipeline-vaccine-perfectly.trycloudflare.com/:path*"
     }
   ],
   "headers": [
