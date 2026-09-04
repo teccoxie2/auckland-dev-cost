@@ -1,0 +1,36 @@
+# Persistent origin for https://demo-cost.vsense.co.nz
+# Vercel keeps the custom-domain certificate; this app is the always-on process.
+app = "vsense-auckland-dev-cost"
+primary_region = "syd"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ENGINE_URL = "http://127.0.0.1:8764"
+  PORT = "43124"
+
+[http_service]
+  internal_port = 43124
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 50
+    soft_limit = 25
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "90s"
+    method = "GET"
+    path = "/engine/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 1024

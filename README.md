@@ -111,12 +111,22 @@ pnpm dev
 
 ## 生产部署
 
-演示入口：[https://demo-cost.vsense.co.nz](https://demo-cost.vsense.co.nz)。`www.vsense.co.nz` 带 `HSTS includeSubDomains`，子域必须走 Vercel 证书，不能 CNAME 到 `*.trycloudflare.com`。网关在 `demo-gateway/`，Microsoft 365 DNS（不要改 nameserver）：
+演示入口：[https://demo-cost.vsense.co.nz](https://demo-cost.vsense.co.nz)。公网源站是 **Fly.io 常驻容器**（`fly.toml`，Sydney），不是 Cloud Agent 虚拟机，也不是会换主机名的 trycloudflare 临时隧道。`www.vsense.co.nz` 带 `HSTS includeSubDomains`，子域证书仍走已有 Vercel 网关；网关只反代到 Fly。Microsoft 365 DNS（不要改 nameserver）：
 
 - CNAME `demo-cost` → Vercel 项目给出的 `*.vercel-dns-013.com`（或 `cname.vercel-dns.com`）
 - 若控制台要求验证：TXT `_vercel` → `vc-domain-verify=…`
 
-先构建前端，再同时拉起 API 与 Next：
+首次上 Fly：
+
+```bash
+flyctl auth login
+flyctl apps create vsense-auckland-dev-cost --org personal
+flyctl deploy --remote-only
+```
+
+把 `demo-gateway/vercel.json` 的 rewrite 目标改成 `https://vsense-auckland-dev-cost.fly.dev`，再对已有网关项目 `npx vercel deploy --prod --yes --scope xentechs-projects`。仓库 GitHub Action `.github/workflows/fly.yml` 用密钥 `FLY_API_TOKEN` 手动触发后续发布。
+
+本机构建前端，再同时拉起 API 与 Next：
 
 ```bash
 cd web && pnpm install && pnpm build && cd ..

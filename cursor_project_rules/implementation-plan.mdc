@@ -160,3 +160,9 @@ Done
 
 对照全包合同四段结构和一份 184 项奥克兰住宅逐行总账（金额不是价源）。补上桩基、钢构、内隔墙、电工分项、热泵、接驳等缺项。华夫板按 Firth 手册计入肋梁混凝土；天花 GIB 按 GFA 另计；屋面衬垫按 2026-08-30 Thermakraft 215 零售。三层及以上才列出电梯。成本树按科目嵌套。
 
+## 公网链接改为常驻 Fly 源站
+
+进行中
+
+Cloud Agent 虚拟机和 trycloudflare 临时主机名会一起消失，导致 demo-cost 502。改为 Fly.io 常驻 Docker（Sydney，`/engine/health` 探活），Vercel 只保留 vsense 证书并反代。等待 Fly CLI 登录后执行 `flyctl deploy --remote-only`，再把网关 rewrite 指到 `*.fly.dev`。
+
